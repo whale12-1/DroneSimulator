@@ -4,25 +4,20 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class DroneCollision : MonoBehaviour
 {
-    [Header("Боевая Часть (Урон)")]
-    [Tooltip("Прямой кумулятивный урон (ПГ-7В) при контактном попадании")]
-    [SerializeField] private float directDamage = 250f;
+    [Header("Конфигурация Дрона")]
+    [Tooltip("Профиль БЧ из папки проекта. Если пуст, берутся значения по умолчанию ниже")]
+    [SerializeField] private DroneConfig droneConfig;
 
-    [Tooltip("Радиус фугасного/осколочного поражения при взрыве")]
-    [SerializeField] private float splashRadius = 3.5f;
-
-    [Tooltip("Фуговый урон по окружающим модулям")]
-    [SerializeField] private float splashDamage = 60f;
-
-    [Header("Эффекты Взрыва")]
-    [SerializeField] private GameObject explosionPrefab;
-    [SerializeField] private AudioClip explosionSound;
+    [Header("Резервные Настройки (Если нет DroneConfig)")]
+    public WarheadType fallbackWarheadType = WarheadType.HEAT;
+    public float fallbackDirectDamage = 250f;
+    public float fallbackSplashRadius = 1.5f;
+    public float fallbackSplashDamage = 40f;
+    [SerializeField] private GameObject fallbackExplosionPrefab;
+    [SerializeField] private AudioClip fallbackExplosionSound;
 
     [Header("Объективный Контроль (Дрон-Разведчик)")]
-    [Tooltip("Префаб готового разведчика (с настроенным DroneCameraModule)")]
     [SerializeField] private GameObject reconDronePrefab;
-
-    [Tooltip("Высота и смещение спавна разведчика относительно точки взрыва")]
     [SerializeField] private Vector3 reconOffset = new Vector3(0f, 35f, -20f);
 
     [Header("Ручная Детонация")]
@@ -37,6 +32,14 @@ public class DroneCollision : MonoBehaviour
     private bool isExploded = false;
     private DroneFlightController flightController;
     private DroneMotors motors;
+
+    // Геттеры для гибридного использования (Config / Inspector)
+    public WarheadType CurrentWarhead => droneConfig != null ? droneConfig.warheadType : fallbackWarheadType;
+    public float DirectDamage => droneConfig != null ? droneConfig.directDamage : fallbackDirectDamage;
+    public float SplashRadius => droneConfig != null ? droneConfig.splashRadius : fallbackSplashRadius;
+    public float SplashDamage => droneConfig != null ? droneConfig.splashDamage : fallbackSplashDamage;
+    public GameObject ExplosionPrefab => droneConfig != null ? droneConfig.explosionPrefab : fallbackExplosionPrefab;
+    public AudioClip ExplosionSound => droneConfig != null ? droneConfig.explosionSound : fallbackExplosionSound;
 
     private void Awake()
     {
@@ -61,54 +64,84 @@ public class DroneCollision : MonoBehaviour
 
         if (explodeOnAnyCollision || hitHazardTag || impactVelocity >= minImpactVelocity)
         {
-            ContactPoint contact = collision.contacts.Length > 0 ? collision.contacts[0] : default;
-            Vector3 contactPoint = collision.contacts.Length > 0 ? contact.point : transform.position;
-            Vector3 hitNormal = collision.contacts.Length > 0 ? contact.normal : -transform.forward;
-            Vector3 flightDir = transform.forward; // Направление вектора кумулятивной струи
+            Vector3 contactPoint = transform.position;
+            Vector3 hitNormal = -transform.forward;
 
-            // 1. Расчет прямого урона по конкретному хитбоксу
+            if (collision.contacts.Length > 0)
+            {
+                contactPoint = collision.contacts[0].point;
+                hitNormal = collision.contacts[0].normal;
+            }
+            else
+            {
+                Ray ray = new Ray(transform.position - transform.forward * 1.0f, transform.forward);
+                if (collision.collider.Raycast(ray, out RaycastHit hit, 5.0f))
+                {
+                    contactPoint = hit.point;
+                    hitNormal = hit.normal;
+                }
+            }
+
+            Vector3 flightDir = transform.forward;
+
             ApplyDirectDamage(collision.collider, contactPoint, hitNormal, flightDir);
-
-            // 2. Запуск подрыва и передача коллайдера прямого попадания (чтобы не задевать его сплэшем повторно)
             Explode(contactPoint, collision.collider);
         }
     }
 
     private void ApplyDirectDamage(Collider hitCollider, Vector3 point, Vector3 normal, Vector3 flightDir)
     {
-        // Ищем точечный модуль (кабина, мотор, кузов)
         VehicleModule module = hitCollider.GetComponent<VehicleModule>();
+        float damage = DirectDamage;
+        Vector3 calculatedNormal = normal;
+
+        // Специфика БЧ: Термобарический заряд игнорирует острые углы брони
+        if (CurrentWarhead == WarheadType.Thermobaric)
+        {
+            calculatedNormal = -flightDir;
+        }
 
         if (module != null)
         {
-            module.TakeDamage(directDamage, point, normal, flightDir);
+            module.TakeDamage(damage, point, calculatedNormal, flightDir);
         }
         else
         {
-            // Если попали в общую модель без VehicleModule, передаем урон напрямую в VehicleHealth
             VehicleHealth vehicle = hitCollider.GetComponentInParent<VehicleHealth>();
             if (vehicle != null)
             {
-                vehicle.OnModuleHit(ModuleType.Armor, directDamage, isModuleDestroyed: false);
+                vehicle.OnModuleHit(ModuleType.Armor, damage, isModuleDestroyed: false, point);
             }
         }
     }
 
     private void ApplySplashDamage(Vector3 center, Collider ignoredCollider)
     {
-        if (splashRadius <= 0f) return;
+        float radius = SplashRadius;
+        float baseSplashDamage = SplashDamage;
 
-        Collider[] nearbyColliders = Physics.OverlapSphere(center, splashRadius);
+        if (radius <= 0f || baseSplashDamage <= 0f) return;
+
+        Collider[] nearbyColliders = Physics.OverlapSphere(center, radius);
         foreach (var col in nearbyColliders)
         {
-            // Пропускаем объект прямого попадания
             if (col == ignoredCollider) continue;
 
             VehicleModule module = col.GetComponent<VehicleModule>();
             if (module != null)
             {
-                Vector3 dirToModule = (col.transform.position - center).normalized;
-                module.TakeDamage(splashDamage, col.transform.position, -dirToModule, dirToModule);
+                float distance = Vector3.Distance(center, col.transform.position);
+                // Затухание урона от эпицентра взрыва к краям
+                float attenuation = Mathf.Clamp01(1.0f - (distance / radius));
+                float finalDamage = baseSplashDamage * attenuation;
+
+                if (finalDamage > 1f)
+                {
+                    Vector3 dirToModule = (col.transform.position - center).normalized;
+                    Vector3 normal = (CurrentWarhead == WarheadType.Thermobaric) ? -dirToModule : -dirToModule;
+
+                    module.TakeDamage(finalDamage, col.transform.position, normal, dirToModule);
+                }
             }
         }
     }
@@ -118,16 +151,16 @@ public class DroneCollision : MonoBehaviour
         if (isExploded) return;
         isExploded = true;
 
-        // 1. Мгновенно отключаем коллайдеры и скрипты дрона
+        // 1. Отключение компонентов дрона
         foreach (var col in GetComponentsInChildren<Collider>()) col.enabled = false;
         foreach (var rend in GetComponentsInChildren<Renderer>()) rend.enabled = false;
         if (flightController != null) flightController.enabled = false;
         if (motors != null) motors.enabled = false;
 
-        // 2. Наносим урон
+        // 2. Расчет урона по области с учетом выбранной БЧ
         ApplySplashDamage(contactPoint, directHitCollider);
 
-        // 3. Спавним разведчик и VFX
+        // 3. Объективный контроль
         if (reconDronePrefab != null)
         {
             Vector3 spawnPos = contactPoint + reconOffset;
@@ -137,8 +170,9 @@ public class DroneCollision : MonoBehaviour
             if (cameraModule != null) cameraModule.transform.LookAt(contactPoint);
         }
 
-        if (explosionPrefab != null) Instantiate(explosionPrefab, contactPoint, Quaternion.identity);
-        if (explosionSound != null) AudioSource.PlayClipAtPoint(explosionSound, contactPoint, 1.0f);
+        // 4. Эффекты детонации
+        if (ExplosionPrefab != null) Instantiate(ExplosionPrefab, contactPoint, Quaternion.identity);
+        if (ExplosionSound != null) AudioSource.PlayClipAtPoint(ExplosionSound, contactPoint, 1.0f);
 
         Destroy(gameObject, 0.1f);
     }

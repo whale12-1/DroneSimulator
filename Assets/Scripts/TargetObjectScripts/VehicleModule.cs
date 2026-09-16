@@ -12,8 +12,11 @@ public class VehicleModule : MonoBehaviour
     public float armorThickness = 30f;
 
     [Header("Визуализация Повреждений")]
-    [Tooltip("Эффект огня/дыма, который включается при выходе модуля из строя")]
+    [Tooltip("Эффект огня, который включается при уничтожении модуля")]
     [SerializeField] private GameObject destroyedVFX;
+
+    [Tooltip("Эффект дыма, спавнящийся вместе с огнем")]
+    [SerializeField] private GameObject smokeVFX;
 
     [Tooltip("Отделяемая 3D-деталь (дверь, капот, колесо)")]
     [SerializeField] private GameObject detachableMesh;
@@ -34,18 +37,15 @@ public class VehicleModule : MonoBehaviour
     {
         if (isModuleDestroyed) return;
 
-        // 1. Расчет угла встречи кумулятивной струи с броней
-        float angleFactor = Mathf.Abs(Vector3.Dot(flightDirection, hitNormal)); // 1.0 = под 90 градусов
+        float angleFactor = Mathf.Abs(Vector3.Dot(flightDirection, hitNormal));
         float effectiveArmor = armorThickness / Mathf.Max(0.2f, angleFactor);
 
-        // 2. Проверка на рикошет при остром угле
         if (angleFactor < 0.25f)
         {
             Debug.Log("Рикошет кумулятивной струи!");
             return;
         }
 
-        // 3. Нанесение урона с учетом эквивалента брони
         float damageAfterArmor = Mathf.Max(10f, rawDamage - effectiveArmor);
         currentHealth -= damageAfterArmor;
 
@@ -53,40 +53,55 @@ public class VehicleModule : MonoBehaviour
         {
             currentHealth = 0;
             isModuleDestroyed = true;
-            OnModuleDestroyed(hitPoint); // Передаем точку попадания
+            OnModuleDestroyed(hitPoint);
         }
 
+        // Передаем hitPoint в главный скрипт
         if (mainVehicle != null)
         {
-            mainVehicle.OnModuleHit(moduleType, damageAfterArmor, isModuleDestroyed);
+            mainVehicle.OnModuleHit(moduleType, damageAfterArmor, isModuleDestroyed, hitPoint);
         }
     }
 
     private void OnModuleDestroyed(Vector3 hitPoint)
     {
-        // 1. Включаем привязанный эффект дыма/огня
+        Vector3 spawnPos = (hitPoint != Vector3.zero) ? hitPoint : transform.position;
+
+        // 1. Спавн VFX без привязки к родителю (чтобы scale 10x не искажал огонь)
         if (destroyedVFX != null)
         {
             if (destroyedVFX.scene.rootCount == 0)
             {
-                // Если в поле закинут префаб из папки — спавним его в точке попадания
-                Instantiate(destroyedVFX, hitPoint, Quaternion.identity, transform);
+                Instantiate(destroyedVFX, spawnPos, Quaternion.identity);
             }
             else
             {
-                // Если в поле закинут объект со сцены — просто включаем его
+                destroyedVFX.transform.position = spawnPos;
                 destroyedVFX.SetActive(true);
             }
         }
 
-        // 2. Меняем текстуру детали на горелую
+        if (smokeVFX != null)
+        {
+            Instantiate(smokeVFX, spawnPos, Quaternion.identity);
+        }
+
+        // 2. Смена всех слотов материала у отдельного модуля
         if (burntMaterial != null)
         {
             Renderer rend = GetComponent<Renderer>();
-            if (rend != null) rend.material = burntMaterial;
+            if (rend != null)
+            {
+                Material[] burntArray = new Material[rend.sharedMaterials.Length];
+                for (int i = 0; i < burntArray.Length; i++)
+                {
+                    burntArray[i] = burntMaterial;
+                }
+                rend.materials = burntArray;
+            }
         }
 
-        // 3. Отрываем деталь от иерархии машины с импульсом
+        // 3. Физический отрыв детали
         if (detachableMesh != null)
         {
             detachableMesh.transform.SetParent(null);
@@ -95,23 +110,16 @@ public class VehicleModule : MonoBehaviour
             if (partRb == null) partRb = detachableMesh.AddComponent<Rigidbody>();
 
             partRb.mass = 15f;
-            partRb.AddForce(Vector3.up * 6f + Random.insideUnitSphere * 3f, ForceMode.Impulse);
+            partRb.AddForce(Vector3.up * 5f + Random.insideUnitSphere * 3f, ForceMode.Impulse);
             partRb.AddTorque(Random.insideUnitSphere * 15f, ForceMode.Impulse);
 
             Destroy(detachableMesh, 15f);
         }
 
-        switch (moduleType)
+        // 4. Уведомление системы здоровья
+        if (mainVehicle != null)
         {
-            case ModuleType.Engine:
-                Debug.Log("Двигатель уничтожен: МТО горит, техника остановлена.");
-                break;
-            case ModuleType.Tracks:
-                Debug.Log("Гусеница перебита: Техника потеряла ход.");
-                break;
-            case ModuleType.AmmoRack:
-                Debug.Log("Детонация боекомплекта!");
-                break;
+            mainVehicle.OnModuleFunctionalityLost(moduleType);
         }
     }
 }

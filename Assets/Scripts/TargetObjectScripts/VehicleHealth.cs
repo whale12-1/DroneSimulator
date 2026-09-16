@@ -2,19 +2,27 @@ using UnityEngine;
 
 public class VehicleHealth : MonoBehaviour
 {
+    [Header("Прочность и Визуал")]
     public float totalHealth = 300f;
     public GameObject explosionVFX;
-    public Transform turretTransform; // Ссылка на объект башни для отрыва
+    public Transform turretTransform;
+    [SerializeField] private Material overallBurntMaterial;
+
+    [Header("Физика и Движение")]
+    [SerializeField] private WheelCollider[] wheelColliders;
+    [SerializeField] private MonoBehaviour vehicleDriveScript;
 
     private bool isDestroyed = false;
+    private Vector3 lastHitPoint = Vector3.zero;
 
-    public void OnModuleHit(ModuleType module, float damage, bool isModuleDestroyed)
+    // Добавили параметр hitPoint для сохранения точки последнего удара
+    public void OnModuleHit(ModuleType module, float damage, bool isModuleDestroyed, Vector3 hitPoint = default)
     {
         if (isDestroyed) return;
 
         totalHealth -= damage;
+        if (hitPoint != Vector3.zero) lastHitPoint = hitPoint;
 
-        // Детонация БК приводит к мгновенному катастрофическому уничтожению
         if (module == ModuleType.AmmoRack && isModuleDestroyed)
         {
             DestroyVehicle(catastrophicAmmoExplosion: true);
@@ -27,23 +35,83 @@ public class VehicleHealth : MonoBehaviour
         }
     }
 
+    public void OnModuleFunctionalityLost(ModuleType module)
+    {
+        switch (module)
+        {
+            case ModuleType.Engine:
+            case ModuleType.Tracks:
+                DisableVehicleMovement();
+                Debug.Log("<color=yellow>ТЕХНИКА ПОТЕРЯЛА ХОД!</color>");
+                break;
+
+            case ModuleType.AmmoRack:
+                Debug.Log("<color=red>ДЕТОНАЦИЯ БОЕКОМПЛЕКТА!</color>");
+                break;
+        }
+    }
+
+    private void DisableVehicleMovement()
+    {
+        if (vehicleDriveScript != null) vehicleDriveScript.enabled = false;
+
+        if (wheelColliders != null)
+        {
+            foreach (var wheel in wheelColliders)
+            {
+                if (wheel != null)
+                {
+                    wheel.motorTorque = 0f;
+                    wheel.brakeTorque = 10000f;
+                }
+            }
+        }
+    }
+
     private void DestroyVehicle(bool catastrophicAmmoExplosion)
     {
+        if (isDestroyed) return;
         isDestroyed = true;
 
-        if (explosionVFX != null)
-            Instantiate(explosionVFX, transform.position, Quaternion.identity);
+        DisableVehicleMovement();
 
-        if (catastrophicAmmoExplosion && turretTransform != null)
+        // 1. Спавн крупного взрыва в ТОЧКЕ ПОПАДАНИЯ, а не в центре земли (0,0,0)
+        if (explosionVFX != null)
         {
-            // Эффектный отрыв башни: отсоединяем и добавляем импульс вверх
-            turretTransform.SetParent(null);
-            Rigidbody turretRb = turretTransform.gameObject.AddComponent<Rigidbody>();
-            turretRb.mass = 1500f;
-            turretRb.AddForce(Vector3.up * 12000f + Random.insideUnitSphere * 3000f, ForceMode.Impulse);
-            turretRb.AddTorque(Random.insideUnitSphere * 5000f, ForceMode.Impulse);
+            Vector3 spawnPos = (lastHitPoint != Vector3.zero) ? lastHitPoint : (transform.position + Vector3.up * 1.2f);
+            Instantiate(explosionVFX, spawnPos, Quaternion.identity);
         }
 
-        Debug.Log("Техника полностью выведена из строя!");
+        // 2. Корректная замена ВСЕХ слотов материалов (Element 0, Element 1 и т.д.)
+        if (overallBurntMaterial != null)
+        {
+            Renderer[] allRenderers = GetComponentsInChildren<Renderer>();
+            foreach (Renderer rend in allRenderers)
+            {
+                if (rend.GetComponent<ParticleSystem>() == null)
+                {
+                    Material[] burntMaterials = new Material[rend.sharedMaterials.Length];
+                    for (int i = 0; i < burntMaterials.Length; i++)
+                    {
+                        burntMaterials[i] = overallBurntMaterial;
+                    }
+                    rend.materials = burntMaterials; // Заменяем весь массив материалов
+                }
+            }
+        }
+
+        // 3. Отрыв башни/кузова
+        if (catastrophicAmmoExplosion && turretTransform != null)
+        {
+            turretTransform.SetParent(null);
+            Rigidbody turretRb = turretTransform.gameObject.GetComponent<Rigidbody>();
+            if (turretRb == null) turretRb = turretTransform.gameObject.AddComponent<Rigidbody>();
+
+            turretRb.mass = 1200f;
+            turretRb.AddForce(Vector3.up * 14000f + Random.insideUnitSphere * 4000f, ForceMode.Impulse);
+            turretRb.AddTorque(Random.insideUnitSphere * 6000f, ForceMode.Impulse);
+        }
+
+        Debug.Log("<color=red>ТЕХНИКА ПОЛНОСТЬЮ УНИЧТОЖЕНА!</color>");
     }
 }

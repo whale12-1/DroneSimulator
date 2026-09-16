@@ -19,7 +19,7 @@ public class TargetDetector : MonoBehaviour
     private void ScanForTargets()
     {
         detectedTargets.Clear();
-        TargetObject[] allTargets = FindObjectsByType<TargetObject>(FindObjectsSortMode.None);
+        TargetObject[] allTargets = FindObjectsByType<TargetObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
         foreach (var target in allTargets)
         {

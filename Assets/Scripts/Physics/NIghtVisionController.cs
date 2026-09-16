@@ -19,7 +19,7 @@ public class NightVisionController : MonoBehaviour
         // Авто-поиск Global Volume, если поле пустое
         if (globalVolume == null)
         {
-            globalVolume = FindFirstObjectByType<Volume>();
+            globalVolume = FindAnyObjectByType<Volume>();
         }
 
         // Авто-создание ИК-фонаря, если он не назначен
