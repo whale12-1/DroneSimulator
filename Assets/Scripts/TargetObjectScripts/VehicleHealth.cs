@@ -11,6 +11,7 @@ public class VehicleHealth : MonoBehaviour
     [Header("‘изика и ƒвижение")]
     [SerializeField] private WheelCollider[] wheelColliders;
     [SerializeField] private MonoBehaviour vehicleDriveScript;
+    [SerializeField] private MonoBehaviour vehicleAIScript;
 
     private bool isDestroyed = false;
     private Vector3 lastHitPoint = Vector3.zero;
@@ -73,6 +74,10 @@ public class VehicleHealth : MonoBehaviour
         if (isDestroyed) return;
         isDestroyed = true;
 
+        if (vehicleAIScript != null)
+        {
+            vehicleAIScript.enabled = false;
+        }
         DisableVehicleMovement();
 
         // 1. —павн крупного взрыва в “ќ„ ≈ ѕќѕјƒјЌ»я, а не в центре земли (0,0,0)

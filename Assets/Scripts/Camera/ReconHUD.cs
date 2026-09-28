@@ -11,6 +11,7 @@ public class ReconHUD : MonoBehaviour
     [Header("Визуал OSD")]
     [SerializeField] private Color reconColor = new Color(1f, 0.85f, 0.2f, 0.9f); // Янтарный/Желтый цвет
     [SerializeField] private float lineWidth = 2f;
+    [SerializeField] private float minBoxSize = 20f; // Минимальный размер рамки в пикселях, если цель очень далеко
 
     private Camera cam;
     private Texture2D pixelTexture;
@@ -61,25 +62,56 @@ public class ReconHUD : MonoBehaviour
             GUI.Label(new Rect(25, 65, 350, 20), $"GRID POS: X:{targetWorldPos.x:F0} Z:{targetWorldPos.z:F0}", style);
         }
 
-        // 4. Отрисовка динамической рамки захваченной цели (Target Tracking)
+        // 4. Отрисовка динамической адаптивной рамки цели
         if (lockManager != null && lockManager.currentLockedTarget != null)
         {
             TargetObject target = lockManager.currentLockedTarget;
-            Vector3 screenPos = cam.WorldToScreenPoint(target.TargetPosition);
+            Renderer targetRenderer = target.GetComponentInChildren<Renderer>();
 
-            // Проверяем, что цель находится перед камерой
-            if (screenPos.z > 0)
+            if (targetRenderer != null)
             {
-                // Перевод координаты Y из системы Unity в OnGUI (сверху вниз)
-                float guiY = Screen.height - screenPos.y;
-                float boxSize = 50f;
-                Rect targetRect = new Rect(screenPos.x - boxSize / 2f, guiY - boxSize / 2f, boxSize, boxSize);
+                Bounds bounds = targetRenderer.bounds;
 
-                DrawBoxOutline(targetRect, lineWidth);
+                // Берём 8 угловых точек 3D Bounding Box объекта
+                Vector3[] screenPoints = new Vector3[8];
+                screenPoints[0] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.min.y, bounds.min.z));
+                screenPoints[1] = cam.WorldToScreenPoint(new Vector3(bounds.max.x, bounds.min.y, bounds.min.z));
+                screenPoints[2] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.max.y, bounds.min.z));
+                screenPoints[3] = cam.WorldToScreenPoint(new Vector3(bounds.max.x, bounds.max.y, bounds.min.z));
+                screenPoints[4] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.min.y, bounds.max.z));
+                screenPoints[5] = cam.WorldToScreenPoint(new Vector3(bounds.max.x, bounds.min.y, bounds.max.z));
+                screenPoints[6] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.max.y, bounds.max.z));
+                screenPoints[7] = cam.WorldToScreenPoint(new Vector3(bounds.max.x, bounds.max.y, bounds.max.z));
 
-                // Текст над/под рамкой цели
-                GUI.Label(new Rect(targetRect.x, targetRect.y - 18f, 200f, 20f), $"LOCKED: {target.targetName.ToUpper()}", style);
-                GUI.Label(new Rect(targetRect.x, targetRect.yMax + 2f, 200f, 20f), $"DIST: {Vector3.Distance(transform.position, target.TargetPosition):F0}m", style);
+                // Проверяем, что хотя бы одна точка перед камерой
+                if (screenPoints[0].z > 0)
+                {
+                    float minX = screenPoints[0].x, maxX = screenPoints[0].x;
+                    float minY = screenPoints[0].y, maxY = screenPoints[0].y;
+
+                    for (int i = 1; i < 8; i++)
+                    {
+                        if (screenPoints[i].x < minX) minX = screenPoints[i].x;
+                        if (screenPoints[i].x > maxX) maxX = screenPoints[i].x;
+                        if (screenPoints[i].y < minY) minY = screenPoints[i].y;
+                        if (screenPoints[i].y > maxY) maxY = screenPoints[i].y;
+                    }
+
+                    float width = Mathf.Max(maxX - minX, minBoxSize);
+                    float height = Mathf.Max(maxY - minY, minBoxSize);
+
+                    // Центрирование при минимальном размере (на дальних дистанциях)
+                    float centerX = (minX + maxX) * 0.5f;
+                    float centerY = Screen.height - ((minY + maxY) * 0.5f);
+
+                    Rect targetRect = new Rect(centerX - width * 0.5f, centerY - height * 0.5f, width, height);
+
+                    DrawBoxOutline(targetRect, lineWidth);
+
+                    // Текст над и под рамкой
+                    GUI.Label(new Rect(targetRect.x, targetRect.y - 18f, 200f, 20f), $"LOCKED: {target.targetName.ToUpper()}", style);
+                    GUI.Label(new Rect(targetRect.x, targetRect.yMax + 2f, 200f, 20f), $"DIST: {Vector3.Distance(transform.position, target.TargetPosition):F0}m", style);
+                }
             }
         }
     }

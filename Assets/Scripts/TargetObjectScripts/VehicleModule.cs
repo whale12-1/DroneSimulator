@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum ModuleType { Engine, Tracks, AmmoRack, Turret, Optics, Armor }
+public enum ModuleType { Engine, Tracks, AmmoRack, Turret, Optics, Armor, MainHull }
 
 public class VehicleModule : MonoBehaviour
 {

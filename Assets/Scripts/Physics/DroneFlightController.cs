@@ -1,16 +1,24 @@
 using UnityEngine;
 
+public enum DroneType
+{
+    StrikeFPV, // Ударный FPV: резкий, ручное управление (Acro Mode по умолчанию)
+    ReconDrop  // Разведчик/Сбросник: плавная стабилизация, автогоризонт (Angle/Hover)
+}
+
 [RequireComponent(typeof(Rigidbody))]
 [RequireComponent(typeof(DroneMotors))]
 public class DroneFlightController : MonoBehaviour
 {
     private Rigidbody rb;
     private DroneMotors motors;
-    private EWReceiver ewReceiver; // Ссылка на модуль РЭБ
+    private EWReceiver ewReceiver;
+
+    [Header("Профиль Дрона")]
+    public DroneType droneType = DroneType.StrikeFPV;
 
     [Header("Режим Полета")]
-    [Tooltip("true = Angle Mode (автовыравнивание), false = Acro Mode (ручное вращение)")]
-    public bool angleMode = false; // По умолчанию отключено для FPV-камикадзе
+    public bool angleMode = false;
     public bool hoverMode = false;
     public float maxAngle = 35f;
 
@@ -32,7 +40,6 @@ public class DroneFlightController : MonoBehaviour
     private float targetYawInput;
     private float throttleInput = 0.5f;
 
-    // Внутренние переменные для симуляции радиопомех
     private float rawPitch, rawRoll, rawYaw, rawThrottle;
     private float packetTimer;
 
@@ -41,9 +48,25 @@ public class DroneFlightController : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         motors = GetComponent<DroneMotors>();
 
-        // Автопоиск модуля РЭБ на камере или дроне
         ewReceiver = GetComponentInChildren<EWReceiver>();
         if (ewReceiver == null) ewReceiver = GetComponent<EWReceiver>();
+
+        // Авто-настройка параметров под выбранный тип дрона
+        ApplyDroneProfile();
+    }
+
+    public void ApplyDroneProfile()
+    {
+        if (droneType == DroneType.ReconDrop)
+        {
+            angleMode = true;       // Разведчик/Сбросник всегда держит горизонт
+            hoverMode = true;       // По умолчанию стартует в зависании
+            maxAngle = 50f;         // Плавные наклоны для точного прицеливания
+
+            maxPitchRate = 250f;    // Более плавные повороты
+            maxRollRate = 250f;
+            maxYawRate = 200f;
+        }
     }
 
     private void Update()
@@ -58,39 +81,36 @@ public class DroneFlightController : MonoBehaviour
 
     private void ReadInput()
     {
-        // Переключение режимов
         if (Input.GetKeyDown(KeyCode.H))
         {
             hoverMode = !hoverMode;
-            if (hoverMode) angleMode = true; // Hover требует Angle Mode
+            if (hoverMode) angleMode = true;
         }
 
-        if (Input.GetKeyDown(KeyCode.M))
+        if (Input.GetKeyDown(KeyCode.M) && droneType == DroneType.StrikeFPV)
         {
             angleMode = !angleMode;
-            if (!angleMode) hoverMode = false; // При уходе в Acro Mode выключаем Hover
+            if (!angleMode) hoverMode = false;
         }
 
         if (hoverMode)
         {
-            throttleInput = 0.5f;
             targetPitchInput = 0f;
             targetRollInput = 0f;
             targetYawInput = 0f;
 
+            // Если зажаты клавиши движения — временно снимаем с удержания позиции
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.S) ||
+                Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D) ||
                 Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.DownArrow) ||
-                Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.RightArrow) ||
-                Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D))
+                Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.RightArrow))
             {
                 hoverMode = false;
             }
-            return;
         }
 
         float jam = (enableEWImpact && ewReceiver != null) ? ewReceiver.jamIntensity : 0f;
 
-        // 1. Потеря пакетов RC-связи (Sample & Hold)
         float packetInterval = Mathf.Lerp(0f, 0.22f, jam);
         packetTimer += Time.deltaTime;
 
@@ -98,7 +118,6 @@ public class DroneFlightController : MonoBehaviour
         {
             packetTimer = 0f;
 
-            // Считывание сырого ввода
             rawPitch = 0f;
             if (Input.GetKey(KeyCode.UpArrow)) rawPitch = 1f;
             if (Input.GetKey(KeyCode.DownArrow)) rawPitch = -1f;
@@ -118,19 +137,16 @@ public class DroneFlightController : MonoBehaviour
                 rawThrottle = Mathf.MoveTowards(rawThrottle, 0.0f, Time.deltaTime * 1.5f);
         }
 
-        // 2. Дрейф и увод курса (Perlin Noise)
         float noiseTime = Time.time * 2.5f;
         float driftPitch = (Mathf.PerlinNoise(noiseTime, 0f) - 0.5f) * 0.5f * jam;
         float driftRoll = (Mathf.PerlinNoise(0f, noiseTime) - 0.5f) * 0.5f * jam;
         float driftYaw = (Mathf.PerlinNoise(noiseTime, noiseTime) - 0.5f) * 0.6f * jam;
 
-        // 3. Задержка отклика стиков
         float responseSpeed = Mathf.Lerp(30f, 2.5f, jam);
         targetPitchInput = Mathf.Lerp(targetPitchInput, rawPitch + driftPitch, Time.deltaTime * responseSpeed);
         targetRollInput = Mathf.Lerp(targetRollInput, rawRoll + driftRoll, Time.deltaTime * responseSpeed);
         targetYawInput = Mathf.Lerp(targetYawInput, rawYaw + driftYaw, Time.deltaTime * responseSpeed);
 
-        // 4. Провалы и пульсация тяги
         float throttleSag = (jam > 0.3f && Mathf.PerlinNoise(noiseTime * 4f, 50f) < jam * 0.4f) ? (1f - jam * 0.35f) : 1f;
         throttleInput = rawThrottle * throttleSag;
     }
@@ -147,11 +163,13 @@ public class DroneFlightController : MonoBehaviour
 
         if (hoverMode)
         {
-            float verticalDamping = -rb.linearVelocity.y * 0.15f;
+            // Автоматическая подстройка тяги под удержание вертикальной скорости (Altitude Damp)
+            float verticalDamping = -rb.linearVelocity.y * 0.25f;
             effectiveThrottle = Mathf.Clamp(hoverBase + verticalDamping, 0.0f, 0.85f);
 
+            // Торможение горизонтального дрейфа
             Vector3 horizontalVel = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
-            rb.AddForce(-horizontalVel * 4.0f, ForceMode.Acceleration);
+            rb.AddForce(-horizontalVel * 5.0f, ForceMode.Acceleration);
         }
         else
         {
@@ -161,10 +179,8 @@ public class DroneFlightController : MonoBehaviour
                 effectiveThrottle = Mathf.Lerp(0.0f, hoverBase, throttleInput * 2f);
         }
 
-        // Угловая скорость в ЛОКАЛЬНОЙ системе координат
         Vector3 localAngularVel = transform.InverseTransformDirection(rb.angularVelocity) * Mathf.Rad2Deg;
 
-        // 5. Наводки на IMU/Гироскоп
         if (jam > 0.2f)
         {
             float gyroNoiseX = (Random.value - 0.5f) * 40f * jam;
@@ -177,10 +193,8 @@ public class DroneFlightController : MonoBehaviour
         float targetRollRate;
         float targetYawRate = targetYawInput * maxYawRate;
 
-        // BIFURCATION: Angle Mode vs Acro Mode
         if (angleMode)
         {
-            // ANGLE MODE: Рассчитываем целевой угол наклона
             float currentPitch = transform.localEulerAngles.x;
             if (currentPitch > 180f) currentPitch -= 360f;
 
@@ -196,7 +210,6 @@ public class DroneFlightController : MonoBehaviour
         }
         else
         {
-            // ACRO MODE: Прямое задание угловой скорости
             targetPitchRate = targetPitchInput * maxPitchRate;
             targetRollRate = targetRollInput * maxRollRate;
         }
@@ -209,10 +222,8 @@ public class DroneFlightController : MonoBehaviour
         float rollCorr = Mathf.Clamp(rollPID.Update(rollError, Time.fixedDeltaTime), -0.8f, 0.8f);
         float yawCorr = Mathf.Clamp(yawPID.Update(yawError, Time.fixedDeltaTime), -0.5f, 0.5f);
 
-        // Поворот по оси Y (A / D)
         rb.AddRelativeTorque(Vector3.up * yawCorr * 8.0f, ForceMode.Force);
 
-        // Распределение тяги моторов
         float motorFL = effectiveThrottle - pitchCorr + rollCorr;
         float motorFR = effectiveThrottle - pitchCorr - rollCorr;
         float motorBL = effectiveThrottle + pitchCorr + rollCorr;
