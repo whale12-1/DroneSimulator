@@ -4,12 +4,12 @@ using UnityEngine.Rendering.Universal;
 
 public class NightVisionController : MonoBehaviour
 {
+    [Header("Профиль Дрона")]
+    [SerializeField] private DroneConfig config;
+
     [Header("Ссылки")]
     [SerializeField] private Volume globalVolume;
     [SerializeField] private Light irSpotlight;
-
-    [Header("Клавиша Включения")]
-    [SerializeField] private KeyCode toggleKey = KeyCode.N;
 
     public bool isNightVisionActive = false;
     private ColorAdjustments colorAdjustments;
@@ -19,7 +19,7 @@ public class NightVisionController : MonoBehaviour
         // Авто-поиск Global Volume, если поле пустое
         if (globalVolume == null)
         {
-            globalVolume = FindAnyObjectByType<Volume>();
+            globalVolume = FindFirstObjectByType<Volume>();
         }
 
         // Авто-создание ИК-фонаря, если он не назначен
@@ -29,9 +29,14 @@ public class NightVisionController : MonoBehaviour
             lightObj.transform.SetParent(transform, false);
             irSpotlight = lightObj.AddComponent<Light>();
             irSpotlight.type = LightType.Spot;
-            irSpotlight.range = 300f;
-            irSpotlight.spotAngle = 60f;
-            irSpotlight.intensity = 5f;
+        }
+
+        // Применяем параметры ИК-подсветки из конфига
+        if (irSpotlight != null && config != null)
+        {
+            irSpotlight.range = config.irRange;
+            irSpotlight.spotAngle = config.irSpotAngle;
+            irSpotlight.intensity = config.irIntensity;
         }
 
         // Получаем или создаем компонент ColorAdjustments в профиле
@@ -48,6 +53,15 @@ public class NightVisionController : MonoBehaviour
 
     private void Update()
     {
+        // Если ПНВ отключен в конфиге текущего дрона — выключаем и игнорируем ввод
+        if (config != null && !config.hasNightVision)
+        {
+            if (isNightVisionActive) SetNightVisionState(false);
+            return;
+        }
+
+        KeyCode toggleKey = (config != null) ? config.nvToggleKey : KeyCode.N;
+
         if (Input.GetKeyDown(toggleKey))
         {
             SetNightVisionState(!isNightVisionActive);
@@ -62,9 +76,10 @@ public class NightVisionController : MonoBehaviour
         {
             colorAdjustments.active = active;
             colorAdjustments.colorFilter.overrideState = active;
-            colorAdjustments.colorFilter.value = new Color(0.1f, 1.0f, 0.2f); // Зелёный спектр ПНВ
+            colorAdjustments.colorFilter.value = (config != null) ? config.nvColor : new Color(0.1f, 1.0f, 0.2f);
+
             colorAdjustments.postExposure.overrideState = active;
-            colorAdjustments.postExposure.value = 1.8f;
+            colorAdjustments.postExposure.value = (config != null) ? config.nvPostExposure : 1.8f;
         }
 
         if (irSpotlight != null)

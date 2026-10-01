@@ -2,19 +2,8 @@ using UnityEngine;
 
 public class FPVCameraShake : MonoBehaviour
 {
-    [Header("Частота и Амплитуда")]
-    [Tooltip("Частота вибрации моторов (чем выше, тем чаще мелкая тряска)")]
-    [SerializeField] private float frequency = 35f;
-
-    [Tooltip("Амплитуда смещения позиции в метрах (для моторов достаточно 0.002-0.005)")]
-    [SerializeField] private float posAmplitude = 0.003f;
-
-    [Tooltip("Амплитуда поворота по углам в градусах")]
-    [SerializeField] private float rotAmplitude = 0.2f;
-
-    [Header("Зависимость от Газа (Throttle)")]
-    [SerializeField] private bool useThrottleEffect = true;
-    [SerializeField] private float minThrottleFactor = 0.3f; // Тряска на холостых оборотах
+    [Header("Профиль Дрона")]
+    [SerializeField] private DroneConfig config;
 
     private Vector3 initialLocalPos;
     private Quaternion initialLocalRot;
@@ -22,7 +11,7 @@ public class FPVCameraShake : MonoBehaviour
 
     private void Start()
     {
-        // Запоминаем исходное положение камеры относительно дрона
+        // Запоминаем исходное положение и поворот камеры относительно дрона
         initialLocalPos = transform.localPosition;
         initialLocalRot = transform.localRotation;
 
@@ -32,11 +21,26 @@ public class FPVCameraShake : MonoBehaviour
 
     private void LateUpdate()
     {
+        // Если конфиг задан и тряска отключена — возвращаем камеру в исходную позицию
+        if (config != null && !config.enableCameraShake)
+        {
+            transform.localPosition = initialLocalPos;
+            transform.localRotation = initialLocalRot;
+            return;
+        }
+
+        // Считываем параметры из конфига или подставляем значения по умолчанию
+        float frequency = (config != null) ? config.shakeFrequency : 35f;
+        float posAmplitude = (config != null) ? config.shakePosAmplitude : 0.003f;
+        float rotAmplitude = (config != null) ? config.shakeRotAmplitude : 0.2f;
+        bool useThrottle = (config != null) ? config.shakeUseThrottleEffect : true;
+        float minThrottleFactor = (config != null) ? config.shakeMinThrottleFactor : 0.3f;
+
         float throttleFactor = 1f;
 
-        if (useThrottleEffect)
+        if (useThrottle)
         {
-            // Берем ввод газа по вертикальной оси W/S или вертикальному маппингу
+            // Берем ввод газа по вертикальной оси
             float throttleInput = Mathf.Clamp01(Mathf.Abs(Input.GetAxis("Vertical")));
             throttleFactor = Mathf.Lerp(minThrottleFactor, 1.2f, throttleInput);
         }
@@ -44,7 +48,7 @@ public class FPVCameraShake : MonoBehaviour
         // Вычисляем время с учетом частоты
         float time = (Time.time + seed) * frequency;
 
-        // Генерация шума в диапазоне от -1 до 1
+        // Генерация шума Перлина в диапазоне от -1 до 1
         float offsetX = (Mathf.PerlinNoise(time, 0f) - 0.5f) * 2f;
         float offsetY = (Mathf.PerlinNoise(0f, time) - 0.5f) * 2f;
         float offsetRot = (Mathf.PerlinNoise(time, time) - 0.5f) * 2f;
@@ -53,12 +57,12 @@ public class FPVCameraShake : MonoBehaviour
         Vector3 posOffset = new Vector3(offsetX, offsetY, 0f) * (posAmplitude * throttleFactor);
         transform.localPosition = initialLocalPos + posOffset;
 
-        // Применяем микроповорот по оси Z (крены) и X (тангаж)
+        // Применяем микроповорот относительно исходного вращения
         Quaternion rotOffset = Quaternion.Euler(
             offsetX * rotAmplitude * throttleFactor,
             0f,
             offsetRot * rotAmplitude * throttleFactor
         );
-        transform.localRotation *= rotOffset;
+        transform.localRotation = initialLocalRot * rotOffset;
     }
 }

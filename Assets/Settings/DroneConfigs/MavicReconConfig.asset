@@ -1,0 +1,87 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5dad4bee076173e4dadbb8fd6c61b57f, type: 3}
+  m_Name: MavicReconConfig
+  m_EditorClassIdentifier: Assembly-CSharp::DroneConfig
+  droneName: FPV-7 PG-7VL
+  warheadType: 0
+  directDamage: 250
+  splashRadius: 1.5
+  splashDamage: 40
+  explosionPrefab: {fileID: 0}
+  explosionSound: {fileID: 0}
+  allowManualDetonation: 0
+  detonateKey: 32
+  explodeOnAnyCollision: 0
+  minImpactVelocity: 3
+  instantExplodeTags:
+  - Hazard
+  reconDronePrefab: {fileID: 0}
+  reconOffset: {x: 0, y: 35, z: -20}
+  bombPrefab: {fileID: 0}
+  maxAmmo: 4
+  dropCooldown: 1
+  allowTargetLock: 1
+  targetLockKey: 32
+  maxLockScreenRadius: 300
+  detectionRadius: 1000
+  viewAngle: 70
+  autoLockDistance: 1500
+  hasNightVision: 1
+  nvToggleKey: 110
+  irRange: 300
+  irSpotAngle: 60
+  irIntensity: 5
+  nvColor: {r: 0.1, g: 1, b: 0.2, a: 1}
+  nvPostExposure: 1.8
+  enableCameraShake: 1
+  shakeFrequency: 35
+  shakePosAmplitude: 0.003
+  shakeRotAmplitude: 0.2
+  shakeUseThrottleEffect: 1
+  shakeMinThrottleFactor: 0.3
+  showStrikeHUD: 0
+  hudColor: {r: 0.1, g: 1, b: 0.2, a: 0.85}
+  crosshairSize: 14
+  targetBoxSize: {x: 160, y: 110}
+  ewResistance: 0
+  noiseTextureResolution: 128
+  staticNoiseOpacity: 0.85
+  maxChromaticAberration: 1
+  maxVignette: 0.8
+  maxFilmGrain: 1
+  ewNoiseThreshold: 0.05
+  ewJitterThreshold: 0.15
+  ewLineTearingThreshold: 0.3
+  cameraType: 0
+  fixedPitchAngle: -20
+  defaultGimbalPitch: 20
+  minPitch: -10
+  maxPitch: 85
+  minYaw: -120
+  maxYaw: 120
+  tiltSpeed: 45
+  reconColor: {r: 1, g: 0.85, b: 0.2, a: 0.9}
+  hudLineWidth: 2
+  minBoxSize: 20
+  lrfMask:
+    serializedVersion: 2
+    m_Bits: 0
+  allowZoom: 1
+  zoomLevels:
+  - 100
+  - 50
+  - 25
+  - 10
+  zoomSpeed: 10
+  zoomInKey: 122
+  zoomOutKey: 120

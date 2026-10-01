@@ -3,16 +3,14 @@ using UnityEngine;
 
 public class TargetDetector : MonoBehaviour
 {
-    [Header("Настройки Сенсора")]
-    [SerializeField] private float detectionRadius = 300f; // Дальность поиска (м)
-    [SerializeField] private float viewAngle = 70f;         // Угол обзора (град)
-    [SerializeField] private LayerMask obstacleMask;        // Маска стен/земли для Raycast
+    [SerializeField] private DroneConfig config;
+    [SerializeField] private LayerMask obstacleMask;
 
-    [Header("Найденные Цели")]
     public List<TargetObject> detectedTargets = new List<TargetObject>();
 
     private void Update()
     {
+        if (config == null) return;
         ScanForTargets();
     }
 
@@ -26,12 +24,10 @@ public class TargetDetector : MonoBehaviour
             Vector3 dirToTarget = (target.TargetPosition - transform.position).normalized;
             float distanceToTarget = Vector3.Distance(transform.position, target.TargetPosition);
 
-            if (distanceToTarget > detectionRadius) continue;
+            if (distanceToTarget > config.detectionRadius) continue;
 
-            // Проверка попадания в угол обзора
-            if (Vector3.Angle(transform.forward, dirToTarget) < viewAngle / 2f)
+            if (Vector3.Angle(transform.forward, dirToTarget) < config.viewAngle / 2f)
             {
-                // Проверка прямой видимости (Raycast)
                 if (!Physics.Raycast(transform.position, dirToTarget, distanceToTarget, obstacleMask))
                 {
                     detectedTargets.Add(target);
@@ -42,7 +38,8 @@ public class TargetDetector : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
+        if (config == null) return;
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, detectionRadius);
+        Gizmos.DrawWireSphere(transform.position, config.detectionRadius);
     }
 }

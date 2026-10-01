@@ -4,15 +4,14 @@ using UnityEngine.Rendering.Universal;
 
 public class EWReceiver : MonoBehaviour
 {
+    [Header("Профиль Дрона")]
+    [SerializeField] private DroneConfig config;
+
     [Header("Ссылки")]
     [SerializeField] private Volume globalVolume;
 
     [Header("Текущий уровень помех (0.0 - 1.0)")]
     [Range(0f, 1f)] public float jamIntensity = 0f;
-
-    [Header("Настройки Аналогового Снега")]
-    [SerializeField] private int noiseTextureResolution = 128;
-    [SerializeField] private float staticNoiseOpacity = 0.85f;
 
     private Camera cam;
     private ChromaticAberration chromaticAberration;
@@ -40,9 +39,14 @@ public class EWReceiver : MonoBehaviour
             if (globalVolume.profile.TryGet(out filmGrain)) baseGrain = filmGrain.intensity.value;
         }
 
-        // Генерация текстуры для белого шума ("снега")
-        noiseTexture = new Texture2D(noiseTextureResolution, noiseTextureResolution, TextureFormat.RGBA32, false);
-        noisePixels = new Color32[noiseTextureResolution * noiseTextureResolution];
+        InitNoiseTexture();
+    }
+
+    private void InitNoiseTexture()
+    {
+        int res = (config != null) ? config.noiseTextureResolution : 128;
+        noiseTexture = new Texture2D(res, res, TextureFormat.RGBA32, false);
+        noisePixels = new Color32[res * res];
     }
 
     private void Update()
@@ -55,7 +59,7 @@ public class EWReceiver : MonoBehaviour
     private void CalculateJammingLevel()
     {
         EWEmitter[] emitters = FindObjectsByType<EWEmitter>(FindObjectsSortMode.None);
-        float maxJam = 0f;
+        float rawJam = 0f;
 
         foreach (var emitter in emitters)
         {
@@ -65,38 +69,44 @@ public class EWReceiver : MonoBehaviour
             if (distance < emitter.jamRadius)
             {
                 float factor = 1f - (distance / emitter.jamRadius);
-                if (factor > maxJam) maxJam = factor;
+                if (factor > rawJam) rawJam = factor;
             }
         }
 
-        jamIntensity = maxJam;
+        // Применяем коэффициент защиты из DroneConfig
+        float resistance = (config != null) ? Mathf.Clamp01(config.ewResistance) : 0f;
+        jamIntensity = Mathf.Clamp01(rawJam * (1f - resistance));
     }
 
     private void ApplyPostProcessing()
     {
+        float maxChromatic = (config != null) ? config.maxChromaticAberration : 1.0f;
+        float maxVignette = (config != null) ? config.maxVignette : 0.8f;
+        float maxGrain = (config != null) ? config.maxFilmGrain : 1.0f;
+
         if (chromaticAberration != null)
         {
             chromaticAberration.active = true;
-            // Дикий разрыв RGB-каналов при сильном РЭБ
-            chromaticAberration.intensity.value = Mathf.Lerp(baseChromatic, 1.0f, jamIntensity);
+            chromaticAberration.intensity.value = Mathf.Lerp(baseChromatic, maxChromatic, jamIntensity);
         }
 
         if (vignette != null)
         {
             vignette.active = true;
-            vignette.intensity.value = Mathf.Lerp(baseVignette, 0.8f, jamIntensity);
+            vignette.intensity.value = Mathf.Lerp(baseVignette, maxVignette, jamIntensity);
         }
 
         if (filmGrain != null)
         {
             filmGrain.active = true;
-            filmGrain.intensity.value = Mathf.Lerp(baseGrain, 1.0f, jamIntensity);
+            filmGrain.intensity.value = Mathf.Lerp(baseGrain, maxGrain, jamIntensity);
         }
     }
 
     private void ApplyFrameJitter()
     {
-        if (cam == null || jamIntensity < 0.15f) return;
+        float jitterThreshold = (config != null) ? config.ewJitterThreshold : 0.15f;
+        if (cam == null || jamIntensity < jitterThreshold) return;
 
         // 1. Дёрганье кадра по вертикали (срыв H-Sync)
         float verticalRoll = (Random.value - 0.5f) * 0.08f * jamIntensity;
@@ -115,17 +125,17 @@ public class EWReceiver : MonoBehaviour
 
     private void OnGUI()
     {
-        if (jamIntensity < 0.05f) return;
+        float noiseThreshold = (config != null) ? config.ewNoiseThreshold : 0.05f;
+        if (jamIntensity < noiseThreshold) return;
 
-        // Генерация быстрого монохромного шума ("снег")
         GenerateNoiseTexture();
 
-        // Отрисовка снега поверх экрана
-        GUI.color = new Color(1f, 1f, 1f, jamIntensity * staticNoiseOpacity);
+        float noiseOpacity = (config != null) ? config.staticNoiseOpacity : 0.85f;
+        GUI.color = new Color(1f, 1f, 1f, jamIntensity * noiseOpacity);
         GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), noiseTexture);
 
-        // Отрисовка черных и белых горизонтальных полос разрыва (Line Tearing)
-        if (jamIntensity > 0.3f)
+        float lineTearingThreshold = (config != null) ? config.ewLineTearingThreshold : 0.3f;
+        if (jamIntensity > lineTearingThreshold)
         {
             int linesCount = Random.Range(1, Mathf.RoundToInt(jamIntensity * 8));
             for (int i = 0; i < linesCount; i++)

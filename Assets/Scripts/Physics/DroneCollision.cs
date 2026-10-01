@@ -4,42 +4,20 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class DroneCollision : MonoBehaviour
 {
-    [Header("Конфигурация Дрона")]
-    [Tooltip("Профиль БЧ из папки проекта. Если пуст, берутся значения по умолчанию ниже")]
-    [SerializeField] private DroneConfig droneConfig;
-
-    [Header("Резервные Настройки (Если нет DroneConfig)")]
-    public WarheadType fallbackWarheadType = WarheadType.HEAT;
-    public float fallbackDirectDamage = 250f;
-    public float fallbackSplashRadius = 1.5f;
-    public float fallbackSplashDamage = 40f;
-    [SerializeField] private GameObject fallbackExplosionPrefab;
-    [SerializeField] private AudioClip fallbackExplosionSound;
-
-    [Header("Объективный Контроль (Дрон-Разведчик)")]
-    [SerializeField] private GameObject reconDronePrefab;
-    [SerializeField] private Vector3 reconOffset = new Vector3(0f, 35f, -20f);
-
-    [Header("Ручная Детонация")]
-    public bool allowManualDetonation = true;
-    public KeyCode detonateKey = KeyCode.Space;
-
-    [Header("Условия Взрыва по Столкновению")]
-    public bool explodeOnAnyCollision = false;
-    [SerializeField] private float minImpactVelocity = 3.0f;
-    [SerializeField] private string[] instantExplodeTags = new string[] { "Hazard" };
+    [Header("Профиль Дрона")]
+    [SerializeField] private DroneConfig config;
 
     private bool isExploded = false;
     private DroneFlightController flightController;
     private DroneMotors motors;
 
-    // Геттеры для гибридного использования (Config / Inspector)
-    public WarheadType CurrentWarhead => droneConfig != null ? droneConfig.warheadType : fallbackWarheadType;
-    public float DirectDamage => droneConfig != null ? droneConfig.directDamage : fallbackDirectDamage;
-    public float SplashRadius => droneConfig != null ? droneConfig.splashRadius : fallbackSplashRadius;
-    public float SplashDamage => droneConfig != null ? droneConfig.splashDamage : fallbackSplashDamage;
-    public GameObject ExplosionPrefab => droneConfig != null ? droneConfig.explosionPrefab : fallbackExplosionPrefab;
-    public AudioClip ExplosionSound => droneConfig != null ? droneConfig.explosionSound : fallbackExplosionSound;
+    // Геттеры считывают значения из конфига (с безопасными значением по умолчанию)
+    public WarheadType CurrentWarhead => config != null ? config.warheadType : WarheadType.HEAT;
+    public float DirectDamage => config != null ? config.directDamage : 250f;
+    public float SplashRadius => config != null ? config.splashRadius : 1.5f;
+    public float SplashDamage => config != null ? config.splashDamage : 40f;
+    public GameObject ExplosionPrefab => config != null ? config.explosionPrefab : null;
+    public AudioClip ExplosionSound => config != null ? config.explosionSound : null;
 
     private void Awake()
     {
@@ -49,7 +27,12 @@ public class DroneCollision : MonoBehaviour
 
     private void Update()
     {
-        if (!isExploded && allowManualDetonation && Input.GetKeyDown(detonateKey))
+        if (isExploded) return;
+
+        bool allowDetonate = (config != null) ? config.allowManualDetonation : true;
+        KeyCode detonateKey = (config != null) ? config.detonateKey : KeyCode.Space;
+
+        if (allowDetonate && Input.GetKeyDown(detonateKey))
         {
             Explode(transform.position, directHitCollider: null);
         }
@@ -60,9 +43,16 @@ public class DroneCollision : MonoBehaviour
         if (isExploded) return;
 
         float impactVelocity = collision.relativeVelocity.magnitude;
-        bool hitHazardTag = instantExplodeTags.Contains(collision.gameObject.tag);
 
-        if (explodeOnAnyCollision || hitHazardTag || impactVelocity >= minImpactVelocity)
+        bool explodeAny = (config != null) ? config.explodeOnAnyCollision : false;
+        float minVelocity = (config != null) ? config.minImpactVelocity : 3.0f;
+        string[] hazardTags = (config != null && config.instantExplodeTags != null)
+            ? config.instantExplodeTags
+            : new string[] { "Hazard" };
+
+        bool hitHazardTag = hazardTags.Contains(collision.gameObject.tag);
+
+        if (explodeAny || hitHazardTag || impactVelocity >= minVelocity)
         {
             Vector3 contactPoint = transform.position;
             Vector3 hitNormal = -transform.forward;
@@ -138,9 +128,7 @@ public class DroneCollision : MonoBehaviour
                 if (finalDamage > 1f)
                 {
                     Vector3 dirToModule = (col.transform.position - center).normalized;
-                    Vector3 normal = (CurrentWarhead == WarheadType.Thermobaric) ? -dirToModule : -dirToModule;
-
-                    module.TakeDamage(finalDamage, col.transform.position, normal, dirToModule);
+                    module.TakeDamage(finalDamage, col.transform.position, -dirToModule, dirToModule);
                 }
             }
         }
@@ -151,21 +139,25 @@ public class DroneCollision : MonoBehaviour
         if (isExploded) return;
         isExploded = true;
 
-        // 1. Отключение компонентов дрона
+        // 1. Отключение компонентов и коллайдеров дрона
         foreach (var col in GetComponentsInChildren<Collider>()) col.enabled = false;
         foreach (var rend in GetComponentsInChildren<Renderer>()) rend.enabled = false;
         if (flightController != null) flightController.enabled = false;
         if (motors != null) motors.enabled = false;
 
-        // 2. Расчет урона по области с учетом выбранной БЧ
+        // 2. Расчет урона по области
         ApplySplashDamage(contactPoint, directHitCollider);
 
-        // 3. Объективный контроль
-        if (reconDronePrefab != null)
+        // 3. Объективный контроль (Спавн наблюдателя)
+        GameObject reconPrefab = (config != null) ? config.reconDronePrefab : null;
+        Vector3 reconOffset = (config != null) ? config.reconOffset : new Vector3(0f, 35f, -20f);
+
+        if (reconPrefab != null)
         {
             Vector3 spawnPos = contactPoint + reconOffset;
             Quaternion spawnRot = Quaternion.LookRotation(contactPoint - spawnPos);
-            GameObject recon = Instantiate(reconDronePrefab, spawnPos, spawnRot);
+            GameObject recon = Instantiate(reconPrefab, spawnPos, spawnRot);
+
             var cameraModule = recon.GetComponentInChildren<DroneCameraModule>();
             if (cameraModule != null) cameraModule.transform.LookAt(contactPoint);
         }

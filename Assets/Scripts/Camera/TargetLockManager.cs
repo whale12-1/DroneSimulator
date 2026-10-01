@@ -2,6 +2,9 @@ using UnityEngine;
 
 public class TargetLockManager : MonoBehaviour
 {
+    [Header("Профиль Дрона")]
+    [SerializeField] private DroneConfig config;
+
     [Header("Ссылки")]
     [SerializeField] private TargetDetector detector;
 
@@ -18,12 +21,20 @@ public class TargetLockManager : MonoBehaviour
 
     private void Update()
     {
-        // Нажатие 'Space' фиксирует или сбрасывает цель
-        if (Input.GetKeyDown(KeyCode.Space))
+        // Если конфиг отсутствует или на дроне отключен автозахват — сбрасываем цель и не обрабатываем ввод
+        if (config != null && !config.allowTargetLock)
+        {
+            if (currentLockedTarget != null) currentLockedTarget = null;
+            return;
+        }
+
+        KeyCode lockKey = (config != null) ? config.targetLockKey : KeyCode.Space;
+
+        if (Input.GetKeyDown(lockKey))
         {
             if (currentLockedTarget != null)
             {
-                currentLockedTarget = null; // Сброс
+                currentLockedTarget = null; // Сброс цели
             }
             else
             {
@@ -40,9 +51,14 @@ public class TargetLockManager : MonoBehaviour
         float minDistanceToCenter = float.MaxValue;
 
         Vector3 screenCenter = new Vector3(Screen.width / 2f, Screen.height / 2f, 0f);
+        float maxAllowedRadius = (config != null && config.maxLockScreenRadius > 0f)
+            ? config.maxLockScreenRadius
+            : float.MaxValue;
 
         foreach (var target in detector.detectedTargets)
         {
+            if (target == null) continue;
+
             Vector3 targetScreenPos = cam.WorldToScreenPoint(target.TargetPosition);
 
             // Игнорируем объекты за спиной
@@ -50,7 +66,8 @@ public class TargetLockManager : MonoBehaviour
 
             float distanceFromCenter = Vector2.Distance(screenCenter, targetScreenPos);
 
-            if (distanceFromCenter < minDistanceToCenter)
+            // Проверяем, входит ли цель в допустимый радиус захвата
+            if (distanceFromCenter <= maxAllowedRadius && distanceFromCenter < minDistanceToCenter)
             {
                 minDistanceToCenter = distanceFromCenter;
                 bestTarget = target;

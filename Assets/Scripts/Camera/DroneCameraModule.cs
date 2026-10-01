@@ -8,33 +8,22 @@ public enum CameraType
 
 public class DroneCameraModule : MonoBehaviour
 {
-    [Header("Тип Камеры")]
-    public CameraType cameraType = CameraType.StrikeFixed;
-
-    [Header("Настройки FPV (Strike)")]
-    [SerializeField] private float fixedPitchAngle = 25f;
-
-    [Header("Настройки Подвеса (Recon)")]
-    [SerializeField] private float defaultGimbalPitch = 20f;
-    [SerializeField] private float minPitch = -10f;
-    [SerializeField] private float maxPitch = 85f;
-    [SerializeField] private float minYaw = -120f;  // Ограничение поворота влево
-    [SerializeField] private float maxYaw = 120f;   // Ограничение поворота вправо
-    [SerializeField] private float tiltSpeed = 45f;
-
+    [Header("Профиль Дрона")]
+    [SerializeField] private DroneConfig config;
 
     private float currentGimbalPitch;
     private float currentGimbalYaw;
 
+    public CameraType CurrentCameraType => (config != null) ? config.cameraType : CameraType.StrikeFixed;
+
     private void Awake()
     {
-        currentGimbalPitch = defaultGimbalPitch;
-        currentGimbalYaw = 0f;
+        ResetGimbalToDefault();
     }
 
     private void Update()
     {
-        if (cameraType == CameraType.ReconGimbal)
+        if (CurrentCameraType == CameraType.ReconGimbal)
         {
             HandleGimbalControl();
         }
@@ -47,20 +36,26 @@ public class DroneCameraModule : MonoBehaviour
 
     private void HandleGimbalControl()
     {
+        float speed = (config != null) ? config.tiltSpeed : 45f;
+
         // R / F — Наклон Вверх / Вниз (Pitch)
-        if (Input.GetKey(KeyCode.R)) currentGimbalPitch -= tiltSpeed * Time.deltaTime;
-        if (Input.GetKey(KeyCode.F)) currentGimbalPitch += tiltSpeed * Time.deltaTime;
+        if (Input.GetKey(KeyCode.R)) currentGimbalPitch -= speed * Time.deltaTime;
+        if (Input.GetKey(KeyCode.F)) currentGimbalPitch += speed * Time.deltaTime;
 
         // Q / E — Поворот Влево / Вправо (Yaw)
-        if (Input.GetKey(KeyCode.Q)) currentGimbalYaw -= tiltSpeed * Time.deltaTime;
-        if (Input.GetKey(KeyCode.E)) currentGimbalYaw += tiltSpeed * Time.deltaTime;
+        if (Input.GetKey(KeyCode.Q)) currentGimbalYaw -= speed * Time.deltaTime;
+        if (Input.GetKey(KeyCode.E)) currentGimbalYaw += speed * Time.deltaTime;
 
         // Сброс камеры в центр по нажатию 'C'
         if (Input.GetKeyDown(KeyCode.C))
         {
-            currentGimbalPitch = defaultGimbalPitch;
-            currentGimbalYaw = 0f;
+            ResetGimbalToDefault();
         }
+
+        float minPitch = (config != null) ? config.minPitch : -10f;
+        float maxPitch = (config != null) ? config.maxPitch : 85f;
+        float minYaw = (config != null) ? config.minYaw : -120f;
+        float maxYaw = (config != null) ? config.maxYaw : 120f;
 
         currentGimbalPitch = Mathf.Clamp(currentGimbalPitch, minPitch, maxPitch);
         currentGimbalYaw = Mathf.Clamp(currentGimbalYaw, minYaw, maxYaw);
@@ -68,16 +63,22 @@ public class DroneCameraModule : MonoBehaviour
 
     private void ApplyCameraRotation()
     {
-        if (cameraType == CameraType.StrikeFixed)
+        if (CurrentCameraType == CameraType.StrikeFixed)
         {
-            transform.localRotation = Quaternion.Euler(fixedPitchAngle, 0f, 0f);
+            float pitch = (config != null) ? config.fixedPitchAngle : 25f;
+            transform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
-        else if (cameraType == CameraType.ReconGimbal)
+        else if (CurrentCameraType == CameraType.ReconGimbal)
         {
             // Гиростабилизация: учитываем мировой поворот дрона по Y и добавляем смещение Yaw/Pitch подвеса
             Vector3 parentEuler = transform.parent != null ? transform.parent.eulerAngles : Vector3.zero;
-
             transform.rotation = Quaternion.Euler(currentGimbalPitch, parentEuler.y + currentGimbalYaw, 0f);
         }
+    }
+
+    public void ResetGimbalToDefault()
+    {
+        currentGimbalPitch = (config != null) ? config.defaultGimbalPitch : 20f;
+        currentGimbalYaw = 0f;
     }
 }

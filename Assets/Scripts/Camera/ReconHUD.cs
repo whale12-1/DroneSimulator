@@ -2,16 +2,13 @@ using UnityEngine;
 
 public class ReconHUD : MonoBehaviour
 {
+    [Header("Профиль Дрона")]
+    [SerializeField] private DroneConfig config;
+
     [Header("Ссылки на компоненты")]
     [SerializeField] private TargetLockManager lockManager;
     [SerializeField] private DroneCameraModule cameraModule;
     [SerializeField] private FPVZoom zoomModule;
-    [SerializeField] private LayerMask lrfMask; // Земля и техника для дальномера
-
-    [Header("Визуал OSD")]
-    [SerializeField] private Color reconColor = new Color(1f, 0.85f, 0.2f, 0.9f); // Янтарный/Желтый цвет
-    [SerializeField] private float lineWidth = 2f;
-    [SerializeField] private float minBoxSize = 20f; // Минимальный размер рамки в пикселях, если цель очень далеко
 
     private Camera cam;
     private Texture2D pixelTexture;
@@ -30,12 +27,18 @@ public class ReconHUD : MonoBehaviour
 
     private void OnGUI()
     {
-        // Отрисовываем OSD только в режиме разведки ReconGimbal
-        if (cameraModule != null && cameraModule.cameraType != CameraType.ReconGimbal) return;
+        // Проверяем тип камеры из конфига или модуля
+        CameraType camType = (config != null) ? config.cameraType : (cameraModule != null ? cameraModule.CurrentCameraType : CameraType.StrikeFixed);
+        if (camType != CameraType.ReconGimbal) return;
 
-        GUI.color = reconColor;
+        Color hudColor = (config != null) ? config.reconColor : new Color(1f, 0.85f, 0.2f, 0.9f);
+        float lineWidth = (config != null) ? config.hudLineWidth : 2f;
+        float minBoxSize = (config != null) ? config.minBoxSize : 20f;
+        LayerMask lrfMask = (config != null) ? config.lrfMask : (LayerMask)(~0);
+
+        GUI.color = hudColor;
         GUIStyle style = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold };
-        style.normal.textColor = reconColor;
+        style.normal.textColor = hudColor;
 
         // 1. Лазерный дальномер (LRF) по центру камеры
         Ray lrfRay = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
@@ -53,7 +56,7 @@ public class ReconHUD : MonoBehaviour
         DrawRect(new Rect(center.x - 8f, center.y - 1f, 16f, 2f));
         DrawRect(new Rect(center.x - 1f, center.y - 8f, 2f, 16f));
 
-        // 3. Информационный блок OSD (Альтитуда, Расстояние, Координаты)
+        // 3. Информационный блок OSD
         GUI.Label(new Rect(25, 25, 350, 20), "[RECON GIMBAL ACTIVE]", style);
         GUI.Label(new Rect(25, 45, 350, 20), $"ALT: {transform.position.y:F1}m  |  LRF DIST: {(distance > 0 ? $"{distance:F0}m" : "N/A")}", style);
 
@@ -72,7 +75,6 @@ public class ReconHUD : MonoBehaviour
             {
                 Bounds bounds = targetRenderer.bounds;
 
-                // Берём 8 угловых точек 3D Bounding Box объекта
                 Vector3[] screenPoints = new Vector3[8];
                 screenPoints[0] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.min.y, bounds.min.z));
                 screenPoints[1] = cam.WorldToScreenPoint(new Vector3(bounds.max.x, bounds.min.y, bounds.min.z));
@@ -83,7 +85,6 @@ public class ReconHUD : MonoBehaviour
                 screenPoints[6] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.max.y, bounds.max.z));
                 screenPoints[7] = cam.WorldToScreenPoint(new Vector3(bounds.max.x, bounds.max.y, bounds.max.z));
 
-                // Проверяем, что хотя бы одна точка перед камерой
                 if (screenPoints[0].z > 0)
                 {
                     float minX = screenPoints[0].x, maxX = screenPoints[0].x;
@@ -100,7 +101,6 @@ public class ReconHUD : MonoBehaviour
                     float width = Mathf.Max(maxX - minX, minBoxSize);
                     float height = Mathf.Max(maxY - minY, minBoxSize);
 
-                    // Центрирование при минимальном размере (на дальних дистанциях)
                     float centerX = (minX + maxX) * 0.5f;
                     float centerY = Screen.height - ((minY + maxY) * 0.5f);
 
@@ -108,7 +108,6 @@ public class ReconHUD : MonoBehaviour
 
                     DrawBoxOutline(targetRect, lineWidth);
 
-                    // Текст над и под рамкой
                     GUI.Label(new Rect(targetRect.x, targetRect.y - 18f, 200f, 20f), $"LOCKED: {target.targetName.ToUpper()}", style);
                     GUI.Label(new Rect(targetRect.x, targetRect.yMax + 2f, 200f, 20f), $"DIST: {Vector3.Distance(transform.position, target.TargetPosition):F0}m", style);
                 }

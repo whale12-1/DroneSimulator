@@ -1,3 +1,47 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:0eb3c8482c2781f526f94af7fa2564c44379a3577617c4ce04445a76e3439a8d
-size 585
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 3
+  tags:
+  - Drone
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - Drone
+  - Water
+  - UI
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  m_RenderingLayers:
+  - Default
+  m_MigratedRenderPipelines: []
