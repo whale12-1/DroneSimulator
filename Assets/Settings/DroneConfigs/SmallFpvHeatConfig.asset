@@ -63,7 +63,7 @@ MonoBehaviour:
   ewJitterThreshold: 0.15
   ewLineTearingThreshold: 0.3
   cameraType: 1
-  fixedPitchAngle: -30
+  fixedPitchAngle: -25
   defaultGimbalPitch: -20
   minPitch: -10
   maxPitch: 85

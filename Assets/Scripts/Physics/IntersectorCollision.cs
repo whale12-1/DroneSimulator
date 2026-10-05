@@ -22,11 +22,12 @@ public class InterceptorCollision : MonoBehaviour
     public bool explodeOnAnyCollision = true;
     [SerializeField] private float minImpactVelocity = 2.0f;
 
-    private bool isExploded = false;
+    private bool isExploded;
     private DroneFlightController flightController;
     private DroneMotors motors;
 
     public DroneConfig Config => droneConfig;
+    public WarheadType CurrentWarhead => droneConfig != null ? droneConfig.warheadType : fallbackWarheadType;
     public float SplashRadius => droneConfig != null ? droneConfig.splashRadius : fallbackSplashRadius;
     public float SplashDamage => droneConfig != null ? droneConfig.splashDamage : fallbackSplashDamage;
 
@@ -38,12 +39,8 @@ public class InterceptorCollision : MonoBehaviour
 
     private void Update()
     {
-        if (isExploded) return;
-
-        if (enableProximityFuse)
-        {
-            CheckProximityFuse();
-        }
+        if (isExploded || !enableProximityFuse) return;
+        CheckProximityFuse();
     }
 
     private void CheckProximityFuse()
@@ -53,7 +50,7 @@ public class InterceptorCollision : MonoBehaviour
         {
             if (col.transform.root == transform.root) continue;
             Explode(transform.position);
-            break;
+            return;
         }
     }
 
@@ -62,46 +59,10 @@ public class InterceptorCollision : MonoBehaviour
         if (isExploded) return;
 
         float impactVelocity = collision.relativeVelocity.magnitude;
-        if (explodeOnAnyCollision || impactVelocity >= minImpactVelocity)
-        {
-            Vector3 contactPoint = collision.contacts.Length > 0 ? collision.contacts[0].point : transform.position;
-            Explode(contactPoint, collision.collider);
-        }
-    }
+        if (!explodeOnAnyCollision && impactVelocity < minImpactVelocity) return;
 
-    private void ApplySplashDamage(Vector3 center, Collider ignoredCollider)
-    {
-        float radius = SplashRadius;
-        float baseSplashDamage = SplashDamage;
-
-        if (radius <= 0f || baseSplashDamage <= 0f) return;
-
-        Collider[] nearbyColliders = Physics.OverlapSphere(center, radius);
-        foreach (var col in nearbyColliders)
-        {
-            if (col == ignoredCollider || col.transform.root == transform.root) continue;
-
-            VehicleModule module = col.GetComponent<VehicleModule>();
-            if (module != null)
-            {
-                float distance = Vector3.Distance(center, col.transform.position);
-                float finalDamage = baseSplashDamage * Mathf.Clamp01(1.0f - (distance / radius));
-
-                if (finalDamage > 1f)
-                {
-                    Vector3 dir = (col.transform.position - center).normalized;
-                    module.TakeDamage(finalDamage, col.transform.position, -dir, dir);
-                }
-                continue;
-            }
-
-            VehicleHealth vehicle = col.GetComponentInParent<VehicleHealth>();
-            if (vehicle != null)
-            {
-                float distance = Vector3.Distance(center, col.transform.position);
-                vehicle.OnModuleHit(ModuleType.Armor, baseSplashDamage * Mathf.Clamp01(1.0f - (distance / radius)), false, col.transform.position);
-            }
-        }
+        Vector3 contactPoint = collision.contacts.Length > 0 ? collision.contacts[0].point : transform.position;
+        Explode(contactPoint, collision.collider);
     }
 
     public void Explode(Vector3 contactPoint, Collider directHitCollider = null)
@@ -109,18 +70,23 @@ public class InterceptorCollision : MonoBehaviour
         if (isExploded) return;
         isExploded = true;
 
-        // 1. Отключение узлов дрона
+        DisableDrone();
+
+        ExplosionService.ApplySplash(contactPoint, SplashRadius, SplashDamage,
+                                     CurrentWarhead, directHitCollider, gameObject);
+
+        // Вся внешняя логика (VFX, звук, счёт, рекон) реагирует через шину.
+        GameEvents.RaiseExplosion(new ExplosionEventData(contactPoint, SplashRadius, SplashDamage, CurrentWarhead, gameObject));
+        GameEvents.RaiseDroneExploded(contactPoint, this);
+
+        Destroy(gameObject, 0.1f);
+    }
+
+    private void DisableDrone()
+    {
         foreach (var col in GetComponentsInChildren<Collider>()) col.enabled = false;
         foreach (var rend in GetComponentsInChildren<Renderer>()) rend.enabled = false;
         if (flightController != null) flightController.enabled = false;
         if (motors != null) motors.enabled = false;
-
-        // 2. Расчет урона
-        ApplySplashDamage(contactPoint, directHitCollider);
-
-        // 3. ОТПРАВКА СОБЫТИЯ (Вся внешняя логика реагирует сама)
-        GameEvents.OnDroneExploded?.Invoke(contactPoint, this);
-
-        Destroy(gameObject, 0.1f);
     }
 }

@@ -13,7 +13,7 @@ public class DroneMotors : MonoBehaviour
     [SerializeField] private float maxThrust = 10f;
 
     private Rigidbody rb;
-
+    public float MaxTotalThrust => maxThrust * 4f;
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();

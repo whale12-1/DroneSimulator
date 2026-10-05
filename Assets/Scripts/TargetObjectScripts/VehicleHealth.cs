@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class VehicleHealth : MonoBehaviour
+public class VehicleHealth : MonoBehaviour, IDamageable
 {
     [Header("Прочность и Визуал")]
     public float totalHealth = 300f;
@@ -13,10 +13,15 @@ public class VehicleHealth : MonoBehaviour
     [SerializeField] private MonoBehaviour vehicleDriveScript;
     [SerializeField] private MonoBehaviour vehicleAIScript;
 
-    private bool isDestroyed = false;
+    private bool isDestroyed;
     private Vector3 lastHitPoint = Vector3.zero;
 
-    // Добавили параметр hitPoint для сохранения точки последнего удара
+    // Единый контракт урона — приходит от ExplosionService или любого IDamageable-канала.
+    public void ApplyDamage(in DamageData data)
+    {
+        OnModuleHit(data.Module, data.Amount, isModuleDestroyed: false, data.HitPoint);
+    }
+
     public void OnModuleHit(ModuleType module, float damage, bool isModuleDestroyed, Vector3 hitPoint = default)
     {
         if (isDestroyed) return;
@@ -45,7 +50,6 @@ public class VehicleHealth : MonoBehaviour
                 DisableVehicleMovement();
                 Debug.Log("<color=yellow>ТЕХНИКА ПОТЕРЯЛА ХОД!</color>");
                 break;
-
             case ModuleType.AmmoRack:
                 Debug.Log("<color=red>ДЕТОНАЦИЯ БОЕКОМПЛЕКТА!</color>");
                 break;
@@ -55,17 +59,13 @@ public class VehicleHealth : MonoBehaviour
     private void DisableVehicleMovement()
     {
         if (vehicleDriveScript != null) vehicleDriveScript.enabled = false;
+        if (wheelColliders == null) return;
 
-        if (wheelColliders != null)
+        foreach (var wheel in wheelColliders)
         {
-            foreach (var wheel in wheelColliders)
-            {
-                if (wheel != null)
-                {
-                    wheel.motorTorque = 0f;
-                    wheel.brakeTorque = 10000f;
-                }
-            }
+            if (wheel == null) continue;
+            wheel.motorTorque = 0f;
+            wheel.brakeTorque = 10000f;
         }
     }
 
@@ -74,42 +74,32 @@ public class VehicleHealth : MonoBehaviour
         if (isDestroyed) return;
         isDestroyed = true;
 
-        if (vehicleAIScript != null)
-        {
-            vehicleAIScript.enabled = false;
-        }
+        if (vehicleAIScript != null) vehicleAIScript.enabled = false;
         DisableVehicleMovement();
 
-        // 1. Спавн крупного взрыва в ТОЧКЕ ПОПАДАНИЯ, а не в центре земли (0,0,0)
         if (explosionVFX != null)
         {
-            Vector3 spawnPos = (lastHitPoint != Vector3.zero) ? lastHitPoint : (transform.position + Vector3.up * 1.2f);
+            Vector3 spawnPos = lastHitPoint != Vector3.zero ? lastHitPoint : transform.position + Vector3.up * 1.2f;
             Instantiate(explosionVFX, spawnPos, Quaternion.identity);
         }
 
-        // 2. Корректная замена ВСЕХ слотов материалов (Element 0, Element 1 и т.д.)
         if (overallBurntMaterial != null)
         {
-            Renderer[] allRenderers = GetComponentsInChildren<Renderer>();
-            foreach (Renderer rend in allRenderers)
+            foreach (Renderer rend in GetComponentsInChildren<Renderer>())
             {
-                if (rend.GetComponent<ParticleSystem>() == null)
-                {
-                    Material[] burntMaterials = new Material[rend.sharedMaterials.Length];
-                    for (int i = 0; i < burntMaterials.Length; i++)
-                    {
-                        burntMaterials[i] = overallBurntMaterial;
-                    }
-                    rend.materials = burntMaterials; // Заменяем весь массив материалов
-                }
+                if (rend.GetComponent<ParticleSystem>() != null) continue;
+
+                var burnt = new Material[rend.sharedMaterials.Length];
+                for (int i = 0; i < burnt.Length; i++) burnt[i] = overallBurntMaterial;
+                rend.materials = burnt;
             }
         }
 
-        // 3. Отрыв башни/кузова
         if (catastrophicAmmoExplosion && turretTransform != null)
         {
             turretTransform.SetParent(null);
-            Rigidbody turretRb = turretTransform.gameObject.GetComponent<Rigidbody>();
+
+            Rigidbody turretRb = turretTransform.GetComponent<Rigidbody>();
             if (turretRb == null) turretRb = turretTransform.gameObject.AddComponent<Rigidbody>();
 
             turretRb.mass = 1200f;
@@ -117,6 +107,7 @@ public class VehicleHealth : MonoBehaviour
             turretRb.AddTorque(Random.insideUnitSphere * 6000f, ForceMode.Impulse);
         }
 
+        GameEvents.RaiseVehicleDestroyed(this);
         Debug.Log("<color=red>ТЕХНИКА ПОЛНОСТЬЮ УНИЧТОЖЕНА!</color>");
     }
 }

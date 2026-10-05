@@ -1,4 +1,3 @@
-using Unity.Collections.Tests.CoreCLR.TestJobs;
 using UnityEngine;
 
 public class DroneManager : MonoBehaviour
@@ -9,11 +8,15 @@ public class DroneManager : MonoBehaviour
     [SerializeField] private GameObject strikeDrone_2;
     [SerializeField] private GameObject dropDrone;
     [SerializeField] private GameObject intersectorDrone;
-    private void Start()
-    {
-        // Старт с разведчика
-        SelectRecon();
-    }
+
+    [Header("Профили (должны совпадать по порядку с объектами выше)")]
+    [SerializeField] private DroneConfig reconConfig;
+    [SerializeField] private DroneConfig strikeConfig;
+    [SerializeField] private DroneConfig strike2Config;
+    [SerializeField] private DroneConfig dropConfig;
+    [SerializeField] private DroneConfig intersectorConfig;
+
+    private void Start() => SelectRecon();
 
     private void Update()
     {
@@ -24,48 +27,39 @@ public class DroneManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha5)) SelectIntersector();
     }
 
-    public void SelectRecon()
+    /// <summary>Активирует дрон по конфигу. Если не найдено — остаётся текущий выбор.</summary>
+    public void SelectByConfig(DroneConfig cfg)
     {
-        if (reconDrone != null) reconDrone.SetActive(true);
-        if (strikeDrone != null) strikeDrone.SetActive(false);
-        if (strikeDrone_2 != null) strikeDrone_2.SetActive(false);
-        if(dropDrone!=null) dropDrone.SetActive(false);
-        if(intersectorDrone != null) intersectorDrone.SetActive(false);
+        if (cfg == null) return;
+
+        if (cfg == reconConfig) { SelectRecon(); return; }
+        if (cfg == strikeConfig) { SelectStrike(); return; }
+        if (cfg == strike2Config) { SelectStrike1(); return; }
+        if (cfg == dropConfig) { SelectDropDrone(); return; }
+        if (cfg == intersectorConfig) { SelectIntersector(); return; }
+
+        Debug.LogWarning($"[DroneManager] Конфиг '{cfg.name}' не привязан ни к одному слоту.");
     }
 
-    public void SelectStrike()
+    public void SelectRecon() => SetActive(reconDrone);
+    public void SelectStrike() => SetActive(strikeDrone);
+    public void SelectStrike1() => SetActive(strikeDrone_2);
+    public void SelectDropDrone() => SetActive(dropDrone);
+    public void SelectIntersector() => SetActive(intersectorDrone);
+
+    private void SetActive(GameObject target)
     {
-        if (strikeDrone != null) strikeDrone.SetActive(true);
-        if (reconDrone != null) reconDrone.SetActive(false);
-        if (strikeDrone_2 != null) strikeDrone_2.SetActive(false);
-        if(dropDrone!= null) dropDrone.SetActive(false);
-        if(intersectorDrone!=null) intersectorDrone.SetActive(false);
+        Toggle(reconDrone, target);
+        Toggle(strikeDrone, target);
+        Toggle(strikeDrone_2, target);
+        Toggle(dropDrone, target);
+        Toggle(intersectorDrone, target);
+
+        GameEvents.RaiseDroneSwitched(target);
     }
 
-    public void SelectStrike1()
+    private static void Toggle(GameObject go, GameObject active)
     {
-        if (strikeDrone_2 != null) strikeDrone_2.SetActive(true);
-        if (strikeDrone != null) strikeDrone.SetActive(false);
-        if (reconDrone != null) reconDrone.SetActive(false);
-        if(dropDrone != null) dropDrone.SetActive(false);
-        if(intersectorDrone != null) intersectorDrone.SetActive(false);
+        if (go != null) go.SetActive(go == active);
     }
-
-    public void SelectDropDrone()
-    {
-        if (strikeDrone_2 != null) strikeDrone_2.SetActive(false);
-        if (strikeDrone != null) strikeDrone.SetActive(false);
-        if (reconDrone != null) reconDrone.SetActive(false);
-        if (dropDrone != null) dropDrone.SetActive(true);
-        if( intersectorDrone != null) intersectorDrone.SetActive(false);
-    }
-    public void SelectIntersector()
-    {
-        if (strikeDrone_2 != null) strikeDrone_2.SetActive(false);
-        if (strikeDrone != null) strikeDrone.SetActive(false);
-        if (reconDrone != null) reconDrone.SetActive(false);
-        if (dropDrone != null) dropDrone.SetActive(false);
-        if (intersectorDrone != null) intersectorDrone.SetActive(true);
-    }
-
 }

@@ -8,7 +8,7 @@ public class DroppedBomb : MonoBehaviour
     [SerializeField] private float explosionForce = 700f;
     [SerializeField] private GameObject explosionVFX;
 
-    private bool isExploded = false;
+    private bool isExploded;
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -20,45 +20,25 @@ public class DroppedBomb : MonoBehaviour
     {
         isExploded = true;
 
-        // 1. Визуальный эффект взрыва
-        if (explosionVFX != null)
+        EffectService.Spawn(explosionVFX, transform.position);
+        ExplosionService.ApplySplash(transform.position, explosionRadius, damage, WarheadType.HE_Frag, source: gameObject);
+
+        // Разброс физических обломков
+        foreach (var hit in Physics.OverlapSphere(transform.position, explosionRadius))
         {
-            Instantiate(explosionVFX, transform.position, Quaternion.identity);
-        }
-
-        // 2. Поиск всех объектов в радиусе поражения
-        Collider[] hitColliders = Physics.OverlapSphere(transform.position, explosionRadius);
-        foreach (var hit in hitColliders)
-        {
-            // Наносим урон технике (БТР)
-            VehicleHealth vehicle = hit.GetComponentInParent<VehicleHealth>();
-            if (vehicle != null)
-            {
-                vehicle.OnModuleHit(ModuleType.MainHull, damage, false, transform.position);
-            }
-
-            // Наносим урон разрушаемым стенам
-            DestructibleWallZone wall = hit.GetComponent<DestructibleWallZone>();
-            if (wall != null)
-            {
-                wall.TakeDamage(damage);
-            }
-
-            // Разбрасываем обломки и физические объекты
-            Rigidbody rb = hit.GetComponent<Rigidbody>();
-            if (rb != null)
+            Rigidbody rb = hit.attachedRigidbody;
+            if (rb != null && !rb.isKinematic)
             {
                 rb.AddExplosionForce(explosionForce, transform.position, explosionRadius);
             }
         }
 
-        // Уничтожаем объект снаряда
+        GameEvents.RaiseExplosion(new ExplosionEventData(transform.position, explosionRadius, damage, WarheadType.HE_Frag, gameObject));
         Destroy(gameObject);
     }
 
     private void OnDrawGizmosSelected()
     {
-        // Отрисовка радиуса поражения в редакторе для удобства настройки
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, explosionRadius);
     }
