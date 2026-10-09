@@ -1,3 +1,4 @@
+# --- Unity временные папки ---
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -6,10 +7,43 @@
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 /[Mm]emoryCaptures/
+/[Rr]ecordings/
+/ExportedObj/
 
-# ����� IDE (Visual Studio / Rider)
+# --- Unity генерируемые файлы ---
+sysinfo.txt
+mono_crash.*
+crashlytics-build.properties
+*.log
+*.blend1
+*.blend1.meta
+
+# --- IDE (Visual Studio / Rider / VS Code) ---
 .vs/
 .idea/
+.vscode/
 *.csproj
+*.unityproj
 *.sln
 *.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Сборки ---
+*.apk
+*.aab
+*.unitypackage
+*.app
+*.exe
