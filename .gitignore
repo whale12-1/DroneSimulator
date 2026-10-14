@@ -47,3 +47,12 @@ desktop.ini
 *.unitypackage
 *.app
 *.exe
+*.slnx
+
+# Unity Recovery
+_Recovery/
+Assets/_Recovery/
+
+# IDE / MCP settings
+*.vsconfig
+ProjectSettings/McpUnitySettings.json
