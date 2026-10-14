@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class DroppedBomb : MonoBehaviour
 {
-    [Header("Параметры взрыва")]
+    [Header("РџР°СЂР°РјРµС‚СЂС‹ РІР·СЂС‹РІР°")]
     [SerializeField] private float explosionRadius = 6f;
     [SerializeField] private float damage = 150f;
     [SerializeField] private float explosionForce = 700f;
@@ -23,7 +23,7 @@ public class DroppedBomb : MonoBehaviour
         EffectService.Spawn(explosionVFX, transform.position);
         ExplosionService.ApplySplash(transform.position, explosionRadius, damage, WarheadType.HE_Frag, source: gameObject);
 
-        // Разброс физических обломков
+        // Р Р°Р·Р±СЂРѕСЃ С„РёР·РёС‡РµСЃРєРёС… РѕР±Р»РѕРјРєРѕРІ
         foreach (var hit in Physics.OverlapSphere(transform.position, explosionRadius))
         {
             Rigidbody rb = hit.attachedRigidbody;

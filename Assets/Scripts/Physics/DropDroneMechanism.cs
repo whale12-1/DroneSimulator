@@ -2,12 +2,12 @@ using UnityEngine;
 
 public class DroneDropMechanism : MonoBehaviour
 {
-    [Header("Настройки боекомплекта")]
-    [SerializeField] private GameObject bombPrefab;        // Префаб боеприпаса
-    [SerializeField] private Transform dropPoint;            // Точка под днищем дрона
-    [SerializeField] private KeyCode dropKey = KeyCode.Space; // Клавиша сброса
-    [SerializeField] private int ammoCount = 4;              // Кол-во снарядов
-    [SerializeField] private float dropCooldown = 1f;        // Задержка между сбросами
+    [Header("РќР°СЃС‚СЂРѕР№РєРё Р±РѕРµРєРѕРјРїР»РµРєС‚Р°")]
+    [SerializeField] private GameObject bombPrefab;        // РџСЂРµС„Р°Р± Р±РѕРµРїСЂРёРїР°СЃР°
+    [SerializeField] private Transform dropPoint;            // РўРѕС‡РєР° РїРѕРґ РґРЅРёС‰РµРј РґСЂРѕРЅР°
+    [SerializeField] private KeyCode dropKey = KeyCode.Space; // РљР»Р°РІРёС€Р° СЃР±СЂРѕСЃР°
+    [SerializeField] private int ammoCount = 4;              // РљРѕР»-РІРѕ СЃРЅР°СЂСЏРґРѕРІ
+    [SerializeField] private float dropCooldown = 1f;        // Р—Р°РґРµСЂР¶РєР° РјРµР¶РґСѓ СЃР±СЂРѕСЃР°РјРё
 
     private Rigidbody droneRigidbody;
     private float lastDropTime = 0f;
@@ -30,17 +30,17 @@ public class DroneDropMechanism : MonoBehaviour
         lastDropTime = Time.time;
         ammoCount--;
 
-        // Спавним снаряд под дроном
+        // РЎРїР°РІРЅРёРј СЃРЅР°СЂСЏРґ РїРѕРґ РґСЂРѕРЅРѕРј
         GameObject bombInstance = Instantiate(bombPrefab, dropPoint.position, dropPoint.rotation);
         Rigidbody bombRb = bombInstance.GetComponent<Rigidbody>();
 
         if (bombRb != null && droneRigidbody != null)
         {
-            // Передаем снаряду вектор и скорость полета дрона (инерция)
+            // РџРµСЂРµРґР°РµРј СЃРЅР°СЂСЏРґСѓ РІРµРєС‚РѕСЂ Рё СЃРєРѕСЂРѕСЃС‚СЊ РїРѕР»РµС‚Р° РґСЂРѕРЅР° (РёРЅРµСЂС†РёСЏ)
             bombRb.linearVelocity = droneRigidbody.linearVelocity;
         }
 
-        Debug.Log($"[BOMB DROP] Снаряд сброшен! Осталось: {ammoCount}");
+        Debug.Log($"[BOMB DROP] РЎРЅР°СЂСЏРґ СЃР±СЂРѕС€РµРЅ! РћСЃС‚Р°Р»РѕСЃСЊ: {ammoCount}");
     }
 
     public int GetAmmoCount()

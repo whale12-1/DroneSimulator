@@ -4,27 +4,27 @@ using TMPro;
 
 public class DropHUD : MonoBehaviour
 {
-    [Header("Ссылки на объекты")]
+    [Header("РЎСЃС‹Р»РєРё РЅР° РѕР±СЉРµРєС‚С‹")]
     [SerializeField] private Camera mainCamera;
     [SerializeField] private Rigidbody droneRigidbody;
     [SerializeField] private DroneDropMechanism dropMechanism;
 
-    [Header("Элементы UI")]
-    [Tooltip("Иконка/крестик прицела на Canvas, который будет смещаться в точку падения")]
+    [Header("Р­Р»РµРјРµРЅС‚С‹ UI")]
+    [Tooltip("РРєРѕРЅРєР°/РєСЂРµСЃС‚РёРє РїСЂРёС†РµР»Р° РЅР° Canvas, РєРѕС‚РѕСЂС‹Р№ Р±СѓРґРµС‚ СЃРјРµС‰Р°С‚СЊСЃСЏ РІ С‚РѕС‡РєСѓ РїР°РґРµРЅРёСЏ")]
     [SerializeField] private RectTransform impactReticle;
-    [SerializeField] private TextMeshProUGUI altitudeText;  // Высота (ALT)
-    [SerializeField] private TextMeshProUGUI distanceText;  // Дистанция до цели (RNG)
-    [SerializeField] private TextMeshProUGUI ammoText;      // Боезапас (AMMO)
+    [SerializeField] private TextMeshProUGUI altitudeText;  // Р’С‹СЃРѕС‚Р° (ALT)
+    [SerializeField] private TextMeshProUGUI distanceText;  // Р”РёСЃС‚Р°РЅС†РёСЏ РґРѕ С†РµР»Рё (RNG)
+    [SerializeField] private TextMeshProUGUI ammoText;      // Р‘РѕРµР·Р°РїР°СЃ (AMMO)
 
-    [Header("Настройки баллистики прицела")]
-    [SerializeField] private Transform dropPoint;         // Точка сброса под брюхом дрона
-    [SerializeField] private float maxPredictionTime = 5f; // Макс. время полета мины для просчета
-    [SerializeField] private float timeStep = 0.05f;      // Шаг точности траектории
-    [SerializeField] private LayerMask groundLayer;       // Слои земли, зданий и техники
+    [Header("РќР°СЃС‚СЂРѕР№РєРё Р±Р°Р»Р»РёСЃС‚РёРєРё РїСЂРёС†РµР»Р°")]
+    [SerializeField] private Transform dropPoint;         // РўРѕС‡РєР° СЃР±СЂРѕСЃР° РїРѕРґ Р±СЂСЋС…РѕРј РґСЂРѕРЅР°
+    [SerializeField] private float maxPredictionTime = 5f; // РњР°РєСЃ. РІСЂРµРјСЏ РїРѕР»РµС‚Р° РјРёРЅС‹ РґР»СЏ РїСЂРѕСЃС‡РµС‚Р°
+    [SerializeField] private float timeStep = 0.05f;      // РЁР°Рі С‚РѕС‡РЅРѕСЃС‚Рё С‚СЂР°РµРєС‚РѕСЂРёРё
+    [SerializeField] private LayerMask groundLayer;       // РЎР»РѕРё Р·РµРјР»Рё, Р·РґР°РЅРёР№ Рё С‚РµС…РЅРёРєРё
 
     private void Update()
     {
-        // 1. Проверяем, существует ли дрон сброса и активен ли его GameObject
+        // 1. РџСЂРѕРІРµСЂСЏРµРј, СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё РґСЂРѕРЅ СЃР±СЂРѕСЃР° Рё Р°РєС‚РёРІРµРЅ Р»Рё РµРіРѕ GameObject
         if (dropMechanism == null || !dropMechanism.gameObject.activeInHierarchy || !dropMechanism.enabled)
         {
             HideReticle();
@@ -37,13 +37,13 @@ public class DropHUD : MonoBehaviour
 
     private void UpdateTextInfo()
     {
-        // 1. Отображение боезапаса
+        // 1. РћС‚РѕР±СЂР°Р¶РµРЅРёРµ Р±РѕРµР·Р°РїР°СЃР°
         if (ammoText != null && dropMechanism != null)
         {
             ammoText.text = $"BOMBS: {dropMechanism.GetAmmoCount()}";
         }
 
-        // 2. Высота над поверхностью (барометр/радиовысотомер)
+        // 2. Р’С‹СЃРѕС‚Р° РЅР°Рґ РїРѕРІРµСЂС…РЅРѕСЃС‚СЊСЋ (Р±Р°СЂРѕРјРµС‚СЂ/СЂР°РґРёРѕРІС‹СЃРѕС‚РѕРјРµСЂ)
         if (altitudeText != null)
         {
             if (Physics.Raycast(droneRigidbody.transform.position, Vector3.down, out RaycastHit hit, 1000f, groundLayer))
@@ -62,20 +62,20 @@ public class DropHUD : MonoBehaviour
         if (impactReticle == null || mainCamera == null || dropPoint == null || droneRigidbody == null)
             return;
 
-        // Просчитываем физическую точку падения с учетом инерции дрона и гравитации
+        // РџСЂРѕСЃС‡РёС‚С‹РІР°РµРј С„РёР·РёС‡РµСЃРєСѓСЋ С‚РѕС‡РєСѓ РїР°РґРµРЅРёСЏ СЃ СѓС‡РµС‚РѕРј РёРЅРµСЂС†РёРё РґСЂРѕРЅР° Рё РіСЂР°РІРёС‚Р°С†РёРё
         Vector3 predictedImpactPoint = PredictImpactPoint();
 
-        // Вычисляем дистанцию до предполагаемой точки взрыва
+        // Р’С‹С‡РёСЃР»СЏРµРј РґРёСЃС‚Р°РЅС†РёСЋ РґРѕ РїСЂРµРґРїРѕР»Р°РіР°РµРјРѕР№ С‚РѕС‡РєРё РІР·СЂС‹РІР°
         float distanceToImpact = Vector3.Distance(dropPoint.position, predictedImpactPoint);
         if (distanceText != null)
         {
             distanceText.text = $"RNG: {distanceToImpact:F1}m";
         }
 
-        // Проецируем 3D-координату точки удара в 2D-координату экрана
+        // РџСЂРѕРµС†РёСЂСѓРµРј 3D-РєРѕРѕСЂРґРёРЅР°С‚Сѓ С‚РѕС‡РєРё СѓРґР°СЂР° РІ 2D-РєРѕРѕСЂРґРёРЅР°С‚Сѓ СЌРєСЂР°РЅР°
         Vector3 screenPoint = mainCamera.WorldToScreenPoint(predictedImpactPoint);
 
-        // Если точка находится в поле зрения камеры (перед ней)
+        // Р•СЃР»Рё С‚РѕС‡РєР° РЅР°С…РѕРґРёС‚СЃСЏ РІ РїРѕР»Рµ Р·СЂРµРЅРёСЏ РєР°РјРµСЂС‹ (РїРµСЂРµРґ РЅРµР№)
         if (screenPoint.z > 0)
         {
             impactReticle.gameObject.SetActive(true);
@@ -83,32 +83,32 @@ public class DropHUD : MonoBehaviour
         }
         else
         {
-            impactReticle.gameObject.SetActive(false); // Скрываем прицел, если точка позади кадра
+            impactReticle.gameObject.SetActive(false); // РЎРєСЂС‹РІР°РµРј РїСЂРёС†РµР», РµСЃР»Рё С‚РѕС‡РєР° РїРѕР·Р°РґРё РєР°РґСЂР°
         }
     }
 
     /// <summary>
-    /// Математический симулятор траектории бомбы (CCIP)
+    /// РњР°С‚РµРјР°С‚РёС‡РµСЃРєРёР№ СЃРёРјСѓР»СЏС‚РѕСЂ С‚СЂР°РµРєС‚РѕСЂРёРё Р±РѕРјР±С‹ (CCIP)
     /// </summary>
     private Vector3 PredictImpactPoint()
     {
         Vector3 currentPosition = dropPoint.position;
-        // В Unity 6 используется linearVelocity, в старых версиях — velocity
+        // Р’ Unity 6 РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ linearVelocity, РІ СЃС‚Р°СЂС‹С… РІРµСЂСЃРёСЏС… вЂ” velocity
         Vector3 currentVelocity = droneRigidbody.linearVelocity;
         Vector3 gravity = Physics.gravity;
 
         Vector3 previousPosition = currentPosition;
 
-        // Пошагово моделируем падение мины вперед по времени
+        // РџРѕС€Р°РіРѕРІРѕ РјРѕРґРµР»РёСЂСѓРµРј РїР°РґРµРЅРёРµ РјРёРЅС‹ РІРїРµСЂРµРґ РїРѕ РІСЂРµРјРµРЅРё
         for (float t = 0; t < maxPredictionTime; t += timeStep)
         {
-            // Формула равноускоренного движения: P(t) = P0 + V0*t + 0.5*g*t^2
+            // Р¤РѕСЂРјСѓР»Р° СЂР°РІРЅРѕСѓСЃРєРѕСЂРµРЅРЅРѕРіРѕ РґРІРёР¶РµРЅРёСЏ: P(t) = P0 + V0*t + 0.5*g*t^2
             currentPosition = dropPoint.position + currentVelocity * t + 0.5f * gravity * (t * t);
 
-            // Проверяем пересечение отрезка траектории с землей или объектами
+            // РџСЂРѕРІРµСЂСЏРµРј РїРµСЂРµСЃРµС‡РµРЅРёРµ РѕС‚СЂРµР·РєР° С‚СЂР°РµРєС‚РѕСЂРёРё СЃ Р·РµРјР»РµР№ РёР»Рё РѕР±СЉРµРєС‚Р°РјРё
             if (Physics.Linecast(previousPosition, currentPosition, out RaycastHit hit, groundLayer))
             {
-                return hit.point; // Возвращаем точную точку касания
+                return hit.point; // Р’РѕР·РІСЂР°С‰Р°РµРј С‚РѕС‡РЅСѓСЋ С‚РѕС‡РєСѓ РєР°СЃР°РЅРёСЏ
             }
 
             previousPosition = currentPosition;
@@ -117,7 +117,7 @@ public class DropHUD : MonoBehaviour
         return currentPosition;
     }
 
-    // Вызывается автоматически, когда скрипт DropHUD выключается
+    // Р’С‹Р·С‹РІР°РµС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё, РєРѕРіРґР° СЃРєСЂРёРїС‚ DropHUD РІС‹РєР»СЋС‡Р°РµС‚СЃСЏ
     private void OnDisable()
     {
         HideReticle();

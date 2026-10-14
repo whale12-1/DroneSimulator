@@ -4,7 +4,7 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class DroneCollision : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
     private bool isExploded;
@@ -77,7 +77,7 @@ public class DroneCollision : MonoBehaviour
 
     private void ApplyDirectDamage(Collider hitCollider, Vector3 point, Vector3 normal, Vector3 flightDir)
     {
-        // Термобарический заряд игнорирует острые углы брони
+        // РўРµСЂРјРѕР±Р°СЂРёС‡РµСЃРєРёР№ Р·Р°СЂСЏРґ РёРіРЅРѕСЂРёСЂСѓРµС‚ РѕСЃС‚СЂС‹Рµ СѓРіР»С‹ Р±СЂРѕРЅРё
         Vector3 effectiveNormal = CurrentWarhead == WarheadType.Thermobaric ? -flightDir : normal;
 
         IDamageable target = hitCollider.GetComponent<IDamageable>()

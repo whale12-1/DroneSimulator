@@ -14,7 +14,7 @@ public class MissionController : MonoBehaviour
         mission = MissionContext.Current;
         if (mission == null)
         {
-            Debug.LogWarning("[Mission] Запуск без миссии — fallback.");
+            Debug.LogWarning("[Mission] Р—Р°РїСѓСЃРє Р±РµР· РјРёСЃСЃРёРё вЂ” fallback.");
             return;
         }
 
@@ -52,12 +52,12 @@ public class MissionController : MonoBehaviour
     {
         ProgressService.CompleteMission(mission, mission.rewardPoints);
         GameStateMachine.TransitionTo(GameState.Debrief);
-        // показать Debrief-панель
+        // РїРѕРєР°Р·Р°С‚СЊ Debrief-РїР°РЅРµР»СЊ
     }
 
     private void Fail()
     {
         GameStateMachine.TransitionTo(GameState.Debrief);
-        // показать Debrief-панель с провалом
+        // РїРѕРєР°Р·Р°С‚СЊ Debrief-РїР°РЅРµР»СЊ СЃ РїСЂРѕРІР°Р»РѕРј
     }
 }

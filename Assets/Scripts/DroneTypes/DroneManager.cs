@@ -2,14 +2,14 @@ using UnityEngine;
 
 public class DroneManager : MonoBehaviour
 {
-    [Header("Объекты Дронов")]
+    [Header("РћР±СЉРµРєС‚С‹ Р”СЂРѕРЅРѕРІ")]
     [SerializeField] private GameObject reconDrone;
     [SerializeField] private GameObject strikeDrone;
     [SerializeField] private GameObject strikeDrone_2;
     [SerializeField] private GameObject dropDrone;
     [SerializeField] private GameObject intersectorDrone;
 
-    [Header("Профили (должны совпадать по порядку с объектами выше)")]
+    [Header("РџСЂРѕС„РёР»Рё (РґРѕР»Р¶РЅС‹ СЃРѕРІРїР°РґР°С‚СЊ РїРѕ РїРѕСЂСЏРґРєСѓ СЃ РѕР±СЉРµРєС‚Р°РјРё РІС‹С€Рµ)")]
     [SerializeField] private DroneConfig reconConfig;
     [SerializeField] private DroneConfig strikeConfig;
     [SerializeField] private DroneConfig strike2Config;
@@ -27,7 +27,7 @@ public class DroneManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha5)) SelectIntersector();
     }
 
-    /// <summary>Активирует дрон по конфигу. Если не найдено — остаётся текущий выбор.</summary>
+    /// <summary>РђРєС‚РёРІРёСЂСѓРµС‚ РґСЂРѕРЅ РїРѕ РєРѕРЅС„РёРіСѓ. Р•СЃР»Рё РЅРµ РЅР°Р№РґРµРЅРѕ вЂ” РѕСЃС‚Р°С‘С‚СЃСЏ С‚РµРєСѓС‰РёР№ РІС‹Р±РѕСЂ.</summary>
     public void SelectByConfig(DroneConfig cfg)
     {
         if (cfg == null) return;
@@ -38,7 +38,7 @@ public class DroneManager : MonoBehaviour
         if (cfg == dropConfig) { SelectDropDrone(); return; }
         if (cfg == intersectorConfig) { SelectIntersector(); return; }
 
-        Debug.LogWarning($"[DroneManager] Конфиг '{cfg.name}' не привязан ни к одному слоту.");
+        Debug.LogWarning($"[DroneManager] РљРѕРЅС„РёРі '{cfg.name}' РЅРµ РїСЂРёРІСЏР·Р°РЅ РЅРё Рє РѕРґРЅРѕРјСѓ СЃР»РѕС‚Сѓ.");
     }
 
     public void SelectRecon() => SetActive(reconDrone);

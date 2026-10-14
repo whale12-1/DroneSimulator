@@ -4,11 +4,11 @@ using UnityEngine.UI;
 
 public class MissionSelectScreen : UIScreen
 {
-    [Header("Префаб карточки")]
+    [Header("РџСЂРµС„Р°Р± РєР°СЂС‚РѕС‡РєРё")]
     [SerializeField] private MissionCardView cardPrefab;
     [SerializeField] private Transform cardsContainer;
 
-    [Header("Отладка")]
+    [Header("РћС‚Р»Р°РґРєР°")]
     [SerializeField] private bool verboseLogging = true;
 
     private System.Action<MissionDefinition> onPlayCallback;
@@ -21,17 +21,17 @@ public class MissionSelectScreen : UIScreen
         if (cardPrefab == null) { Debug.LogError("[MissionSelect] cardPrefab == NULL"); return; }
         if (cardsContainer == null) { Debug.LogError("[MissionSelect] cardsContainer == NULL"); return; }
 
-        // Чистим контейнер
+        // Р§РёСЃС‚РёРј РєРѕРЅС‚РµР№РЅРµСЂ
         for (int i = cardsContainer.childCount - 1; i >= 0; i--)
             Destroy(cardsContainer.GetChild(i).gameObject);
 
         if (registry.allMissions == null || registry.allMissions.Length == 0)
         {
-            Debug.LogWarning("[MissionSelect] registry.allMissions пустой");
+            Debug.LogWarning("[MissionSelect] registry.allMissions РїСѓСЃС‚РѕР№");
             return;
         }
 
-        Log($"Populate: {registry.allMissions.Length} миссий");
+        Log($"Populate: {registry.allMissions.Length} РјРёСЃСЃРёР№");
 
         foreach (var mission in registry.allMissions)
         {
@@ -40,16 +40,16 @@ public class MissionSelectScreen : UIScreen
             MissionCardView card = Instantiate(cardPrefab, cardsContainer);
             bool unlocked = ProgressService.IsUnlocked(mission);
 
-            Log($"  Карточка: {mission.displayName} (id={mission.id}, unlocked={unlocked})");
+            Log($"  РљР°СЂС‚РѕС‡РєР°: {mission.displayName} (id={mission.id}, unlocked={unlocked})");
 
-            // Клик по карточке = сразу запуск миссии
+            // РљР»РёРє РїРѕ РєР°СЂС‚РѕС‡РєРµ = СЃСЂР°Р·Сѓ Р·Р°РїСѓСЃРє РјРёСЃСЃРёРё
             card.Bind(mission, unlocked, OnMissionClicked);
         }
     }
 
     private void OnMissionClicked(MissionDefinition mission)
     {
-        Log($"Клик по миссии: {mission.displayName}");
+        Log($"РљР»РёРє РїРѕ РјРёСЃСЃРёРё: {mission.displayName}");
         onPlayCallback?.Invoke(mission);
     }
 

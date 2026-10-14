@@ -2,8 +2,8 @@ using UnityEngine;
 
 public enum DroneType
 {
-    StrikeFPV,  // Ударный FPV: чистый Acro, без авто-выравнивания и зависания
-    ReconDrop   // Разведчик/сбросник: Angle/Hover, плавное управление
+    StrikeFPV,  // РЈРґР°СЂРЅС‹Р№ FPV: С‡РёСЃС‚С‹Р№ Acro, Р±РµР· Р°РІС‚Рѕ-РІС‹СЂР°РІРЅРёРІР°РЅРёСЏ Рё Р·Р°РІРёСЃР°РЅРёСЏ
+    ReconDrop   // Р Р°Р·РІРµРґС‡РёРє/СЃР±СЂРѕСЃРЅРёРє: Angle/Hover, РїР»Р°РІРЅРѕРµ СѓРїСЂР°РІР»РµРЅРёРµ
 }
 
 [RequireComponent(typeof(Rigidbody))]
@@ -14,45 +14,45 @@ public class DroneFlightController : MonoBehaviour
     private DroneMotors motors;
     private EWReceiver ewReceiver;
 
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     public DroneType droneType = DroneType.StrikeFPV;
 
-    [Header("Режим Полета (активен только у ReconDrop)")]
+    [Header("Р РµР¶РёРј РџРѕР»РµС‚Р° (Р°РєС‚РёРІРµРЅ С‚РѕР»СЊРєРѕ Сѓ ReconDrop)")]
     public bool angleMode = false;
     public bool hoverMode = false;
     public float maxAngle = 35f;
 
-    [Header("PID Настройки")]
+    [Header("PID РќР°СЃС‚СЂРѕР№РєРё")]
     public PIDController pitchPID = new PIDController(2.5f, 0.05f, 0.4f);
     public PIDController rollPID = new PIDController(2.5f, 0.05f, 0.4f);
     public PIDController yawPID = new PIDController(2.0f, 0.0f, 0.3f);
 
-    [Header("Скорость Вращения (Deg/Sec)")]
-    [Tooltip("Для клавиатуры 180-250 оптимально. Мышь/геймпад — 400+.")]
+    [Header("РЎРєРѕСЂРѕСЃС‚СЊ Р’СЂР°С‰РµРЅРёСЏ (Deg/Sec)")]
+    [Tooltip("Р”Р»СЏ РєР»Р°РІРёР°С‚СѓСЂС‹ 180-250 РѕРїС‚РёРјР°Р»СЊРЅРѕ. РњС‹С€СЊ/РіРµР№РјРїР°Рґ вЂ” 400+.")]
     [SerializeField] private float maxPitchRate = 200f;
     [SerializeField] private float maxRollRate = 200f;
     [SerializeField] private float maxYawRate = 140f;
 
-    [Header("Аэродинамика")]
-    [Tooltip("Сопротивление вдоль носа. Низкое — дрон обтекаемый.")]
+    [Header("РђСЌСЂРѕРґРёРЅР°РјРёРєР°")]
+    [Tooltip("РЎРѕРїСЂРѕС‚РёРІР»РµРЅРёРµ РІРґРѕР»СЊ РЅРѕСЃР°. РќРёР·РєРѕРµ вЂ” РґСЂРѕРЅ РѕР±С‚РµРєР°РµРјС‹Р№.")]
     [SerializeField] private float forwardDrag = 0.35f;
-    [Tooltip("Боковое сопротивление. Высокое — дрон тормозит, когда летит боком.")]
+    [Tooltip("Р‘РѕРєРѕРІРѕРµ СЃРѕРїСЂРѕС‚РёРІР»РµРЅРёРµ. Р’С‹СЃРѕРєРѕРµ вЂ” РґСЂРѕРЅ С‚РѕСЂРјРѕР·РёС‚, РєРѕРіРґР° Р»РµС‚РёС‚ Р±РѕРєРѕРј.")]
     [SerializeField] private float lateralDrag = 1.5f;
-    [Tooltip("Вертикальное сопротивление (подъём/падение).")]
+    [Tooltip("Р’РµСЂС‚РёРєР°Р»СЊРЅРѕРµ СЃРѕРїСЂРѕС‚РёРІР»РµРЅРёРµ (РїРѕРґСЉС‘Рј/РїР°РґРµРЅРёРµ).")]
     [SerializeField] private float verticalDrag = 0.5f;
-    [Tooltip("Общий множитель — крутилка 'вязкость воздуха'.")]
+    [Tooltip("РћР±С‰РёР№ РјРЅРѕР¶РёС‚РµР»СЊ вЂ” РєСЂСѓС‚РёР»РєР° 'РІСЏР·РєРѕСЃС‚СЊ РІРѕР·РґСѓС…Р°'.")]
     [SerializeField] private float dragMultiplier = 1f;
-    [Tooltip("Жёсткий лимит скорости м/с. 0 = без лимита.")]
+    [Tooltip("Р–С‘СЃС‚РєРёР№ Р»РёРјРёС‚ СЃРєРѕСЂРѕСЃС‚Рё Рј/СЃ. 0 = Р±РµР· Р»РёРјРёС‚Р°.")]
     [SerializeField] private float maxSpeed = 55f;
 
-    [Header("Газ")]
-    [Tooltip("Скорость изменения газа при удержании клавиши.")]
+    [Header("Р“Р°Р·")]
+    [Tooltip("РЎРєРѕСЂРѕСЃС‚СЊ РёР·РјРµРЅРµРЅРёСЏ РіР°Р·Р° РїСЂРё СѓРґРµСЂР¶Р°РЅРёРё РєР»Р°РІРёС€Рё.")]
     [SerializeField] private float throttleSpeed = 1.8f;
 
-    [Header("Влияние РЭБ")]
+    [Header("Р’Р»РёСЏРЅРёРµ Р Р­Р‘")]
     [SerializeField] private bool enableEWImpact = true;
 
-    // Состояние стиков
+    // РЎРѕСЃС‚РѕСЏРЅРёРµ СЃС‚РёРєРѕРІ
     private float targetPitchInput;
     private float targetRollInput;
     private float targetYawInput;
@@ -108,7 +108,7 @@ public class DroneFlightController : MonoBehaviour
     }
 
     // ================================================================
-    //  ВВОД
+    //  Р’Р’РћР”
     // ================================================================
 
     private void ReadInput()
@@ -177,7 +177,7 @@ public class DroneFlightController : MonoBehaviour
     }
 
     // ================================================================
-    //  АЭРОДИНАМИКА
+    //  РђР­Р РћР”РРќРђРњРРљРђ
     // ================================================================
 
     private void ApplyAerodynamics()
@@ -198,7 +198,7 @@ public class DroneFlightController : MonoBehaviour
     }
 
     // ================================================================
-    //  ТЯГА И УГЛОВОЕ УПРАВЛЕНИЕ
+    //  РўРЇР“Рђ Р РЈР“Р›РћР’РћР• РЈРџР РђР’Р›Р•РќРР•
     // ================================================================
 
     private void ApplyThrustAndRotation()
@@ -241,7 +241,7 @@ public class DroneFlightController : MonoBehaviour
 
         if (angleMode)
         {
-            // Angle-режим: цель — угол, не скорость вращения
+            // Angle-СЂРµР¶РёРј: С†РµР»СЊ вЂ” СѓРіРѕР», РЅРµ СЃРєРѕСЂРѕСЃС‚СЊ РІСЂР°С‰РµРЅРёСЏ
             float currentPitch = NormalizeAngle(transform.localEulerAngles.x);
             float currentRoll = NormalizeAngle(transform.localEulerAngles.z);
 
@@ -254,7 +254,7 @@ public class DroneFlightController : MonoBehaviour
         }
         else
         {
-            // Чистый Acro: цель — скорость вращения, угол дрон не возвращает сам
+            // Р§РёСЃС‚С‹Р№ Acro: С†РµР»СЊ вЂ” СЃРєРѕСЂРѕСЃС‚СЊ РІСЂР°С‰РµРЅРёСЏ, СѓРіРѕР» РґСЂРѕРЅ РЅРµ РІРѕР·РІСЂР°С‰Р°РµС‚ СЃР°Рј
             targetPitchRate = targetPitchInput * maxPitchRate;
             targetRollRate  = targetRollInput  * maxRollRate;
         }

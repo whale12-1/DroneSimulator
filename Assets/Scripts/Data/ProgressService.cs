@@ -1,5 +1,5 @@
-using System.IO;        // <-- вот это забыл
-using System.Linq;      // <-- нужно для .All(), если ещё не подключено
+using System.IO;        // <-- РІРѕС‚ СЌС‚Рѕ Р·Р°Р±С‹Р»
+using System.Linq;      // <-- РЅСѓР¶РЅРѕ РґР»СЏ .All(), РµСЃР»Рё РµС‰С‘ РЅРµ РїРѕРґРєР»СЋС‡РµРЅРѕ
 using UnityEngine;
 
 [System.Serializable]
@@ -16,7 +16,7 @@ public static class ProgressService
 
     private static string SavePath => Path.Combine(Application.persistentDataPath, "progress.json");
 
-    // Единая точка доступа — всегда через свойство, оно гарантирует загрузку
+    // Р•РґРёРЅР°СЏ С‚РѕС‡РєР° РґРѕСЃС‚СѓРїР° вЂ” РІСЃРµРіРґР° С‡РµСЂРµР· СЃРІРѕР№СЃС‚РІРѕ, РѕРЅРѕ РіР°СЂР°РЅС‚РёСЂСѓРµС‚ Р·Р°РіСЂСѓР·РєСѓ
     public static SaveData Data => data ??= Load();
 
     public static bool IsUnlocked(MissionDefinition m)
@@ -24,7 +24,7 @@ public static class ProgressService
         if (m == null) return false;
         if (m.prerequisites == null || m.prerequisites.Length == 0) return true;
 
-        var d = Data;   // <-- было raw-поле data
+        var d = Data;   // <-- Р±С‹Р»Рѕ raw-РїРѕР»Рµ data
         if (d.unlockedMissionIds.Contains(m.id)) return true;
 
         return m.prerequisites.All(p => p != null && d.completedMissionIds.Contains(p.id));
@@ -34,7 +34,7 @@ public static class ProgressService
     {
         if (m == null) return;
 
-        var d = Data;   // <-- было raw-поле data
+        var d = Data;   // <-- Р±С‹Р»Рѕ raw-РїРѕР»Рµ data
         if (!d.completedMissionIds.Contains(m.id))
             d.completedMissionIds.Add(m.id);
 
@@ -53,7 +53,7 @@ public static class ProgressService
         }
         catch (System.Exception e)
         {
-            Debug.LogWarning($"[ProgressService] Не удалось прочитать сейв: {e.Message}");
+            Debug.LogWarning($"[ProgressService] РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ СЃРµР№РІ: {e.Message}");
             return new SaveData();
         }
     }
@@ -66,11 +66,11 @@ public static class ProgressService
         }
         catch (System.Exception e)
         {
-            Debug.LogError($"[ProgressService] Не удалось сохранить: {e.Message}");
+            Debug.LogError($"[ProgressService] РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ: {e.Message}");
         }
     }
 
-    /// <summary>Сброс прогресса — удобно для тестов и кнопки "Reset progress".</summary>
+    /// <summary>РЎР±СЂРѕСЃ РїСЂРѕРіСЂРµСЃСЃР° вЂ” СѓРґРѕР±РЅРѕ РґР»СЏ С‚РµСЃС‚РѕРІ Рё РєРЅРѕРїРєРё "Reset progress".</summary>
     public static void ResetProgress()
     {
         data = new SaveData();

@@ -4,21 +4,21 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class InterceptorCollision : MonoBehaviour
 {
-    [Header("Конфигурация Дрона")]
+    [Header("РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig droneConfig;
 
-    [Header("Резервные Настройки")]
+    [Header("Р РµР·РµСЂРІРЅС‹Рµ РќР°СЃС‚СЂРѕР№РєРё")]
     public WarheadType fallbackWarheadType = WarheadType.HEAT;
     public float fallbackDirectDamage = 150f;
     public float fallbackSplashRadius = 8f;
     public float fallbackSplashDamage = 100f;
 
-    [Header("Радиовзрыватель")]
+    [Header("Р Р°РґРёРѕРІР·СЂС‹РІР°С‚РµР»СЊ")]
     [SerializeField] private bool enableProximityFuse = true;
     [SerializeField] private LayerMask targetLayer;
     [SerializeField] private float triggerDistance = 5.0f;
 
-    [Header("Условия Взрыва по Столкновению")]
+    [Header("РЈСЃР»РѕРІРёСЏ Р’Р·СЂС‹РІР° РїРѕ РЎС‚РѕР»РєРЅРѕРІРµРЅРёСЋ")]
     public bool explodeOnAnyCollision = true;
     [SerializeField] private float minImpactVelocity = 2.0f;
 
@@ -75,7 +75,7 @@ public class InterceptorCollision : MonoBehaviour
         ExplosionService.ApplySplash(contactPoint, SplashRadius, SplashDamage,
                                      CurrentWarhead, directHitCollider, gameObject);
 
-        // Вся внешняя логика (VFX, звук, счёт, рекон) реагирует через шину.
+        // Р’СЃСЏ РІРЅРµС€РЅСЏСЏ Р»РѕРіРёРєР° (VFX, Р·РІСѓРє, СЃС‡С‘С‚, СЂРµРєРѕРЅ) СЂРµР°РіРёСЂСѓРµС‚ С‡РµСЂРµР· С€РёРЅСѓ.
         GameEvents.RaiseExplosion(new ExplosionEventData(contactPoint, SplashRadius, SplashDamage, CurrentWarhead, gameObject));
         GameEvents.RaiseDroneExploded(contactPoint, this);
 

@@ -5,17 +5,17 @@ using UnityEngine.UI;
 
 public class SettingsScreen : UIScreen
 {
-    [Header("Аудио")]
+    [Header("РђСѓРґРёРѕ")]
     [SerializeField] private Slider masterVolumeSlider;
     [SerializeField] private Slider sfxVolumeSlider;
     [SerializeField] private TMP_Text masterVolumeLabel;
     [SerializeField] private TMP_Text sfxVolumeLabel;
 
-    [Header("Графика")]
+    [Header("Р“СЂР°С„РёРєР°")]
     [SerializeField] private TMP_Dropdown qualityDropdown;
     [SerializeField] private Toggle fullscreenToggle;
 
-    [Header("Кнопки")]
+    [Header("РљРЅРѕРїРєРё")]
     [SerializeField] private Button backButton;
 
     private void OnEnable()
