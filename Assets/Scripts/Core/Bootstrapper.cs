@@ -3,11 +3,11 @@ using UnityEngine.SceneManagement;
 
 public class Bootstrapper : MonoBehaviour
 {
-    [SerializeField] private MissionRegistry missionRegistry; // чтобы грузился раньше UI
+    [SerializeField] private MissionRegistry missionRegistry; // С‡С‚РѕР±С‹ РіСЂСѓР·РёР»СЃСЏ СЂР°РЅСЊС€Рµ UI
 
     private void Start()
     {
-        // Гарантируем, что сервисы-одиночки существуют
+        // Р“Р°СЂР°РЅС‚РёСЂСѓРµРј, С‡С‚Рѕ СЃРµСЂРІРёСЃС‹-РѕРґРёРЅРѕС‡РєРё СЃСѓС‰РµСЃС‚РІСѓСЋС‚
         EnsureService<SceneLoader>("SceneLoader");
         EnsureService<SettingsService>("SettingsService");
 

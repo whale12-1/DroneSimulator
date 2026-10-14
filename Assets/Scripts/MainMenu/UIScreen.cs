@@ -7,7 +7,7 @@ public abstract class UIScreen : MonoBehaviour
     public virtual void Show()
     {
         if (group == null) group = GetComponent<CanvasGroup>();
-        if (group == null) { Debug.LogWarning($"[UIScreen] {name}: νες CanvasGroup", this); return; }
+        if (group == null) { Debug.LogWarning($"[UIScreen] {name}: Π½ΠµΡ‚ CanvasGroup", this); return; }
 
         group.alpha = 1f;
         group.interactable = true;

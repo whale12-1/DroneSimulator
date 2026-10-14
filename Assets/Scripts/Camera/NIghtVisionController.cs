@@ -4,10 +4,10 @@ using UnityEngine.Rendering.Universal;
 
 public class NightVisionController : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
-    [Header("Ссылки")]
+    [Header("РЎСЃС‹Р»РєРё")]
     [SerializeField] private Volume globalVolume;
     [SerializeField] private Light irSpotlight;
 
@@ -16,13 +16,13 @@ public class NightVisionController : MonoBehaviour
 
     private void Awake()
     {
-        // Авто-поиск Global Volume, если поле пустое
+        // РђРІС‚Рѕ-РїРѕРёСЃРє Global Volume, РµСЃР»Рё РїРѕР»Рµ РїСѓСЃС‚РѕРµ
         if (globalVolume == null)
         {
             globalVolume = FindFirstObjectByType<Volume>();
         }
 
-        // Авто-создание ИК-фонаря, если он не назначен
+        // РђРІС‚Рѕ-СЃРѕР·РґР°РЅРёРµ РРљ-С„РѕРЅР°СЂСЏ, РµСЃР»Рё РѕРЅ РЅРµ РЅР°Р·РЅР°С‡РµРЅ
         if (irSpotlight == null)
         {
             GameObject lightObj = new GameObject("IR_Spotlight");
@@ -31,7 +31,7 @@ public class NightVisionController : MonoBehaviour
             irSpotlight.type = LightType.Spot;
         }
 
-        // Применяем параметры ИК-подсветки из конфига
+        // РџСЂРёРјРµРЅСЏРµРј РїР°СЂР°РјРµС‚СЂС‹ РРљ-РїРѕРґСЃРІРµС‚РєРё РёР· РєРѕРЅС„РёРіР°
         if (irSpotlight != null && config != null)
         {
             irSpotlight.range = config.irRange;
@@ -39,7 +39,7 @@ public class NightVisionController : MonoBehaviour
             irSpotlight.intensity = config.irIntensity;
         }
 
-        // Получаем или создаем компонент ColorAdjustments в профиле
+        // РџРѕР»СѓС‡Р°РµРј РёР»Рё СЃРѕР·РґР°РµРј РєРѕРјРїРѕРЅРµРЅС‚ ColorAdjustments РІ РїСЂРѕС„РёР»Рµ
         if (globalVolume != null && globalVolume.profile != null)
         {
             if (!globalVolume.profile.TryGet(out colorAdjustments))
@@ -53,7 +53,7 @@ public class NightVisionController : MonoBehaviour
 
     private void Update()
     {
-        // Если ПНВ отключен в конфиге текущего дрона — выключаем и игнорируем ввод
+        // Р•СЃР»Рё РџРќР’ РѕС‚РєР»СЋС‡РµРЅ РІ РєРѕРЅС„РёРіРµ С‚РµРєСѓС‰РµРіРѕ РґСЂРѕРЅР° вЂ” РІС‹РєР»СЋС‡Р°РµРј Рё РёРіРЅРѕСЂРёСЂСѓРµРј РІРІРѕРґ
         if (config != null && !config.hasNightVision)
         {
             if (isNightVisionActive) SetNightVisionState(false);

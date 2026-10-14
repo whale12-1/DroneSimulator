@@ -2,16 +2,16 @@ using UnityEngine;
 
 public class DestructibleWallZone : MonoBehaviour
 {
-    [Header("Здоровье стены")]
+    [Header("Р—РґРѕСЂРѕРІСЊРµ СЃС‚РµРЅС‹")]
     [SerializeField] private float wallHealth = 50f;
 
-    [Header("Маска пролома (DepthMask)")]
-    [Tooltip("Дочерний объект Mask с материалом DepthMask")]
+    [Header("РњР°СЃРєР° РїСЂРѕР»РѕРјР° (DepthMask)")]
+    [Tooltip("Р”РѕС‡РµСЂРЅРёР№ РѕР±СЉРµРєС‚ Mask СЃ РјР°С‚РµСЂРёР°Р»РѕРј DepthMask")]
     [SerializeField] private GameObject holeMaskObject;
 
-    [Header("Эффекты и Обломки")]
-    [SerializeField] private GameObject debrisPrefab; // Префаб вылетающих кусков бетона/дерева
-    [SerializeField] private GameObject dustFx;       // Эффект пыли
+    [Header("Р­С„С„РµРєС‚С‹ Рё РћР±Р»РѕРјРєРё")]
+    [SerializeField] private GameObject debrisPrefab; // РџСЂРµС„Р°Р± РІС‹Р»РµС‚Р°СЋС‰РёС… РєСѓСЃРєРѕРІ Р±РµС‚РѕРЅР°/РґРµСЂРµРІР°
+    [SerializeField] private GameObject dustFx;       // Р­С„С„РµРєС‚ РїС‹Р»Рё
 
     private Collider wallCollider;
     private bool isDestroyed = false;
@@ -20,7 +20,7 @@ public class DestructibleWallZone : MonoBehaviour
     {
         wallCollider = GetComponent<Collider>();
 
-        // Гарантируем, что маска выключена на старте игры
+        // Р“Р°СЂР°РЅС‚РёСЂСѓРµРј, С‡С‚Рѕ РјР°СЃРєР° РІС‹РєР»СЋС‡РµРЅР° РЅР° СЃС‚Р°СЂС‚Рµ РёРіСЂС‹
         if (holeMaskObject != null)
         {
             holeMaskObject.SetActive(false);
@@ -31,7 +31,7 @@ public class DestructibleWallZone : MonoBehaviour
     {
         if (isDestroyed) return;
 
-        // Регистрируем столкновение с дроном или бомбой
+        // Р РµРіРёСЃС‚СЂРёСЂСѓРµРј СЃС‚РѕР»РєРЅРѕРІРµРЅРёРµ СЃ РґСЂРѕРЅРѕРј РёР»Рё Р±РѕРјР±РѕР№
         if (collision.gameObject.CompareTag("Drone") || collision.gameObject.CompareTag("Bomb"))
         {
             TakeDamage(100f);
@@ -61,19 +61,19 @@ public class DestructibleWallZone : MonoBehaviour
     {
         isDestroyed = true;
 
-        // 1. Включаем маску глубины (DepthMask), создавая визуальную дыру
+        // 1. Р’РєР»СЋС‡Р°РµРј РјР°СЃРєСѓ РіР»СѓР±РёРЅС‹ (DepthMask), СЃРѕР·РґР°РІР°СЏ РІРёР·СѓР°Р»СЊРЅСѓСЋ РґС‹СЂСѓ
         if (holeMaskObject != null)
         {
             holeMaskObject.SetActive(true);
         }
 
-        // 2. Отключаем коллайдер — дрон и объекты свободно пролетают сквозь стену
+        // 2. РћС‚РєР»СЋС‡Р°РµРј РєРѕР»Р»Р°Р№РґРµСЂ вЂ” РґСЂРѕРЅ Рё РѕР±СЉРµРєС‚С‹ СЃРІРѕР±РѕРґРЅРѕ РїСЂРѕР»РµС‚Р°СЋС‚ СЃРєРІРѕР·СЊ СЃС‚РµРЅСѓ
         if (wallCollider != null)
         {
             wallCollider.enabled = false;
         }
 
-        // 3. Спавним пыль и обломки
+        // 3. РЎРїР°РІРЅРёРј РїС‹Р»СЊ Рё РѕР±Р»РѕРјРєРё
         if (dustFx != null)
         {
             Instantiate(dustFx, transform.position, transform.rotation);
@@ -84,6 +84,6 @@ public class DestructibleWallZone : MonoBehaviour
             Instantiate(debrisPrefab, transform.position, transform.rotation);
         }
 
-        Debug.Log($"[BREACH] Стена {gameObject.name} пробита!");
+        Debug.Log($"[BREACH] РЎС‚РµРЅР° {gameObject.name} РїСЂРѕР±РёС‚Р°!");
     }
 }

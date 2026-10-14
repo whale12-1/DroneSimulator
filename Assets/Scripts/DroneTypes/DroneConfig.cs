@@ -2,15 +2,15 @@ using UnityEngine;
 
 public enum WarheadType
 {
-    HEAT,         // Кумулятивная
-    HE_Frag,      // Осколочно-фугасная
-    Thermobaric   // Термобарическая
+    HEAT,         // РљСѓРјСѓР»СЏС‚РёРІРЅР°СЏ
+    HE_Frag,      // РћСЃРєРѕР»РѕС‡РЅРѕ-С„СѓРіР°СЃРЅР°СЏ
+    Thermobaric   // РўРµСЂРјРѕР±Р°СЂРёС‡РµСЃРєР°СЏ
 }
 
 [CreateAssetMenu(fileName = "NewDroneConfig", menuName = "FPV/Drone Config")]
 public class DroneConfig : ScriptableObject
 {
-    [Header("1. Идентификация и Боевая Часть")]
+    [Header("1. РРґРµРЅС‚РёС„РёРєР°С†РёСЏ Рё Р‘РѕРµРІР°СЏ Р§Р°СЃС‚СЊ")]
     public string droneName = "FPV-7 PG-7VL";
     public WarheadType warheadType = WarheadType.HEAT;
     public float directDamage = 250f;
@@ -19,31 +19,31 @@ public class DroneConfig : ScriptableObject
     public GameObject explosionPrefab;
     public AudioClip explosionSound;
 
-    [Header("2. Условия Детонации и Взрывателя")]
+    [Header("2. РЈСЃР»РѕРІРёСЏ Р”РµС‚РѕРЅР°С†РёРё Рё Р’Р·СЂС‹РІР°С‚РµР»СЏ")]
     public bool allowManualDetonation = true;
     public KeyCode detonateKey = KeyCode.Space;
     public bool explodeOnAnyCollision = false;
     public float minImpactVelocity = 3.0f;
     public string[] instantExplodeTags = new string[] { "Hazard" };
 
-    [Header("3. Объективный Контроль")]
+    [Header("3. РћР±СЉРµРєС‚РёРІРЅС‹Р№ РљРѕРЅС‚СЂРѕР»СЊ")]
     public GameObject reconDronePrefab;
     public Vector3 reconOffset = new Vector3(0f, 35f, -20f);
 
-    [Header("4. Механизм Сброса (для Bomb/Drop Дронов)")]
+    [Header("4. РњРµС…Р°РЅРёР·Рј РЎР±СЂРѕСЃР° (РґР»СЏ Bomb/Drop Р”СЂРѕРЅРѕРІ)")]
     public GameObject bombPrefab;
     public int maxAmmo = 4;
     public float dropCooldown = 1.0f;
 
-    [Header("5. Сенсоры и Автозахват")]
-    public bool allowTargetLock = true;              // Разрешен ли автозахват на этой модели
-    public KeyCode targetLockKey = KeyCode.Space;    // Клавиша захвата/сброса цели
-    public float maxLockScreenRadius = 300f;         // Макс. отклонение от центра экрана в пикселях (0 = без ограничений)
+    [Header("5. РЎРµРЅСЃРѕСЂС‹ Рё РђРІС‚РѕР·Р°С…РІР°С‚")]
+    public bool allowTargetLock = true;              // Р Р°Р·СЂРµС€РµРЅ Р»Рё Р°РІС‚РѕР·Р°С…РІР°С‚ РЅР° СЌС‚РѕР№ РјРѕРґРµР»Рё
+    public KeyCode targetLockKey = KeyCode.Space;    // РљР»Р°РІРёС€Р° Р·Р°С…РІР°С‚Р°/СЃР±СЂРѕСЃР° С†РµР»Рё
+    public float maxLockScreenRadius = 300f;         // РњР°РєСЃ. РѕС‚РєР»РѕРЅРµРЅРёРµ РѕС‚ С†РµРЅС‚СЂР° СЌРєСЂР°РЅР° РІ РїРёРєСЃРµР»СЏС… (0 = Р±РµР· РѕРіСЂР°РЅРёС‡РµРЅРёР№)
     public float detectionRadius = 300f;
     public float viewAngle = 70f;
     public float autoLockDistance = 1500f;
 
-    [Header("6. Оптика и Ночное Видение (ПНВ)")]
+    [Header("6. РћРїС‚РёРєР° Рё РќРѕС‡РЅРѕРµ Р’РёРґРµРЅРёРµ (РџРќР’)")]
     public bool hasNightVision = true;
     public KeyCode nvToggleKey = KeyCode.N;
     public float irRange = 300f;
@@ -52,52 +52,52 @@ public class DroneConfig : ScriptableObject
     public Color nvColor = new Color(0.1f, 1.0f, 0.2f);
     public float nvPostExposure = 1.8f;
 
-    [Header("7. Тряска FPV Камеры")]
-    public bool enableCameraShake = true;            // Включение / выключение тряски
-    public float shakeFrequency = 35f;               // Частота вибрации моторов
-    public float shakePosAmplitude = 0.003f;         // Амплитуда смещения позиции (метры)
-    public float shakeRotAmplitude = 0.2f;           // Амплитуда поворота (градусы)
-    public bool shakeUseThrottleEffect = true;       // Увеличивать ли тряску при увеличении газа
-    public float shakeMinThrottleFactor = 0.3f;      // Тряска на холостых оборотах
+    [Header("7. РўСЂСЏСЃРєР° FPV РљР°РјРµСЂС‹")]
+    public bool enableCameraShake = true;            // Р’РєР»СЋС‡РµРЅРёРµ / РІС‹РєР»СЋС‡РµРЅРёРµ С‚СЂСЏСЃРєРё
+    public float shakeFrequency = 35f;               // Р§Р°СЃС‚РѕС‚Р° РІРёР±СЂР°С†РёРё РјРѕС‚РѕСЂРѕРІ
+    public float shakePosAmplitude = 0.003f;         // РђРјРїР»РёС‚СѓРґР° СЃРјРµС‰РµРЅРёСЏ РїРѕР·РёС†РёРё (РјРµС‚СЂС‹)
+    public float shakeRotAmplitude = 0.2f;           // РђРјРїР»РёС‚СѓРґР° РїРѕРІРѕСЂРѕС‚Р° (РіСЂР°РґСѓСЃС‹)
+    public bool shakeUseThrottleEffect = true;       // РЈРІРµР»РёС‡РёРІР°С‚СЊ Р»Рё С‚СЂСЏСЃРєСѓ РїСЂРё СѓРІРµР»РёС‡РµРЅРёРё РіР°Р·Р°
+    public float shakeMinThrottleFactor = 0.3f;      // РўСЂСЏСЃРєР° РЅР° С…РѕР»РѕСЃС‚С‹С… РѕР±РѕСЂРѕС‚Р°С…
 
-    [Header("8. Визуал HUD / OSD (Ударный FPV)")]
+    [Header("8. Р’РёР·СѓР°Р» HUD / OSD (РЈРґР°СЂРЅС‹Р№ FPV)")]
     public bool showStrikeHUD = true;
-    public Color hudColor = new Color(0.1f, 1.0f, 0.2f, 0.85f); // Зеленый армейский цвет
+    public Color hudColor = new Color(0.1f, 1.0f, 0.2f, 0.85f); // Р—РµР»РµРЅС‹Р№ Р°СЂРјРµР№СЃРєРёР№ С†РІРµС‚
     public float crosshairSize = 14f;
     public Vector2 targetBoxSize = new Vector2(160f, 110f);
 
 
-    [Header("9. Настройки РЭБ и Помех Видеосигнала")]
-    [Tooltip("Устойчивость к РЭБ от 0.0 (гражданский дрон) до 1.0 (полная защита/защищенная частота)")]
+    [Header("9. РќР°СЃС‚СЂРѕР№РєРё Р Р­Р‘ Рё РџРѕРјРµС… Р’РёРґРµРѕСЃРёРіРЅР°Р»Р°")]
+    [Tooltip("РЈСЃС‚РѕР№С‡РёРІРѕСЃС‚СЊ Рє Р Р­Р‘ РѕС‚ 0.0 (РіСЂР°Р¶РґР°РЅСЃРєРёР№ РґСЂРѕРЅ) РґРѕ 1.0 (РїРѕР»РЅР°СЏ Р·Р°С‰РёС‚Р°/Р·Р°С‰РёС‰РµРЅРЅР°СЏ С‡Р°СЃС‚РѕС‚Р°)")]
     [Range(0f, 1f)] public float ewResistance = 0f;
 
-    [Tooltip("Разрешение процедурной текстуры белого шума ('снега')")]
+    [Tooltip("Р Р°Р·СЂРµС€РµРЅРёРµ РїСЂРѕС†РµРґСѓСЂРЅРѕР№ С‚РµРєСЃС‚СѓСЂС‹ Р±РµР»РѕРіРѕ С€СѓРјР° ('СЃРЅРµРіР°')")]
     public int noiseTextureResolution = 128;
 
-    [Tooltip("Максимальная прозрачность аналогового шума при 100% РЭБ")]
+    [Tooltip("РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ РїСЂРѕР·СЂР°С‡РЅРѕСЃС‚СЊ Р°РЅР°Р»РѕРіРѕРІРѕРіРѕ С€СѓРјР° РїСЂРё 100% Р Р­Р‘")]
     public float staticNoiseOpacity = 0.85f;
 
-    [Header("Интенсивность пост-эффектов при 100% помех")]
+    [Header("РРЅС‚РµРЅСЃРёРІРЅРѕСЃС‚СЊ РїРѕСЃС‚-СЌС„С„РµРєС‚РѕРІ РїСЂРё 100% РїРѕРјРµС…")]
     public float maxChromaticAberration = 1.0f;
     public float maxVignette = 0.8f;
     public float maxFilmGrain = 1.0f;
 
-    [Header("Пороги срабатывания искажений кадра")]
-    [Tooltip("Минимальный уровень РЭБ для появления 'снега'")]
+    [Header("РџРѕСЂРѕРіРё СЃСЂР°Р±Р°С‚С‹РІР°РЅРёСЏ РёСЃРєР°Р¶РµРЅРёР№ РєР°РґСЂР°")]
+    [Tooltip("РњРёРЅРёРјР°Р»СЊРЅС‹Р№ СѓСЂРѕРІРµРЅСЊ Р Р­Р‘ РґР»СЏ РїРѕСЏРІР»РµРЅРёСЏ 'СЃРЅРµРіР°'")]
     public float ewNoiseThreshold = 0.05f;
 
-    [Tooltip("Минимальный уровень РЭБ для срыва развертки и сбоев FOV")]
+    [Tooltip("РњРёРЅРёРјР°Р»СЊРЅС‹Р№ СѓСЂРѕРІРµРЅСЊ Р Р­Р‘ РґР»СЏ СЃСЂС‹РІР° СЂР°Р·РІРµСЂС‚РєРё Рё СЃР±РѕРµРІ FOV")]
     public float ewJitterThreshold = 0.15f;
 
-    [Tooltip("Минимальный уровень РЭБ для появления горизонтальных полос разрыва")]
+    [Tooltip("РњРёРЅРёРјР°Р»СЊРЅС‹Р№ СѓСЂРѕРІРµРЅСЊ Р Р­Р‘ РґР»СЏ РїРѕСЏРІР»РµРЅРёСЏ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹С… РїРѕР»РѕСЃ СЂР°Р·СЂС‹РІР°")]
     public float ewLineTearingThreshold = 0.3f;
 
 
-    [Header("10. Настройки Камеры и Подвеса")]
+    [Header("10. РќР°СЃС‚СЂРѕР№РєРё РљР°РјРµСЂС‹ Рё РџРѕРґРІРµСЃР°")]
     public CameraType cameraType = CameraType.StrikeFixed;
     public float fixedPitchAngle = 25f;
 
-    [Header("Параметры Подвеса (для ReconGimbal)")]
+    [Header("РџР°СЂР°РјРµС‚СЂС‹ РџРѕРґРІРµСЃР° (РґР»СЏ ReconGimbal)")]
     public float defaultGimbalPitch = 20f;
     public float minPitch = -10f;
     public float maxPitch = 85f;
@@ -105,16 +105,16 @@ public class DroneConfig : ScriptableObject
     public float maxYaw = 120f;
     public float tiltSpeed = 45f;
 
-    [Header("11. Визуал Recon HUD и Дальномер")]
+    [Header("11. Р’РёР·СѓР°Р» Recon HUD Рё Р”Р°Р»СЊРЅРѕРјРµСЂ")]
     public Color reconColor = new Color(1f, 0.85f, 0.2f, 0.9f);
     public float hudLineWidth = 2f;
     public float minBoxSize = 20f;
-    public LayerMask lrfMask; // Земля, препятствия и техника для LRF
+    public LayerMask lrfMask; // Р—РµРјР»СЏ, РїСЂРµРїСЏС‚СЃС‚РІРёСЏ Рё С‚РµС…РЅРёРєР° РґР»СЏ LRF
 
 
-    [Header("12. Оптический Зум (Zoom)")]
+    [Header("12. РћРїС‚РёС‡РµСЃРєРёР№ Р—СѓРј (Zoom)")]
     public bool allowZoom = true;
-    public float[] zoomLevels = new float[] { 100f, 50f, 25f, 10f }; // FOV в градусах (1x, 2x, 4x, 10x)
+    public float[] zoomLevels = new float[] { 100f, 50f, 25f, 10f }; // FOV РІ РіСЂР°РґСѓСЃР°С… (1x, 2x, 4x, 10x)
     public float zoomSpeed = 10f;
     public KeyCode zoomInKey = KeyCode.Z;
     public KeyCode zoomOutKey = KeyCode.X;

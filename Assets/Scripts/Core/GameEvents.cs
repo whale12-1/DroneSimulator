@@ -2,8 +2,8 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Единая шина сигналов. Все системы общаются через неё, а не через прямые ссылки.
-/// События намеренно приватные — дёргать их можно только через Raise-методы.
+/// Р•РґРёРЅР°СЏ С€РёРЅР° СЃРёРіРЅР°Р»РѕРІ. Р’СЃРµ СЃРёСЃС‚РµРјС‹ РѕР±С‰Р°СЋС‚СЃСЏ С‡РµСЂРµР· РЅРµС‘, Р° РЅРµ С‡РµСЂРµР· РїСЂСЏРјС‹Рµ СЃСЃС‹Р»РєРё.
+/// РЎРѕР±С‹С‚РёСЏ РЅР°РјРµСЂРµРЅРЅРѕ РїСЂРёРІР°С‚РЅС‹Рµ вЂ” РґС‘СЂРіР°С‚СЊ РёС… РјРѕР¶РЅРѕ С‚РѕР»СЊРєРѕ С‡РµСЂРµР· Raise-РјРµС‚РѕРґС‹.
 /// </summary>
 public static class GameEvents
 {
@@ -21,7 +21,7 @@ public static class GameEvents
     public static void RaiseModuleDestroyed(VehicleModule m) => ModuleDestroyed?.Invoke(m);
     public static void RaiseDroneSwitched(GameObject drone) => DroneSwitched?.Invoke(drone);
 
-    /// <summary>Сброс между сценами/тестами — статика не должна протекать.</summary>
+    /// <summary>РЎР±СЂРѕСЃ РјРµР¶РґСѓ СЃС†РµРЅР°РјРё/С‚РµСЃС‚Р°РјРё вЂ” СЃС‚Р°С‚РёРєР° РЅРµ РґРѕР»Р¶РЅР° РїСЂРѕС‚РµРєР°С‚СЊ.</summary>
     public static void ClearAll()
     {
         ExplosionOccurred = null;

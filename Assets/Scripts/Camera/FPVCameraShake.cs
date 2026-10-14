@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class FPVCameraShake : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
     private Vector3 initialLocalPos;
@@ -11,17 +11,17 @@ public class FPVCameraShake : MonoBehaviour
 
     private void Start()
     {
-        // Запоминаем исходное положение и поворот камеры относительно дрона
+        // Р—Р°РїРѕРјРёРЅР°РµРј РёСЃС…РѕРґРЅРѕРµ РїРѕР»РѕР¶РµРЅРёРµ Рё РїРѕРІРѕСЂРѕС‚ РєР°РјРµСЂС‹ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РґСЂРѕРЅР°
         initialLocalPos = transform.localPosition;
         initialLocalRot = transform.localRotation;
 
-        // Рандомный сдвиг для уникальности шума
+        // Р Р°РЅРґРѕРјРЅС‹Р№ СЃРґРІРёРі РґР»СЏ СѓРЅРёРєР°Р»СЊРЅРѕСЃС‚Рё С€СѓРјР°
         seed = Random.value * 100f;
     }
 
     private void LateUpdate()
     {
-        // Если конфиг задан и тряска отключена — возвращаем камеру в исходную позицию
+        // Р•СЃР»Рё РєРѕРЅС„РёРі Р·Р°РґР°РЅ Рё С‚СЂСЏСЃРєР° РѕС‚РєР»СЋС‡РµРЅР° вЂ” РІРѕР·РІСЂР°С‰Р°РµРј РєР°РјРµСЂСѓ РІ РёСЃС…РѕРґРЅСѓСЋ РїРѕР·РёС†РёСЋ
         if (config != null && !config.enableCameraShake)
         {
             transform.localPosition = initialLocalPos;
@@ -29,7 +29,7 @@ public class FPVCameraShake : MonoBehaviour
             return;
         }
 
-        // Считываем параметры из конфига или подставляем значения по умолчанию
+        // РЎС‡РёС‚С‹РІР°РµРј РїР°СЂР°РјРµС‚СЂС‹ РёР· РєРѕРЅС„РёРіР° РёР»Рё РїРѕРґСЃС‚Р°РІР»СЏРµРј Р·РЅР°С‡РµРЅРёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
         float frequency = (config != null) ? config.shakeFrequency : 35f;
         float posAmplitude = (config != null) ? config.shakePosAmplitude : 0.003f;
         float rotAmplitude = (config != null) ? config.shakeRotAmplitude : 0.2f;
@@ -40,24 +40,24 @@ public class FPVCameraShake : MonoBehaviour
 
         if (useThrottle)
         {
-            // Берем ввод газа по вертикальной оси
+            // Р‘РµСЂРµРј РІРІРѕРґ РіР°Р·Р° РїРѕ РІРµСЂС‚РёРєР°Р»СЊРЅРѕР№ РѕСЃРё
             float throttleInput = Mathf.Clamp01(Mathf.Abs(Input.GetAxis("Vertical")));
             throttleFactor = Mathf.Lerp(minThrottleFactor, 1.2f, throttleInput);
         }
 
-        // Вычисляем время с учетом частоты
+        // Р’С‹С‡РёСЃР»СЏРµРј РІСЂРµРјСЏ СЃ СѓС‡РµС‚РѕРј С‡Р°СЃС‚РѕС‚С‹
         float time = (Time.time + seed) * frequency;
 
-        // Генерация шума Перлина в диапазоне от -1 до 1
+        // Р“РµРЅРµСЂР°С†РёСЏ С€СѓРјР° РџРµСЂР»РёРЅР° РІ РґРёР°РїР°Р·РѕРЅРµ РѕС‚ -1 РґРѕ 1
         float offsetX = (Mathf.PerlinNoise(time, 0f) - 0.5f) * 2f;
         float offsetY = (Mathf.PerlinNoise(0f, time) - 0.5f) * 2f;
         float offsetRot = (Mathf.PerlinNoise(time, time) - 0.5f) * 2f;
 
-        // Применяем микросмещение к позиции
+        // РџСЂРёРјРµРЅСЏРµРј РјРёРєСЂРѕСЃРјРµС‰РµРЅРёРµ Рє РїРѕР·РёС†РёРё
         Vector3 posOffset = new Vector3(offsetX, offsetY, 0f) * (posAmplitude * throttleFactor);
         transform.localPosition = initialLocalPos + posOffset;
 
-        // Применяем микроповорот относительно исходного вращения
+        // РџСЂРёРјРµРЅСЏРµРј РјРёРєСЂРѕРїРѕРІРѕСЂРѕС‚ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РёСЃС…РѕРґРЅРѕРіРѕ РІСЂР°С‰РµРЅРёСЏ
         Quaternion rotOffset = Quaternion.Euler(
             offsetX * rotAmplitude * throttleFactor,
             0f,

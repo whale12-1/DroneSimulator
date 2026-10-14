@@ -2,17 +2,17 @@ using UnityEngine;
 
 public class InterceptorHUD : MonoBehaviour
 {
-    [Header("Ссылки на компоненты")]
+    [Header("РЎСЃС‹Р»РєРё РЅР° РєРѕРјРїРѕРЅРµРЅС‚С‹")]
     [SerializeField] private Camera cam;
     [SerializeField] private Rigidbody droneRigidbody;
     [SerializeField] private DroneCameraModule cameraModule;
 
-    [Header("Настройки автозахвата (Layer)")]
-    [SerializeField] private LayerMask droneLayer;        // Слой Drone
-    [SerializeField] private float autoLockDistance = 1500f; // Макс. дистанция обнаружения
+    [Header("РќР°СЃС‚СЂРѕР№РєРё Р°РІС‚РѕР·Р°С…РІР°С‚Р° (Layer)")]
+    [SerializeField] private LayerMask droneLayer;        // РЎР»РѕР№ Drone
+    [SerializeField] private float autoLockDistance = 1500f; // РњР°РєСЃ. РґРёСЃС‚Р°РЅС†РёСЏ РѕР±РЅР°СЂСѓР¶РµРЅРёСЏ
 
-    [Header("Настройки HUD")]
-    [SerializeField] private Color hudColor = new Color(0f, 0.9f, 1f, 0.95f); // Голубой / Циан
+    [Header("РќР°СЃС‚СЂРѕР№РєРё HUD")]
+    [SerializeField] private Color hudColor = new Color(0f, 0.9f, 1f, 0.95f); // Р“РѕР»СѓР±РѕР№ / Р¦РёР°РЅ
     [SerializeField] private float lineWidth = 2f;
     [SerializeField] private float leadReticleSize = 16f;
 
@@ -39,10 +39,10 @@ public class InterceptorHUD : MonoBehaviour
         {
             Transform root = col.transform.root;
 
-            // Игнорируем дрон, на котором висит сам HUD
+            // РРіРЅРѕСЂРёСЂСѓРµРј РґСЂРѕРЅ, РЅР° РєРѕС‚РѕСЂРѕРј РІРёСЃРёС‚ СЃР°Рј HUD
             if (root == transform.root || root == droneRigidbody.transform) continue;
 
-            // Проверяем, находится ли цель перед объективом
+            // РџСЂРѕРІРµСЂСЏРµРј, РЅР°С…РѕРґРёС‚СЃСЏ Р»Рё С†РµР»СЊ РїРµСЂРµРґ РѕР±СЉРµРєС‚РёРІРѕРј
             Vector3 screenPos = cam.WorldToScreenPoint(root.position);
             if (screenPos.z > 0)
             {
@@ -66,22 +66,22 @@ public class InterceptorHUD : MonoBehaviour
         GUIStyle style = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold };
         style.normal.textColor = hudColor;
 
-        // 1. Верхний OSD-блок
+        // 1. Р’РµСЂС…РЅРёР№ OSD-Р±Р»РѕРє
         float ownSpeedKmH = droneRigidbody.linearVelocity.magnitude * 3.6f;
         GUI.Label(new Rect(25, 25, 350, 20), "[INTERCEPTOR HUD ACTIVE]", style);
         GUI.Label(new Rect(25, 45, 350, 20), $"ALT: {transform.position.y:F1}m  |  SPD: {ownSpeedKmH:F0} km/h", style);
 
-        // 2. Центральное перекрестие камеры
+        // 2. Р¦РµРЅС‚СЂР°Р»СЊРЅРѕРµ РїРµСЂРµРєСЂРµСЃС‚РёРµ РєР°РјРµСЂС‹
         Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         DrawRect(new Rect(center.x - 10f, center.y - 1f, 20f, 2f));
         DrawRect(new Rect(center.x - 1f, center.y - 10f, 2f, 20f));
 
-        // 3. Автоматический поиск цели на слое Drone
+        // 3. РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРёР№ РїРѕРёСЃРє С†РµР»Рё РЅР° СЃР»РѕРµ Drone
         Transform target = GetNearestDroneInView();
 
         if (target != null)
         {
-            // Берем Rigidbody цели для вычисления вектора её скорости
+            // Р‘РµСЂРµРј Rigidbody С†РµР»Рё РґР»СЏ РІС‹С‡РёСЃР»РµРЅРёСЏ РІРµРєС‚РѕСЂР° РµС‘ СЃРєРѕСЂРѕСЃС‚Рё
             Rigidbody targetRb = target.GetComponentInParent<Rigidbody>();
             if (targetRb == null) targetRb = target.GetComponent<Rigidbody>();
 
@@ -89,22 +89,22 @@ public class InterceptorHUD : MonoBehaviour
             Vector3 targetVel = (targetRb != null) ? targetRb.linearVelocity : Vector3.zero;
             Vector3 ownVel = droneRigidbody.linearVelocity;
 
-            // Дистанция и скорость сближения (Closure Speed)
+            // Р”РёСЃС‚Р°РЅС†РёСЏ Рё СЃРєРѕСЂРѕСЃС‚СЊ СЃР±Р»РёР¶РµРЅРёСЏ (Closure Speed)
             Vector3 relativePos = targetPos - transform.position;
             float distance = relativePos.magnitude;
 
             Vector3 relativeVel = ownVel - targetVel;
-            float closureSpeed = Vector3.Dot(relativeVel, relativePos.normalized); // м/с
+            float closureSpeed = Vector3.Dot(relativeVel, relativePos.normalized); // Рј/СЃ
 
-            // Время до встречи (TGO)
+            // Р’СЂРµРјСЏ РґРѕ РІСЃС‚СЂРµС‡Рё (TGO)
             float tgo = closureSpeed > 0.5f ? distance / closureSpeed : 0f;
 
-            // --- Расчет упреждения (Lead Point) ---
+            // --- Р Р°СЃС‡РµС‚ СѓРїСЂРµР¶РґРµРЅРёСЏ (Lead Point) ---
             float interceptorSpeed = Mathf.Max(ownVel.magnitude, 15f);
             float timeToHit = distance / interceptorSpeed;
             Vector3 leadPoint3D = targetPos + (targetVel * timeToHit);
 
-            // Проекция точек на экран
+            // РџСЂРѕРµРєС†РёСЏ С‚РѕС‡РµРє РЅР° СЌРєСЂР°РЅ
             Vector3 targetScreenPos = cam.WorldToScreenPoint(targetPos);
             Vector3 leadScreenPos = cam.WorldToScreenPoint(leadPoint3D);
 
@@ -113,26 +113,26 @@ public class InterceptorHUD : MonoBehaviour
                 Vector2 targetGUI = new Vector2(targetScreenPos.x, Screen.height - targetScreenPos.y);
                 Vector2 leadGUI = new Vector2(leadScreenPos.x, Screen.height - leadScreenPos.y);
 
-                // А. Рамка вокруг цели
+                // Рђ. Р Р°РјРєР° РІРѕРєСЂСѓРі С†РµР»Рё
                 float boxSize = Mathf.Clamp(3000f / distance, 24f, 90f);
                 Rect targetRect = new Rect(targetGUI.x - boxSize * 0.5f, targetGUI.y - boxSize * 0.5f, boxSize, boxSize);
                 DrawBoxOutline(targetRect, lineWidth);
 
-                // Б. Маркер упреждения (прицел точки встречи)
+                // Р‘. РњР°СЂРєРµСЂ СѓРїСЂРµР¶РґРµРЅРёСЏ (РїСЂРёС†РµР» С‚РѕС‡РєРё РІСЃС‚СЂРµС‡Рё)
                 if (leadScreenPos.z > 0)
                 {
                     Rect leadRect = new Rect(leadGUI.x - leadReticleSize * 0.5f, leadGUI.y - leadReticleSize * 0.5f, leadReticleSize, leadReticleSize);
                     DrawBoxOutline(leadRect, 1.5f);
 
-                    // Крест внутри маркерной рамки
+                    // РљСЂРµСЃС‚ РІРЅСѓС‚СЂРё РјР°СЂРєРµСЂРЅРѕР№ СЂР°РјРєРё
                     DrawRect(new Rect(leadGUI.x - 4f, leadGUI.y - 0.5f, 8f, 1f));
                     DrawRect(new Rect(leadGUI.x - 0.5f, leadGUI.y - 4f, 1f, 8f));
 
-                    // В. Линия вектора между целью и точкой упреждения
+                    // Р’. Р›РёРЅРёСЏ РІРµРєС‚РѕСЂР° РјРµР¶РґСѓ С†РµР»СЊСЋ Рё С‚РѕС‡РєРѕР№ СѓРїСЂРµР¶РґРµРЅРёСЏ
                     DrawLine(targetGUI, leadGUI, 1f);
                 }
 
-                // Г. Информационный текст под рамкой цели
+                // Р“. РРЅС„РѕСЂРјР°С†РёРѕРЅРЅС‹Р№ С‚РµРєСЃС‚ РїРѕРґ СЂР°РјРєРѕР№ С†РµР»Рё
                 GUI.Label(new Rect(targetRect.x, targetRect.y - 18f, 200f, 20f), $"TARGET: {target.name.ToUpper()}", style);
 
                 string closureText = closureSpeed >= 0 ? $"+{closureSpeed * 3.6f:F0} km/h" : $"{closureSpeed * 3.6f:F0} km/h";
@@ -143,7 +143,7 @@ public class InterceptorHUD : MonoBehaviour
         }
     }
 
-    // --- Вспомогательные методы OnGUI ---
+    // --- Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РјРµС‚РѕРґС‹ OnGUI ---
     private void DrawBoxOutline(Rect rect, float width)
     {
         DrawRect(new Rect(rect.x, rect.y, rect.width, width));

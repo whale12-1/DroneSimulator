@@ -2,10 +2,10 @@ using UnityEngine;
 
 public class EnemyDroneHealth : MonoBehaviour
 {
-    [Header("Здоровье и Эффекты")]
+    [Header("Р—РґРѕСЂРѕРІСЊРµ Рё Р­С„С„РµРєС‚С‹")]
     [SerializeField] private float maxHealth = 20f;
-    [SerializeField] private GameObject explosionEffectPrefab; // Эффект взрыва
-    [SerializeField] private GameObject smokeTrailPrefab;     // Дым при подбитии
+    [SerializeField] private GameObject explosionEffectPrefab; // Р­С„С„РµРєС‚ РІР·СЂС‹РІР°
+    [SerializeField] private GameObject smokeTrailPrefab;     // Р”С‹Рј РїСЂРё РїРѕРґР±РёС‚РёРё
 
     private float currentHealth;
     private bool isDestroyed = false;
@@ -19,7 +19,7 @@ public class EnemyDroneHealth : MonoBehaviour
         flightScript = GetComponent<ShahedFlight>();
     }
 
-    // Вызывается из BulletParticleCollision при попадании пули БТР
+    // Р’С‹Р·С‹РІР°РµС‚СЃСЏ РёР· BulletParticleCollision РїСЂРё РїРѕРїР°РґР°РЅРёРё РїСѓР»Рё Р‘РўР 
     public void TakeDamage(float damage, Vector3 hitPoint)
     {
         if (isDestroyed) return;
@@ -36,16 +36,16 @@ public class EnemyDroneHealth : MonoBehaviour
     {
         isDestroyed = true;
 
-        // 1. Отключаем скрипт полёта
+        // 1. РћС‚РєР»СЋС‡Р°РµРј СЃРєСЂРёРїС‚ РїРѕР»С‘С‚Р°
         if (flightScript != null) flightScript.enabled = false;
 
-        // 2. Включаем физику падения
+        // 2. Р’РєР»СЋС‡Р°РµРј С„РёР·РёРєСѓ РїР°РґРµРЅРёСЏ
         rb.useGravity = true;
 
-        // Закручиваем дрон в воздухе
+        // Р—Р°РєСЂСѓС‡РёРІР°РµРј РґСЂРѕРЅ РІ РІРѕР·РґСѓС…Рµ
         rb.AddTorque(Random.insideUnitSphere * 15f, ForceMode.Impulse);
 
-        // 3. Спавним шлейф дыма
+        // 3. РЎРїР°РІРЅРёРј С€Р»РµР№С„ РґС‹РјР°
         if (smokeTrailPrefab != null)
         {
             Instantiate(smokeTrailPrefab, transform.position, Quaternion.identity, transform);
@@ -56,23 +56,23 @@ public class EnemyDroneHealth : MonoBehaviour
     {
         Vector3 hitPoint = collision.contacts.Length > 0 ? collision.contacts[0].point : transform.position;
 
-        // 1. Если дрон УЖЕ сбит и падал — взрывается от любого касания (земля, здание и т.д.)
+        // 1. Р•СЃР»Рё РґСЂРѕРЅ РЈР–Р• СЃР±РёС‚ Рё РїР°РґР°Р» вЂ” РІР·СЂС‹РІР°РµС‚СЃСЏ РѕС‚ Р»СЋР±РѕРіРѕ РєР°СЃР°РЅРёСЏ (Р·РµРјР»СЏ, Р·РґР°РЅРёРµ Рё С‚.Рґ.)
         if (isDestroyed)
         {
             Explode(hitPoint);
             return;
         }
 
-        // 2. Столкновение с другим дроном в воздухе (например, таран FPV-дроном)
+        // 2. РЎС‚РѕР»РєРЅРѕРІРµРЅРёРµ СЃ РґСЂСѓРіРёРј РґСЂРѕРЅРѕРј РІ РІРѕР·РґСѓС…Рµ (РЅР°РїСЂРёРјРµСЂ, С‚Р°СЂР°РЅ FPV-РґСЂРѕРЅРѕРј)
         Transform otherRoot = collision.transform.root;
         if (collision.gameObject.CompareTag("Drone") || otherRoot.CompareTag("Drone"))
         {
-            // Проверяем, что врезался НЕ сам в себя
+            // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РІСЂРµР·Р°Р»СЃСЏ РќР• СЃР°Рј РІ СЃРµР±СЏ
             if (otherRoot != transform.root)
             {
-                Debug.Log($"<color=orange>[AIR COLLISION]</color> Таран дронов: {name} и {otherRoot.name}");
+                Debug.Log($"<color=orange>[AIR COLLISION]</color> РўР°СЂР°РЅ РґСЂРѕРЅРѕРІ: {name} Рё {otherRoot.name}");
 
-                // Если у второго дрона тоже есть скрипт здоровья — взрываем и его
+                // Р•СЃР»Рё Сѓ РІС‚РѕСЂРѕРіРѕ РґСЂРѕРЅР° С‚РѕР¶Рµ РµСЃС‚СЊ СЃРєСЂРёРїС‚ Р·РґРѕСЂРѕРІСЊСЏ вЂ” РІР·СЂС‹РІР°РµРј Рё РµРіРѕ
                 EnemyDroneHealth otherHealth = otherRoot.GetComponent<EnemyDroneHealth>();
                 if (otherHealth != null)
                 {
@@ -88,18 +88,18 @@ public class EnemyDroneHealth : MonoBehaviour
             }
         }
 
-        // 3. Камикадзе-удар на лету (по БТР, технике, зданию или земле)
+        // 3. РљР°РјРёРєР°РґР·Рµ-СѓРґР°СЂ РЅР° Р»РµС‚Сѓ (РїРѕ Р‘РўР , С‚РµС…РЅРёРєРµ, Р·РґР°РЅРёСЋ РёР»Рё Р·РµРјР»Рµ)
         if (collision.gameObject.CompareTag("Vehicle") ||
             collision.gameObject.CompareTag("Player") ||
             collision.gameObject.CompareTag("Building") ||
             collision.gameObject.layer == LayerMask.NameToLayer("Terrain"))
         {
-            Debug.Log($"<color=red>[KAMIKAZE IMPACT]</color> Дрон врезался в: {collision.gameObject.name}");
+            Debug.Log($"<color=red>[KAMIKAZE IMPACT]</color> Р”СЂРѕРЅ РІСЂРµР·Р°Р»СЃСЏ РІ: {collision.gameObject.name}");
             Explode(hitPoint);
         }
     }
 
-    // Вспомогательный метод моментального взрыва
+    // Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Р№ РјРµС‚РѕРґ РјРѕРјРµРЅС‚Р°Р»СЊРЅРѕРіРѕ РІР·СЂС‹РІР°
     public void Explode(Vector3 hitPoint)
     {
         if (explosionEffectPrefab != null)

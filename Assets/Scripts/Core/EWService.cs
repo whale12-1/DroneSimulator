@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Реестр активных РЭБ-передатчиков.
-/// Убирает FindObjectsByType из Update() в EWReceiver.
+/// Р РµРµСЃС‚СЂ Р°РєС‚РёРІРЅС‹С… Р Р­Р‘-РїРµСЂРµРґР°С‚С‡РёРєРѕРІ.
+/// РЈР±РёСЂР°РµС‚ FindObjectsByType РёР· Update() РІ EWReceiver.
 /// </summary>
 public static class EWService
 {
@@ -19,7 +19,7 @@ public static class EWService
         emitters.Remove(e);
     }
 
-    /// <summary>Максимальная интенсивность помех в точке. 0..1</summary>
+    /// <summary>РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ РёРЅС‚РµРЅСЃРёРІРЅРѕСЃС‚СЊ РїРѕРјРµС… РІ С‚РѕС‡РєРµ. 0..1</summary>
     public static float SampleJamAt(Vector3 position)
     {
         float max = 0f;

@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.InputSystem; // Используем новый Input System
+using UnityEngine.InputSystem; // РСЃРїРѕР»СЊР·СѓРµРј РЅРѕРІС‹Р№ Input System
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
@@ -21,8 +21,8 @@ public class PlayerController : MonoBehaviour
         if (animator == null)
             animator = GetComponentInChildren<Animator>();
         if (cameraTransform == null)
-            Debug.LogWarning("[PlayerController] cameraTransform не назначен — вращение камеры отключено.");
-        // Блокируем курсор в центре экрана
+            Debug.LogWarning("[PlayerController] cameraTransform РЅРµ РЅР°Р·РЅР°С‡РµРЅ вЂ” РІСЂР°С‰РµРЅРёРµ РєР°РјРµСЂС‹ РѕС‚РєР»СЋС‡РµРЅРѕ.");
+        // Р‘Р»РѕРєРёСЂСѓРµРј РєСѓСЂСЃРѕСЂ РІ С†РµРЅС‚СЂРµ СЌРєСЂР°РЅР°
         Cursor.lockState = CursorLockMode.Locked;
     }
 
@@ -31,7 +31,7 @@ public class PlayerController : MonoBehaviour
         var mouse = Mouse.current;
         var keyboard = Keyboard.current;
 
-        // 1. Вращение камерой (Мышь)
+        // 1. Р’СЂР°С‰РµРЅРёРµ РєР°РјРµСЂРѕР№ (РњС‹С€СЊ)
         if (mouse != null)
         {
             Vector2 mouseDelta = mouse.delta.ReadValue();
@@ -39,14 +39,14 @@ public class PlayerController : MonoBehaviour
             float mouseY = mouseDelta.y * mouseSensitivity * Time.deltaTime;
 
             xRotation -= mouseY;
-            xRotation = Mathf.Clamp(xRotation, -70f, 90f); // страховка: вниз не глубже -70°
+            xRotation = Mathf.Clamp(xRotation, -70f, 90f); // СЃС‚СЂР°С…РѕРІРєР°: РІРЅРёР· РЅРµ РіР»СѓР±Р¶Рµ -70В°
             if (cameraTransform != null)
                 cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
             transform.Rotate(Vector3.up * mouseX);
         }
 
-        // 2. Движение (WASD) + бег (Left Shift)
-        float animSpeed = 0f;   // скорость для Animator (0 = Idle, 3 = Walk, 6 = Run)
+        // 2. Р”РІРёР¶РµРЅРёРµ (WASD) + Р±РµРі (Left Shift)
+        float animSpeed = 0f;   // СЃРєРѕСЂРѕСЃС‚СЊ РґР»СЏ Animator (0 = Idle, 3 = Walk, 6 = Run)
         float direction = 0f;
         if (keyboard != null)
         {
@@ -55,35 +55,35 @@ public class PlayerController : MonoBehaviour
                 (keyboard.wKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed ? 1 : 0)
             );
 
-            // Базовая скорость: ходьба или бег
+            // Р‘Р°Р·РѕРІР°СЏ СЃРєРѕСЂРѕСЃС‚СЊ: С…РѕРґСЊР±Р° РёР»Рё Р±РµРі
             float moveSpeed = keyboard.leftShiftKey.isPressed ? runSpeed : speed;
 
-            // Направление движения в мировых координатах
+            // РќР°РїСЂР°РІР»РµРЅРёРµ РґРІРёР¶РµРЅРёСЏ РІ РјРёСЂРѕРІС‹С… РєРѕРѕСЂРґРёРЅР°С‚Р°С…
             Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
 
-            // ФИКС: нормализуем, чтобы по диагонали скорость не была выше, чем по прямой
-            // (W+D даёт magnitude ≈ 1.414 вместо 1.0 — из-за этого Animator думал, что мы бежим)
+            // Р¤РРљРЎ: РЅРѕСЂРјР°Р»РёР·СѓРµРј, С‡С‚РѕР±С‹ РїРѕ РґРёР°РіРѕРЅР°Р»Рё СЃРєРѕСЂРѕСЃС‚СЊ РЅРµ Р±С‹Р»Р° РІС‹С€Рµ, С‡РµРј РїРѕ РїСЂСЏРјРѕР№
+            // (W+D РґР°С‘С‚ magnitude в‰€ 1.414 РІРјРµСЃС‚Рѕ 1.0 вЂ” РёР·-Р·Р° СЌС‚РѕРіРѕ Animator РґСѓРјР°Р», С‡С‚Рѕ РјС‹ Р±РµР¶РёРј)
             if (move.magnitude > 1f)
                 move.Normalize();
 
-            // Двигаем персонажа
+            // Р”РІРёРіР°РµРј РїРµСЂСЃРѕРЅР°Р¶Р°
             controller.Move(move * moveSpeed * Time.deltaTime);
 
-            // Для Animator: если стоим на месте — 0, иначе передаём целевую скорость (3 или 6),
-            // а НЕ реальную (move.magnitude * moveSpeed), чтобы анимация не дёргалась
+            // Р”Р»СЏ Animator: РµСЃР»Рё СЃС‚РѕРёРј РЅР° РјРµСЃС‚Рµ вЂ” 0, РёРЅР°С‡Рµ РїРµСЂРµРґР°С‘Рј С†РµР»РµРІСѓСЋ СЃРєРѕСЂРѕСЃС‚СЊ (3 РёР»Рё 6),
+            // Р° РќР• СЂРµР°Р»СЊРЅСѓСЋ (move.magnitude * moveSpeed), С‡С‚РѕР±С‹ Р°РЅРёРјР°С†РёСЏ РЅРµ РґС‘СЂРіР°Р»Р°СЃСЊ
             animSpeed = moveInput.magnitude > 0.01f ? moveSpeed : 0f;
             direction = moveInput.y;
         }
 
-        // 3. Гравитация (чтобы не летал).
+        // 3. Р“СЂР°РІРёС‚Р°С†РёСЏ (С‡С‚РѕР±С‹ РЅРµ Р»РµС‚Р°Р»).
         if (controller.isGrounded && velocity.y < 0)
         {
-            velocity.y = -2f; // Небольшое прижатие к земле
+            velocity.y = -2f; // РќРµР±РѕР»СЊС€РѕРµ РїСЂРёР¶Р°С‚РёРµ Рє Р·РµРјР»Рµ
         }
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
 
-        // 4. Параметры Animator
+        // 4. РџР°СЂР°РјРµС‚СЂС‹ Animator
         if (animator != null)
         {
             animator.SetFloat("Speed", animSpeed);

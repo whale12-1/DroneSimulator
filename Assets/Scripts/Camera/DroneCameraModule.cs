@@ -2,13 +2,13 @@ using UnityEngine;
 
 public enum CameraType
 {
-    ReconGimbal, // Разведчик: 2-осевой подвес (Pitch/Yaw) + гиростабилизация
-    StrikeFixed  // Ударный: фиксированный угол
+    ReconGimbal, // Р Р°Р·РІРµРґС‡РёРє: 2-РѕСЃРµРІРѕР№ РїРѕРґРІРµСЃ (Pitch/Yaw) + РіРёСЂРѕСЃС‚Р°Р±РёР»РёР·Р°С†РёСЏ
+    StrikeFixed  // РЈРґР°СЂРЅС‹Р№: С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Р№ СѓРіРѕР»
 }
 
 public class DroneCameraModule : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
     private float currentGimbalPitch;
@@ -38,15 +38,15 @@ public class DroneCameraModule : MonoBehaviour
     {
         float speed = (config != null) ? config.tiltSpeed : 45f;
 
-        // R / F — Наклон Вверх / Вниз (Pitch)
+        // R / F вЂ” РќР°РєР»РѕРЅ Р’РІРµСЂС… / Р’РЅРёР· (Pitch)
         if (Input.GetKey(KeyCode.R)) currentGimbalPitch -= speed * Time.deltaTime;
         if (Input.GetKey(KeyCode.F)) currentGimbalPitch += speed * Time.deltaTime;
 
-        // Q / E — Поворот Влево / Вправо (Yaw)
+        // Q / E вЂ” РџРѕРІРѕСЂРѕС‚ Р’Р»РµРІРѕ / Р’РїСЂР°РІРѕ (Yaw)
         if (Input.GetKey(KeyCode.Q)) currentGimbalYaw -= speed * Time.deltaTime;
         if (Input.GetKey(KeyCode.E)) currentGimbalYaw += speed * Time.deltaTime;
 
-        // Сброс камеры в центр по нажатию 'C'
+        // РЎР±СЂРѕСЃ РєР°РјРµСЂС‹ РІ С†РµРЅС‚СЂ РїРѕ РЅР°Р¶Р°С‚РёСЋ 'C'
         if (Input.GetKeyDown(KeyCode.C))
         {
             ResetGimbalToDefault();
@@ -70,7 +70,7 @@ public class DroneCameraModule : MonoBehaviour
         }
         else if (CurrentCameraType == CameraType.ReconGimbal)
         {
-            // Гиростабилизация: учитываем мировой поворот дрона по Y и добавляем смещение Yaw/Pitch подвеса
+            // Р“РёСЂРѕСЃС‚Р°Р±РёР»РёР·Р°С†РёСЏ: СѓС‡РёС‚С‹РІР°РµРј РјРёСЂРѕРІРѕР№ РїРѕРІРѕСЂРѕС‚ РґСЂРѕРЅР° РїРѕ Y Рё РґРѕР±Р°РІР»СЏРµРј СЃРјРµС‰РµРЅРёРµ Yaw/Pitch РїРѕРґРІРµСЃР°
             Vector3 parentEuler = transform.parent != null ? transform.parent.eulerAngles : Vector3.zero;
             transform.rotation = Quaternion.Euler(currentGimbalPitch, parentEuler.y + currentGimbalYaw, 0f);
         }

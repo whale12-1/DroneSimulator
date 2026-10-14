@@ -4,26 +4,26 @@ using UnityEngine;
 [CreateAssetMenu(menuName = "FPV/Mission")]
 public class MissionDefinition : ScriptableObject
 {
-    [Header("Метаданные")]
+    [Header("РњРµС‚Р°РґР°РЅРЅС‹Рµ")]
     public string id;                      // "mission_01_village"
-    public string displayName = "Патруль";
+    public string displayName = "РџР°С‚СЂСѓР»СЊ";
     [TextArea] public string description;
     public Sprite preview;
 
-    [Header("Сцена")]
+    [Header("РЎС†РµРЅР°")]
     public string sceneName;               // "Gameplay_Village"
 
-    [Header("Условия")]
+    [Header("РЈСЃР»РѕРІРёСЏ")]
     public MissionObjectiveType objectiveType = MissionObjectiveType.DestroyAllTargets;
     public int targetCount = 3;
-    public float timeLimit = 0f;           // 0 = без лимита
+    public float timeLimit = 0f;           // 0 = Р±РµР· Р»РёРјРёС‚Р°
 
-    [Header("Доступный арсенал")]
+    [Header("Р”РѕСЃС‚СѓРїРЅС‹Р№ Р°СЂСЃРµРЅР°Р»")]
     public DroneConfig defaultDrone;
     public DroneConfig[] availableDrones;
 
-    [Header("Прогрессия")]
-    public MissionDefinition[] prerequisites;   // открывается после этих
+    [Header("РџСЂРѕРіСЂРµСЃСЃРёСЏ")]
+    public MissionDefinition[] prerequisites;   // РѕС‚РєСЂС‹РІР°РµС‚СЃСЏ РїРѕСЃР»Рµ СЌС‚РёС…
     public int rewardPoints = 100;
 }
 

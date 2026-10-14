@@ -2,13 +2,13 @@ using UnityEngine;
 
 public class TargetLockManager : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
-    [Header("Ссылки")]
+    [Header("РЎСЃС‹Р»РєРё")]
     [SerializeField] private TargetDetector detector;
 
-    [Header("Захваченная Цель")]
+    [Header("Р—Р°С…РІР°С‡РµРЅРЅР°СЏ Р¦РµР»СЊ")]
     public TargetObject currentLockedTarget;
 
     private Camera cam;
@@ -21,7 +21,7 @@ public class TargetLockManager : MonoBehaviour
 
     private void Update()
     {
-        // Если конфиг отсутствует или на дроне отключен автозахват — сбрасываем цель и не обрабатываем ввод
+        // Р•СЃР»Рё РєРѕРЅС„РёРі РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ РёР»Рё РЅР° РґСЂРѕРЅРµ РѕС‚РєР»СЋС‡РµРЅ Р°РІС‚РѕР·Р°С…РІР°С‚ вЂ” СЃР±СЂР°СЃС‹РІР°РµРј С†РµР»СЊ Рё РЅРµ РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј РІРІРѕРґ
         if (config != null && !config.allowTargetLock)
         {
             if (currentLockedTarget != null) currentLockedTarget = null;
@@ -34,7 +34,7 @@ public class TargetLockManager : MonoBehaviour
         {
             if (currentLockedTarget != null)
             {
-                currentLockedTarget = null; // Сброс цели
+                currentLockedTarget = null; // РЎР±СЂРѕСЃ С†РµР»Рё
             }
             else
             {
@@ -61,12 +61,12 @@ public class TargetLockManager : MonoBehaviour
 
             Vector3 targetScreenPos = cam.WorldToScreenPoint(target.TargetPosition);
 
-            // Игнорируем объекты за спиной
+            // РРіРЅРѕСЂРёСЂСѓРµРј РѕР±СЉРµРєС‚С‹ Р·Р° СЃРїРёРЅРѕР№
             if (targetScreenPos.z < 0) continue;
 
             float distanceFromCenter = Vector2.Distance(screenCenter, targetScreenPos);
 
-            // Проверяем, входит ли цель в допустимый радиус захвата
+            // РџСЂРѕРІРµСЂСЏРµРј, РІС…РѕРґРёС‚ Р»Рё С†РµР»СЊ РІ РґРѕРїСѓСЃС‚РёРјС‹Р№ СЂР°РґРёСѓСЃ Р·Р°С…РІР°С‚Р°
             if (distanceFromCenter <= maxAllowedRadius && distanceFromCenter < minDistanceToCenter)
             {
                 minDistanceToCenter = distanceFromCenter;

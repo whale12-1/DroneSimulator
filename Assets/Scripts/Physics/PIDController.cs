@@ -21,24 +21,24 @@ public class PIDController
     {
         if (deltaTime <= 0f) return 0f;
 
-        // 1. Ïðîïîðöèîíàëüíàÿ ñîñòàâëÿþùàÿ: P = K_p * error
+        // 1. ÐŸÑ€Ð¾Ð¿Ð¾Ñ€Ñ†Ð¸Ð¾Ð½Ð°Ð»ÑŒÐ½Ð°Ñ ÑÐ¾ÑÑ‚Ð°Ð²Ð»ÑÑŽÑ‰Ð°Ñ: P = K_p * error
         float pVal = error * pFactor;
 
-        // 2. Èíòåãðàëüíàÿ ñîñòàâëÿþùàÿ: I = K_i * sum(error * dt)
+        // 2. Ð˜Ð½Ñ‚ÐµÐ³Ñ€Ð°Ð»ÑŒÐ½Ð°Ñ ÑÐ¾ÑÑ‚Ð°Ð²Ð»ÑÑŽÑ‰Ð°Ñ: I = K_i * sum(error * dt)
         integral += error * deltaTime;
 
-        // Anti-windup (îãðàíè÷åíèå èíòåãðàëà, ÷òîáû äðîí íå "çàëèïàë" ïðè íàêîïëåíèè áîëüøîé îøèáêè)
+        // Anti-windup (Ð¾Ð³Ñ€Ð°Ð½Ð¸Ñ‡ÐµÐ½Ð¸Ðµ Ð¸Ð½Ñ‚ÐµÐ³Ñ€Ð°Ð»Ð°, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð´Ñ€Ð¾Ð½ Ð½Ðµ "Ð·Ð°Ð»Ð¸Ð¿Ð°Ð»" Ð¿Ñ€Ð¸ Ð½Ð°ÐºÐ¾Ð¿Ð»ÐµÐ½Ð¸Ð¸ Ð±Ð¾Ð»ÑŒÑˆÐ¾Ð¹ Ð¾ÑˆÐ¸Ð±ÐºÐ¸)
         integral = Mathf.Clamp(integral, -100f, 100f);
 
         float iVal = integral * iFactor;
 
-        // 3. Äèôôåðåíöèàëüíàÿ ñîñòàâëÿþùàÿ: D = K_d * (error - lastError) / dt
+        // 3. Ð”Ð¸Ñ„Ñ„ÐµÑ€ÐµÐ½Ñ†Ð¸Ð°Ð»ÑŒÐ½Ð°Ñ ÑÐ¾ÑÑ‚Ð°Ð²Ð»ÑÑŽÑ‰Ð°Ñ: D = K_d * (error - lastError) / dt
         float errorDerivative = (error - lastError) / deltaTime;
-        lastError = error; // ñîõðàíÿåì òåêóùóþ îøèáêó äëÿ ñëåäóþùåãî êàäðà
+        lastError = error; // ÑÐ¾Ñ…Ñ€Ð°Ð½ÑÐµÐ¼ Ñ‚ÐµÐºÑƒÑ‰ÑƒÑŽ Ð¾ÑˆÐ¸Ð±ÐºÑƒ Ð´Ð»Ñ ÑÐ»ÐµÐ´ÑƒÑŽÑ‰ÐµÐ³Ð¾ ÐºÐ°Ð´Ñ€Ð°
 
         float dVal = errorDerivative * dFactor;
 
-        // Èòîãîâûé âûõîäíîé ñèãíàë ðåãóëÿòîðà
+        // Ð˜Ñ‚Ð¾Ð³Ð¾Ð²Ñ‹Ð¹ Ð²Ñ‹Ñ…Ð¾Ð´Ð½Ð¾Ð¹ ÑÐ¸Ð³Ð½Ð°Ð» Ñ€ÐµÐ³ÑƒÐ»ÑÑ‚Ð¾Ñ€Ð°
         return pVal + iVal + dVal;
     }
 

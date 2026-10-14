@@ -3,13 +3,13 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class DroneMotors : MonoBehaviour
 {
-    [Header("Точки Моторов")]
+    [Header("РўРѕС‡РєРё РњРѕС‚РѕСЂРѕРІ")]
     [SerializeField] private Transform motorFL;
     [SerializeField] private Transform motorFR;
     [SerializeField] private Transform motorBL;
     [SerializeField] private Transform motorBR;
 
-    [Header("Настройки Максимальной Тяги (Ньютоны)")]
+    [Header("РќР°СЃС‚СЂРѕР№РєРё РњР°РєСЃРёРјР°Р»СЊРЅРѕР№ РўСЏРіРё (РќСЊСЋС‚РѕРЅС‹)")]
     [SerializeField] private float maxThrust = 10f;
 
     private Rigidbody rb;
@@ -17,13 +17,13 @@ public class DroneMotors : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        // Принудительно центрируем центр масс, чтобы BoxCollider не сбивал баланс
+        // РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕ С†РµРЅС‚СЂРёСЂСѓРµРј С†РµРЅС‚СЂ РјР°СЃСЃ, С‡С‚РѕР±С‹ BoxCollider РЅРµ СЃР±РёРІР°Р» Р±Р°Р»Р°РЅСЃ
         rb.centerOfMass = Vector3.zero;
     }
 
     /// <summary>
-    /// Применение силы тяги к каждому мотору
-    /// Сигнал от 0.0 до 1.0 для каждого мотора
+    /// РџСЂРёРјРµРЅРµРЅРёРµ СЃРёР»С‹ С‚СЏРіРё Рє РєР°Р¶РґРѕРјСѓ РјРѕС‚РѕСЂСѓ
+    /// РЎРёРіРЅР°Р» РѕС‚ 0.0 РґРѕ 1.0 РґР»СЏ РєР°Р¶РґРѕРіРѕ РјРѕС‚РѕСЂР°
     /// </summary>
     public void ApplyMotorsThrust(float thrustFL, float thrustFR, float thrustBL, float thrustBR)
     {
@@ -39,7 +39,7 @@ public class DroneMotors : MonoBehaviour
 
         thrustPercent = Mathf.Clamp01(thrustPercent);
 
-        // Чистая физическая тяга без искусственного умножения/деления
+        // Р§РёСЃС‚Р°СЏ С„РёР·РёС‡РµСЃРєР°СЏ С‚СЏРіР° Р±РµР· РёСЃРєСѓСЃСЃС‚РІРµРЅРЅРѕРіРѕ СѓРјРЅРѕР¶РµРЅРёСЏ/РґРµР»РµРЅРёСЏ
         Vector3 force = motorTransform.up * (maxThrust * thrustPercent);
 
         rb.AddForceAtPosition(force, motorTransform.position, ForceMode.Force);
