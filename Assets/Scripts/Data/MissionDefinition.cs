@@ -33,10 +33,3 @@ public enum MissionObjectiveType
     SurviveTime,
     ReachPoint
 }
-
-
-[CreateAssetMenu(menuName = "FPV/Mission Registry")]
-public class MissionRegistry : ScriptableObject
-{
-    public MissionDefinition[] allMissions;
-}

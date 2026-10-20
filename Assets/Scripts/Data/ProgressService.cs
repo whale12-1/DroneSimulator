@@ -42,6 +42,12 @@ public static class ProgressService
         Save();
     }
 
+    public static bool IsCompleted(MissionDefinition m)
+    {
+        if (m == null) return false;
+        return Data.completedMissionIds.Contains(m.id);
+    }
+
     private static SaveData Load()
     {
         if (!File.Exists(SavePath)) return new SaveData();

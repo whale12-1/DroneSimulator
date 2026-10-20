@@ -39,11 +39,10 @@ public class MissionSelectScreen : UIScreen
 
             MissionCardView card = Instantiate(cardPrefab, cardsContainer);
             bool unlocked = ProgressService.IsUnlocked(mission);
+            bool completed = ProgressService.IsCompleted(mission); // Проверяем пройдено ли
 
-            Log($"  Карточка: {mission.displayName} (id={mission.id}, unlocked={unlocked})");
-
-            // Клик по карточке = сразу запуск миссии
-            card.Bind(mission, unlocked, OnMissionClicked);
+            // Передаем completed в карточку
+            card.Bind(mission, unlocked, completed, OnMissionClicked);
         }
     }
 
