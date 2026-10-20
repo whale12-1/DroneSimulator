@@ -159,12 +159,17 @@ public class InterceptorHUD : MonoBehaviour
 
     private void DrawLine(Vector2 pointA, Vector2 pointB, float width)
     {
+        // ЗАЩИТА: Если расстояние между точками меньше 1 пикселя, линию не рисуем
+        float length = (pointB - pointA).magnitude;
+        if (length < 1f) return;
+
         OverrideGUIColor();
         Matrix4x4 matrix = GUI.matrix;
         float angle = Vector2.Angle(pointB - pointA, Vector2.right);
         if (pointA.y > pointB.y) angle = -angle;
 
-        GUIUtility.ScaleAroundPivot(new Vector2((pointB - pointA).magnitude, width), new Vector2(0, 0.5f));
+        // Используем length вместо повторного вызова magnitude
+        GUIUtility.ScaleAroundPivot(new Vector2(length, width), new Vector2(0, 0.5f));
         GUIUtility.RotateAroundPivot(angle, new Vector2(0, 0.5f));
         GUI.matrix = Matrix4x4.TRS(pointA, Quaternion.identity, Vector3.one) * GUI.matrix;
 

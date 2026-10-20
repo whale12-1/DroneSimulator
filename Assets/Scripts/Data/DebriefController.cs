@@ -61,7 +61,7 @@ public class DebriefController : MonoBehaviour
         Cursor.visible = true;
     }
 
-    private void ReturnToMenu()
+    public void ReturnToMenu()
     {
         panel.SetActive(false);
 
