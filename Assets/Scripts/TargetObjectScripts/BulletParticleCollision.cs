@@ -3,8 +3,8 @@ using UnityEngine;
 
 public class BulletParticleCollision : MonoBehaviour
 {
-    [Header("Эффекты")]
-    [SerializeField] private GameObject explosionEffectPrefab; // Префаб взрыва дрона в воздухе (опционально)
+    [Header("Р­С„С„РµРєС‚С‹")]
+    [SerializeField] private GameObject explosionEffectPrefab; // РџСЂРµС„Р°Р± РІР·СЂС‹РІР° РґСЂРѕРЅР° РІ РІРѕР·РґСѓС…Рµ (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ)
 
     private ParticleSystem partSystem;
     private List<ParticleCollisionEvent> collisionEvents = new List<ParticleCollisionEvent>();
@@ -16,8 +16,8 @@ public class BulletParticleCollision : MonoBehaviour
 
     private void OnParticleCollision(GameObject other)
     {
-        // ТЕСТОВЫЙ ЛОГ: сработает при ЛЮБОМ касании частицы с коллайдером
-        //Debug.Log($"<color=yellow>[PHYSICS HIT]</color> Частица коснулась: {other.name} | Tag: {other.tag} | Layer: {LayerMask.LayerToName(other.layer)}");//
+        // РўР•РЎРўРћР’Р«Р™ Р›РћР“: СЃСЂР°Р±РѕС‚Р°РµС‚ РїСЂРё Р›Р®Р‘РћРњ РєР°СЃР°РЅРёРё С‡Р°СЃС‚РёС†С‹ СЃ РєРѕР»Р»Р°Р№РґРµСЂРѕРј
+        //Debug.Log($"<color=yellow>[PHYSICS HIT]</color> Р§Р°СЃС‚РёС†Р° РєРѕСЃРЅСѓР»Р°СЃСЊ: {other.name} | Tag: {other.tag} | Layer: {LayerMask.LayerToName(other.layer)}");//
 
         int numCollisionEvents = partSystem.GetCollisionEvents(other, collisionEvents);
 
@@ -34,7 +34,7 @@ public class BulletParticleCollision : MonoBehaviour
                     Instantiate(explosionEffectPrefab, hitPosition, Quaternion.identity);
                 }
 
-                //Debug.Log($"<color=red>[DESTROYED]</color> FPV-дрон {droneRoot.name} уничтожен!");//
+                //Debug.Log($"<color=red>[DESTROYED]</color> FPV-РґСЂРѕРЅ {droneRoot.name} СѓРЅРёС‡С‚РѕР¶РµРЅ!");//
                 Destroy(droneRoot.gameObject);
                 break;
             }

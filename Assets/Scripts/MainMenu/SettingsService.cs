@@ -32,7 +32,7 @@ public class SettingsService : MonoBehaviour
     }
 
     public void SetMasterVolume(float v) { Data.masterVolume = v; AudioListener.volume = v; Save(); }
-    public void SetSfxVolume(float v) { Data.sfxVolume = v; /* хранить в AudioMixer, если есть */ Save(); }
+    public void SetSfxVolume(float v) { Data.sfxVolume = v; /* С…СЂР°РЅРёС‚СЊ РІ AudioMixer, РµСЃР»Рё РµСЃС‚СЊ */ Save(); }
     public void SetQuality(int level) { Data.qualityLevel = level; QualitySettings.SetQualityLevel(level); Save(); }
     public void SetFullscreen(bool fs) { Data.fullscreen = fs; Screen.fullScreen = fs; Save(); }
 

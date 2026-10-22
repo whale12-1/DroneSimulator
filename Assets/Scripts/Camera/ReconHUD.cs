@@ -2,10 +2,10 @@ using UnityEngine;
 
 public class ReconHUD : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
-    [Header("Ссылки на компоненты")]
+    [Header("РЎСЃС‹Р»РєРё РЅР° РєРѕРјРїРѕРЅРµРЅС‚С‹")]
     [SerializeField] private TargetLockManager lockManager;
     [SerializeField] private DroneCameraModule cameraModule;
     [SerializeField] private FPVZoom zoomModule;
@@ -27,7 +27,7 @@ public class ReconHUD : MonoBehaviour
 
     private void OnGUI()
     {
-        // Проверяем тип камеры из конфига или модуля
+        // РџСЂРѕРІРµСЂСЏРµРј С‚РёРї РєР°РјРµСЂС‹ РёР· РєРѕРЅС„РёРіР° РёР»Рё РјРѕРґСѓР»СЏ
         CameraType camType = (config != null) ? config.cameraType : (cameraModule != null ? cameraModule.CurrentCameraType : CameraType.StrikeFixed);
         if (camType != CameraType.ReconGimbal) return;
 
@@ -40,7 +40,7 @@ public class ReconHUD : MonoBehaviour
         GUIStyle style = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold };
         style.normal.textColor = hudColor;
 
-        // 1. Лазерный дальномер (LRF) по центру камеры
+        // 1. Р›Р°Р·РµСЂРЅС‹Р№ РґР°Р»СЊРЅРѕРјРµСЂ (LRF) РїРѕ С†РµРЅС‚СЂСѓ РєР°РјРµСЂС‹
         Ray lrfRay = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         float distance = 0f;
         Vector3 targetWorldPos = Vector3.zero;
@@ -51,12 +51,12 @@ public class ReconHUD : MonoBehaviour
             targetWorldPos = hit.point;
         }
 
-        // 2. Отрисовка центрального перекрестия дальномера
+        // 2. РћС‚СЂРёСЃРѕРІРєР° С†РµРЅС‚СЂР°Р»СЊРЅРѕРіРѕ РїРµСЂРµРєСЂРµСЃС‚РёСЏ РґР°Р»СЊРЅРѕРјРµСЂР°
         Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         DrawRect(new Rect(center.x - 8f, center.y - 1f, 16f, 2f));
         DrawRect(new Rect(center.x - 1f, center.y - 8f, 2f, 16f));
 
-        // 3. Информационный блок OSD
+        // 3. РРЅС„РѕСЂРјР°С†РёРѕРЅРЅС‹Р№ Р±Р»РѕРє OSD
         GUI.Label(new Rect(25, 25, 350, 20), "[RECON GIMBAL ACTIVE]", style);
         GUI.Label(new Rect(25, 45, 350, 20), $"ALT: {transform.position.y:F1}m  |  LRF DIST: {(distance > 0 ? $"{distance:F0}m" : "N/A")}", style);
 
@@ -65,7 +65,7 @@ public class ReconHUD : MonoBehaviour
             GUI.Label(new Rect(25, 65, 350, 20), $"GRID POS: X:{targetWorldPos.x:F0} Z:{targetWorldPos.z:F0}", style);
         }
 
-        // 4. Отрисовка динамической адаптивной рамки цели
+        // 4. РћС‚СЂРёСЃРѕРІРєР° РґРёРЅР°РјРёС‡РµСЃРєРѕР№ Р°РґР°РїС‚РёРІРЅРѕР№ СЂР°РјРєРё С†РµР»Рё
         if (lockManager != null && lockManager.currentLockedTarget != null)
         {
             TargetObject target = lockManager.currentLockedTarget;

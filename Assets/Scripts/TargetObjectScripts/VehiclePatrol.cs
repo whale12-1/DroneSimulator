@@ -2,17 +2,17 @@ using UnityEngine;
 
 public class VehiclePatrol : MonoBehaviour
 {
-    [Header("Маршрут")]
+    [Header("РњР°СЂС€СЂСѓС‚")]
     [SerializeField] private Transform[] waypoints;
     [SerializeField] private float speed = 12f;
     [SerializeField] private float rotationSpeed = 3f;
 
-    [Header("Привязка к Земле и Подвеска")]
+    [Header("РџСЂРёРІСЏР·РєР° Рє Р—РµРјР»Рµ Рё РџРѕРґРІРµСЃРєР°")]
     [SerializeField] private LayerMask groundLayer;
     [SerializeField] private float heightOffset = 0.2f;
     [SerializeField] private float raycastDistance = 15f;
-    [SerializeField] private float frontRearOffset = 2.5f;     // Расстояние между передом и кормой (для ЗиЛ/БТР ~ 2.5)
-    [SerializeField] private float suspensionSmoothness = 6f;  // Плавность сглаживания подвески
+    [SerializeField] private float frontRearOffset = 2.5f;     // Р Р°СЃСЃС‚РѕСЏРЅРёРµ РјРµР¶РґСѓ РїРµСЂРµРґРѕРј Рё РєРѕСЂРјРѕР№ (РґР»СЏ Р—РёР›/Р‘РўР  ~ 2.5)
+    [SerializeField] private float suspensionSmoothness = 6f;  // РџР»Р°РІРЅРѕСЃС‚СЊ СЃРіР»Р°Р¶РёРІР°РЅРёСЏ РїРѕРґРІРµСЃРєРё
 
     private int currentWaypointIndex = 0;
     private Rigidbody rb;
@@ -26,7 +26,7 @@ public class VehiclePatrol : MonoBehaviour
     {
         if (rb != null)
         {
-            rb.isKinematic = true; // Замораживаем физические толчки от кочек
+            rb.isKinematic = true; // Р—Р°РјРѕСЂР°Р¶РёРІР°РµРј С„РёР·РёС‡РµСЃРєРёРµ С‚РѕР»С‡РєРё РѕС‚ РєРѕС‡РµРє
         }
     }
 
@@ -34,14 +34,14 @@ public class VehiclePatrol : MonoBehaviour
     {
         if (rb != null)
         {
-            // Проверяем: сбрасывать скорость можно ТОЛЬКО у не-кинематического тела
+            // РџСЂРѕРІРµСЂСЏРµРј: СЃР±СЂР°СЃС‹РІР°С‚СЊ СЃРєРѕСЂРѕСЃС‚СЊ РјРѕР¶РЅРѕ РўРћР›Р¬РљРћ Сѓ РЅРµ-РєРёРЅРµРјР°С‚РёС‡РµСЃРєРѕРіРѕ С‚РµР»Р°
             if (!rb.isKinematic)
             {
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
             }
 
-            // Если нужно заморозить объект при выключении скрипта:
+            // Р•СЃР»Рё РЅСѓР¶РЅРѕ Р·Р°РјРѕСЂРѕР·РёС‚СЊ РѕР±СЉРµРєС‚ РїСЂРё РІС‹РєР»СЋС‡РµРЅРёРё СЃРєСЂРёРїС‚Р°:
             rb.isKinematic = true;
         }
     }
@@ -59,7 +59,7 @@ public class VehiclePatrol : MonoBehaviour
         Transform target = waypoints[currentWaypointIndex];
         Vector3 targetPos = new Vector3(target.position.x, transform.position.y, target.position.z);
 
-        // Плавный поворот в сторону точки
+        // РџР»Р°РІРЅС‹Р№ РїРѕРІРѕСЂРѕС‚ РІ СЃС‚РѕСЂРѕРЅСѓ С‚РѕС‡РєРё
         Vector3 direction = (targetPos - transform.position).normalized;
         if (direction != Vector3.zero)
         {
@@ -67,10 +67,10 @@ public class VehiclePatrol : MonoBehaviour
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSpeed);
         }
 
-        // Плавное движение вперед
+        // РџР»Р°РІРЅРѕРµ РґРІРёР¶РµРЅРёРµ РІРїРµСЂРµРґ
         transform.position = Vector3.MoveTowards(transform.position, targetPos, speed * Time.deltaTime);
 
-        // Переключение вейпоинтов
+        // РџРµСЂРµРєР»СЋС‡РµРЅРёРµ РІРµР№РїРѕРёРЅС‚РѕРІ
         if (Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z),
                              new Vector3(target.position.x, 0, target.position.z)) < 2.5f)
         {
@@ -88,7 +88,7 @@ public class VehiclePatrol : MonoBehaviour
 
         if (hitFront && hitRear)
         {
-            // 1. Мягкое сглаживание высоты Y (подвеска)
+            // 1. РњСЏРіРєРѕРµ СЃРіР»Р°Р¶РёРІР°РЅРёРµ РІС‹СЃРѕС‚С‹ Y (РїРѕРґРІРµСЃРєР°)
             float targetY = (frontHit.point.y + rearHit.point.y) * 0.5f + heightOffset;
             float smoothY = Mathf.Lerp(transform.position.y, targetY, Time.deltaTime * suspensionSmoothness);
 
@@ -96,7 +96,7 @@ public class VehiclePatrol : MonoBehaviour
             newPos.y = smoothY;
             transform.position = newPos;
 
-            // 2. Плавный наклон кузова по вектору между передней и задней точкой
+            // 2. РџР»Р°РІРЅС‹Р№ РЅР°РєР»РѕРЅ РєСѓР·РѕРІР° РїРѕ РІРµРєС‚РѕСЂСѓ РјРµР¶РґСѓ РїРµСЂРµРґРЅРµР№ Рё Р·Р°РґРЅРµР№ С‚РѕС‡РєРѕР№
             Vector3 pitchDirection = (frontHit.point - rearHit.point).normalized;
             Vector3 surfaceNormal = (frontHit.normal + rearHit.normal).normalized;
 
@@ -130,7 +130,7 @@ public class VehiclePatrol : MonoBehaviour
             Gizmos.DrawLine(current, next);
         }
 
-        // Отображение переднего и заднего лучей подвески
+        // РћС‚РѕР±СЂР°Р¶РµРЅРёРµ РїРµСЂРµРґРЅРµРіРѕ Рё Р·Р°РґРЅРµРіРѕ Р»СѓС‡РµР№ РїРѕРґРІРµСЃРєРё
         Gizmos.color = Color.cyan;
         Vector3 frontOrigin = transform.position + transform.forward * frontRearOffset + Vector3.up * 3f;
         Vector3 rearOrigin = transform.position - transform.forward * frontRearOffset + Vector3.up * 3f;
