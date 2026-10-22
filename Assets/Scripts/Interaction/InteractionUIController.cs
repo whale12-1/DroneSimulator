@@ -5,16 +5,26 @@ using TMPro;
 public class InteractionUIController : MonoBehaviour
 {
     [SerializeField] private CanvasGroup hintGroup;
-    [SerializeField] private CanvasGroup missionMapGroup;
+    [SerializeField] private CanvasGroup shopGroup;
+    [SerializeField] private CanvasGroup missionBoardGroup;
     [SerializeField] private TMP_Text hintText;
 
     private float lastOpenTime;
+    private OpenWindow openWindow;
 
-    public bool IsWindowOpen { get; private set; }
+    public bool IsWindowOpen => openWindow != OpenWindow.None;
+
+    private enum OpenWindow
+    {
+        None,
+        Shop,
+        MissionBoard
+    }
 
     private void Awake()
     {
-        CloseMissionMapVisuals();
+        SetGroupVisible(shopGroup, false);
+        SetGroupVisible(missionBoardGroup, false);
         HideHint();
     }
 
@@ -31,7 +41,7 @@ public class InteractionUIController : MonoBehaviour
             return;
 
         if (keyboard.eKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame)
-            CloseMissionMap();
+            CloseOpenWindow();
     }
 
     public void ShowHint()
@@ -59,52 +69,76 @@ public class InteractionUIController : MonoBehaviour
         hintGroup.blocksRaycasts = false;
     }
 
-    public void OpenMissionMap()
+    public void OpenShop()
+    {
+        OpenWindowWithGroup(OpenWindow.Shop, shopGroup);
+    }
+
+    public void OpenMissionBoard()
     {
         lastOpenTime = Time.unscaledTime;
+        OpenWindowWithGroup(OpenWindow.MissionBoard, missionBoardGroup);
+    }
 
+    public void CloseShop()
+    {
+        if (openWindow == OpenWindow.Shop)
+            CloseOpenWindow();
+    }
+
+    public void CloseMissionBoard()
+    {
+        if (openWindow == OpenWindow.MissionBoard)
+            CloseOpenWindow();
+    }
+
+    private void OpenWindowWithGroup(OpenWindow window, CanvasGroup group)
+    {
+        lastOpenTime = Time.unscaledTime;
         if (IsWindowOpen)
             return;
 
-        IsWindowOpen = true;
-        if (missionMapGroup != null)
-        {
-            missionMapGroup.alpha = 1f;
-            missionMapGroup.interactable = true;
-            missionMapGroup.blocksRaycasts = true;
-        }
+        openWindow = window;
+        SetGroupVisible(group, true);
         HideHint();
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         Time.timeScale = 0f;
     }
 
-    public void CloseMissionMap()
+    private void CloseOpenWindow()
     {
         if (!IsWindowOpen)
             return;
 
-        IsWindowOpen = false;
-        CloseMissionMapVisuals();
+        CloseShopVisuals();
+        openWindow = OpenWindow.None;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         Time.timeScale = 1f;
     }
 
-    private void CloseMissionMapVisuals()
+    private void CloseShopVisuals()
     {
-        if (missionMapGroup == null)
+        SetGroupVisible(shopGroup, false);
+        SetGroupVisible(missionBoardGroup, false);
+    }
+
+    private static void SetGroupVisible(CanvasGroup group, bool visible)
+    {
+        if (group == null)
             return;
-        missionMapGroup.alpha = 0f;
-        missionMapGroup.interactable = false;
-        missionMapGroup.blocksRaycasts = false;
+        group.alpha = visible ? 1f : 0f;
+        group.interactable = visible;
+        group.blocksRaycasts = visible;
     }
 
     private void OnDisable()
     {
         if (IsWindowOpen)
         {
-            IsWindowOpen = false;
+            CloseShopVisuals();
+            openWindow = OpenWindow.None;
             Time.timeScale = 1f;
         }
     }

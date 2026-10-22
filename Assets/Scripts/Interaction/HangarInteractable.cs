@@ -14,6 +14,6 @@ public class HangarInteractable : MonoBehaviour, IInteractable
             ? uiController
             : FindAnyObjectByType<InteractionUIController>();
         if (controller != null)
-            controller.OpenMissionMap();
+            controller.OpenShop();
     }
 }
