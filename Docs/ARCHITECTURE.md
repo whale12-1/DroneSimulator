@@ -77,6 +77,34 @@ player.unity
 military base;
 Directional Light;
 невидимые границы Bounds_*.
+
+Bunker(main) — новая FPS-локация (физика настроена)
+Bunker(main)
+├── Directional Light
+├── Bunker07Anim          (префаб-инстанс FBX, Scale 10; в ассете коллайдеров нет — физика добавлена вручную)
+├── Collision_SHELL       (физическая оболочка комнаты, все BoxCollider Is Trigger = off)
+│   ├── COL_Floor         (пол)
+│   ├── COL_Walls
+│   │   ├── COL_Wall_North
+│   │   ├── COL_Wall_South
+│   │   ├── COL_Wall_East
+│   │   └── COL_Wall_West
+│   └── COL_Ceiling       (потолок)
+├── Blockers_Doors        (коллайдеры дверей: Door_Blocker, Door1_Blocker)
+├── Blockers_Safe         (коллайдеры сейфов: Safe_Blocker, Safe1_Blocker, Safe2_Blocker)
+├── Blockers_Console      (пульт ControlPanel_Blocker + ComputerNCamGEo_Blocker)
+├── Blockers_ACUnits      (ACUnit_Blocker, ACUnit1_Blocker)
+├── Blockers_Furniture    (Chair_Blocker, Chair1/2_Blocker, CupBoard_Blocker ×5)
+├── Interact_OperatorTerminal (layer Interactable, BoxCollider Is Trigger = off, MissionBoardInteractable)
+├── InteractionCanvas     (перенесён из player.unity: Canvas + InteractionUIController + Hint/ShopWindow/MissionBoardWindow)
+├── EventSystem           (перенесён из player.unity: EventSystem + InputSystemUIInputModule)
+└── Player
+    ├── CharacterController
+    ├── PlayerController
+    ├── PlayerInteractionDetector   (uiController → InteractionCanvas/InteractionUIController)
+    ├── Visual/SWAT (Animator → PlayerAnimator)
+    └── CameraPivot/Main Camera     (единственный AudioListener в сцене)
+
 В player.unity не обнаружены полноценные:
 
 MissionController;
@@ -812,8 +840,24 @@ Buildings/DestructibleWallZone.cs
 
 Статус: отдельная заготовка
 
+5.11 Interaction
+Каталог: Assets/Scripts/Interaction/
+
+IInteractable.cs — интерфейс: GetInteractionPrompt / CanInteract / Interact.
+
+PlayerInteractionDetector.cs — висит на Player: луч из камеры (Physics.Raycast, дистанция 3,
+маска слоя Interactable, QueryTriggerInteraction.Ignore → триггеры НЕ работают), клавиша E,
+GetComponentInParent<IInteractable>. Требует назначенное поле uiController (иначе return).
+
+InteractionUIController.cs — окна «Магазин» (Shop) и «Карта миссий» (MissionBoard) через
+CanvasGroup + подсказка; разблокировка курсора, timeScale = 0 при открытии, закрытие по E/Esc.
+
+HangarInteractable.cs — IInteractable, открывает магазин, промпт «Магазин [E]».
+
+MissionBoardInteractable.cs — IInteractable, открывает карту миссий, промпт «Карта миссий [E]».
+
 6. Сцены
-Всего найдено 14 сцен.
+Всего найдено 15 сцен.
 
 Assets/Scenes/Boot.unity
 
@@ -838,6 +882,12 @@ Assets/Scenes/player.unity
 Назначение: FPS-база
 
 Статус: основная рабочая база, НЕ в Build Settings
+
+Assets/Scenes/Bunker(main).unity
+
+Назначение: новая FPS-локация (военный бункер Bunker07Anim)
+
+Статус: в настройке — физика, коллайдеры, интерактивный терминал; НЕ в Build Settings
 
 Assets/Scenes/FunctionalUI-Demo.unity
 
@@ -978,7 +1028,7 @@ Tags
 Пользовательский Tag: Drone.
 
 Layers
-Пользовательские Layers: Drone, Water, UI, PlayerBody.
+Пользовательские Layers: Drone, Water, UI, PlayerBody, Interactable (индекс 7 — интерактивные объекты).
 
 Physics
 Файл: ProjectSettings/DynamicsManager.asset.
@@ -1099,6 +1149,21 @@ Assets/Scripts/Camera/NIghtVisionController.cs
 Assets/Scripts/Camera/TargetLockManager.cs
 
 PlayerController использует UnityEngine.InputSystem, но не action asset, а Keyboard.current и Mouse.current
+
+Бункер (Bunker(main)) — текущий статус
+Bunker07Anim не имеет собственных коллайдеров (импорт addColliders = 0). Физическая оболочка
+Collision_SHELL (COL_Floor / COL_Walls / COL_Ceiling) и коллайдеры мебели/оборудования созданы —
+игрок больше не проваливается. Мелкий мусор (Paper*, Cassete*, Cables, Keyboard*, мыши) намеренно
+оставлен без коллайдеров.
+
+Интерактивный терминал Interact_OperatorTerminal создан на мониторе (layer Interactable,
+MissionBoardInteractable). InteractionCanvas и EventSystem перенесены из player.unity,
+ссылки uiController назначены — взаимодействие работает.
+
+Осталось: в сцене нет невидимых границ Bounds_* (они есть только в player.unity) — периметр
+снаружи бункера пока не ограничен. Коллайдеры пульта (ControlPanel_Blocker) и серверной станции
+(ComputerNCamGEo_Blocker) собраны по AABB объединённых мешей и могут потребовать ручного дробления
+через Edit Collider.
 
 11. Мёртвый код и неподключённые системы
 Не обязательно мёртвый код

@@ -21,7 +21,11 @@ Animator Controller → Assets/Models/Player/PlayerAnimator.controller
 Параметры Animator → Speed, Direction, IsGrounded → PlayerAnimator.controller
 
 Взаимодействие и UI
-Скрипт взаимодействия → не найден
+Скрипт взаимодействия → Assets/Scripts/Interaction/PlayerInteractionDetector.cs
+Интерфейс взаимодействия → Assets/Scripts/Interaction/IInteractable.cs
+UI взаимодействия (магазин/карта) → Assets/Scripts/Interaction/InteractionUIController.cs
+Интерактивный объект «Магазин» → Assets/Scripts/Interaction/HangarInteractable.cs
+Интерактивный объект «Карта миссий» → Assets/Scripts/Interaction/MissionBoardInteractable.cs
 
 Заготовка Input-взаимодействия → Assets/Input/InputSystem_Actions.inputactions → Player/Interact
 
@@ -150,6 +154,23 @@ AI техники → Assets/Scripts/TargetObjectScripts/VehicleSmartAI.cs
 
 Основная сцена базы → Assets/Scenes/player.unity
 
+Новая сцена базы (бункер) → Assets/Scenes/Bunker(main).unity
+Модель бункера → Assets/Models/Buildings/Base_v1/source/Bunker07Anim.fbx
+
+Физическая оболочка бункера → Assets/Scenes/Bunker(main).unity → Collision_SHELL
+Пол бункера → Assets/Scenes/Bunker(main).unity → Collision_SHELL/COL_Floor
+Стены бункера → Assets/Scenes/Bunker(main).unity → Collision_SHELL/COL_Walls (COL_Wall_North/South/East/West)
+Потолок бункера → Assets/Scenes/Bunker(main).unity → Collision_SHELL/COL_Ceiling
+
+Коллайдеры дверей → Assets/Scenes/Bunker(main).unity → Blockers_Doors (Door_Blocker, Door1_Blocker)
+Коллайдеры сейфов → Assets/Scenes/Bunker(main).unity → Blockers_Safe (Safe_Blocker, Safe1_Blocker, Safe2_Blocker)
+Коллайдеры пульта/серверов → Assets/Scenes/Bunker(main).unity → Blockers_Console (ControlPanel_Blocker, ComputerNCamGEo_Blocker)
+Коллайдеры кондиционеров → Assets/Scenes/Bunker(main).unity → Blockers_ACUnits (ACUnit_Blocker, ACUnit1_Blocker)
+Коллайдеры мебели → Assets/Scenes/Bunker(main).unity → Blockers_Furniture (Chair_Blocker, Chair1_Blocker, Chair2_Blocker, CupBoard_Blocker ×5)
+
+Терминал оператора → Assets/Scenes/Bunker(main).unity → Interact_OperatorTerminal (layer Interactable, MissionBoardInteractable)
+UI взаимодействия → Assets/Scenes/Bunker(main).unity → InteractionCanvas + EventSystem (перенесены из player.unity)
+
 Сцены
 Boot-сцена → Assets/Scenes/Boot.unity
 
@@ -162,6 +183,8 @@ Drone/Terrain demo → Assets/Scenes/TerrainDemoScene.unity
 UI demo → Assets/Scenes/FunctionalUI-Demo.unity
 
 Recovery-сцены → Assets/_Recovery/
+
+Бункер (физика настроена) → Assets/Scenes/Bunker(main).unity
 
 Все основные сцены → Assets/Scenes/
 

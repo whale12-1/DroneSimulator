@@ -26,6 +26,7 @@ Unity 6.6;
 основной рабочий pipeline — URP;
 
 основная сцена базы: Assets/Scenes/player.unity;
+новая сцена базы (перенос на бункер): Assets/Scenes/Bunker(main).unity;
 
 C#-скрипты сохранены в UTF-8 без BOM;
 
@@ -168,6 +169,26 @@ Directional Light;
 
 URP camera/light components.
 
+Новая сцена — Bunker(main):
+В Assets/Scenes/Bunker(main).unity база перенесена в военный бункер. Есть: Player
+(CharacterController + PlayerController + PlayerInteractionDetector), Main Camera, Directional Light
+и ассет бункера Bunker07Anim (Assets/Models/Buildings/Base_v1/source/Bunker07Anim.fbx, инстанс со Scale 10).
+
+Физика бункера НАСТРОЕНА:
+- Collision_SHELL — физическая оболочка: COL_Floor (пол), COL_Walls (4 стены: North/South/East/West),
+  COL_Ceiling (потолок). Все BoxCollider, Is Trigger = off, подогнаны по Bounds мешей.
+- Блокеры крупных объектов (BoxCollider по Bounds): Blockers_Doors (двери), Blockers_Safe (сейфы),
+  Blockers_Console (пульт ControlPanel + компьютер/серверная станция ComputerNCamGEo),
+  Blockers_ACUnits (кондиционеры ACUnit/ACUnit1), Blockers_Furniture (стулья Chair*, шкафы CupBoard*).
+- Мелкий мусор (бумаги Paper*, кассеты Cassete*, провода Cables, клавиатуры Keyboard*, мыши)
+  намеренно оставлен БЕЗ коллайдеров.
+- Interact_OperatorTerminal — терминал оператора на мониторе (layer Interactable,
+  BoxCollider Is Trigger = off, скрипт MissionBoardInteractable).
+- InteractionCanvas и EventSystem перенесены из player.unity; ссылки uiController назначены.
+- Позиция Player выровнена по полу (Y = -1.74).
+
+Осталось в настройке: невидимые границы периметра Bounds_* (в Bunker(main) пока отсутствуют).
+
 Дроновый прототип
 В проекте уже присутствует отдельный набор систем:
 
@@ -284,7 +305,11 @@ ProgressService.
 
 полноценный debrief UI.
 
-В Input Actions уже есть действие Interact, но самостоятельная система взаимодействий с палатками не обнаружена.
+В Input Actions уже есть действие Interact. Написана базовая система взаимодействия
+(Assets/Scripts/Interaction/): интерфейс IInteractable, PlayerInteractionDetector (луч из камеры,
+клавиша E, слой Interactable), InteractionUIController (окна «Магазин» и «Карта миссий»),
+готовые интерактивные объекты HangarInteractable и MissionBoardInteractable.
+Система подключена к Bunker(main): создан терминал Interact_OperatorTerminal, ссылки uiController назначены.
 
 6. Важные ограничения для будущих задач
 Проект находится на стадии обучения и прототипирования. Поэтому:
