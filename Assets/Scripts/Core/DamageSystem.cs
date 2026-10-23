@@ -1,7 +1,7 @@
 using UnityEngine;
 
-// WarheadType и ModuleType остаются там, где были (DroneConfig.cs / VehicleModule.cs),
-// чтобы не ломать существующие ссылки.
+// WarheadType Рё ModuleType РѕСЃС‚Р°СЋС‚СЃСЏ С‚Р°Рј, РіРґРµ Р±С‹Р»Рё (DroneConfig.cs / VehicleModule.cs),
+// С‡С‚РѕР±С‹ РЅРµ Р»РѕРјР°С‚СЊ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ СЃСЃС‹Р»РєРё.
 
 public struct DamageData
 {

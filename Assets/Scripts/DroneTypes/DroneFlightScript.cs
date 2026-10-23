@@ -3,10 +3,10 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class ShahedFlight : MonoBehaviour
 {
-    [Header("Цель и Скорость")]
-    [SerializeField] private Transform target;     // Ссылка на БТР или точку атаки
-    [SerializeField] private float speed = 35f;     // Скорость полета (м/с)
-    [SerializeField] private float turnSpeed = 2f;  // Плавность разворота
+    [Header("Р¦РµР»СЊ Рё РЎРєРѕСЂРѕСЃС‚СЊ")]
+    [SerializeField] private Transform target;     // РЎСЃС‹Р»РєР° РЅР° Р‘РўР  РёР»Рё С‚РѕС‡РєСѓ Р°С‚Р°РєРё
+    [SerializeField] private float speed = 35f;     // РЎРєРѕСЂРѕСЃС‚СЊ РїРѕР»РµС‚Р° (Рј/СЃ)
+    [SerializeField] private float turnSpeed = 2f;  // РџР»Р°РІРЅРѕСЃС‚СЊ СЂР°Р·РІРѕСЂРѕС‚Р°
 
     private Rigidbody rb;
 
@@ -24,14 +24,14 @@ public class ShahedFlight : MonoBehaviour
     {
         if (target == null) return;
 
-        // Вектор направления к цели
+        // Р’РµРєС‚РѕСЂ РЅР°РїСЂР°РІР»РµРЅРёСЏ Рє С†РµР»Рё
         Vector3 directionToTarget = (target.position - transform.position).normalized;
 
-        // Плавный разворот дрона в сторону цели
+        // РџР»Р°РІРЅС‹Р№ СЂР°Р·РІРѕСЂРѕС‚ РґСЂРѕРЅР° РІ СЃС‚РѕСЂРѕРЅСѓ С†РµР»Рё
         Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
         rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, turnSpeed * Time.fixedDeltaTime));
 
-        // Задаем физическую скорость (нужно для расчетов упреждения БТР!)
+        // Р—Р°РґР°РµРј С„РёР·РёС‡РµСЃРєСѓСЋ СЃРєРѕСЂРѕСЃС‚СЊ (РЅСѓР¶РЅРѕ РґР»СЏ СЂР°СЃС‡РµС‚РѕРІ СѓРїСЂРµР¶РґРµРЅРёСЏ Р‘РўР !)
         rb.linearVelocity = transform.forward * speed;
     }
 }

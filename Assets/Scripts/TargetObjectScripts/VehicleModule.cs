@@ -4,14 +4,14 @@ public enum ModuleType { Engine, Tracks, AmmoRack, Turret, Optics, Armor, MainHu
 
 public class VehicleModule : MonoBehaviour, IDamageable
 {
-    [Header("Основные Настройки")]
+    [Header("РћСЃРЅРѕРІРЅС‹Рµ РќР°СЃС‚СЂРѕР№РєРё")]
     public ModuleType moduleType;
     public float maxHealth = 100f;
     public float currentHealth;
-    [Tooltip("Толщина брони в мм для расчета пробития")]
+    [Tooltip("РўРѕР»С‰РёРЅР° Р±СЂРѕРЅРё РІ РјРј РґР»СЏ СЂР°СЃС‡РµС‚Р° РїСЂРѕР±РёС‚РёСЏ")]
     public float armorThickness = 30f;
 
-    [Header("Визуализация Повреждений")]
+    [Header("Р’РёР·СѓР°Р»РёР·Р°С†РёСЏ РџРѕРІСЂРµР¶РґРµРЅРёР№")]
     [SerializeField] private GameObject destroyedVFX;
     [SerializeField] private GameObject smokeVFX;
     [SerializeField] private GameObject detachableMesh;
@@ -26,13 +26,13 @@ public class VehicleModule : MonoBehaviour, IDamageable
         mainVehicle = GetComponentInParent<VehicleHealth>();
     }
 
-    // Единый контракт урона
+    // Р•РґРёРЅС‹Р№ РєРѕРЅС‚СЂР°РєС‚ СѓСЂРѕРЅР°
     public void ApplyDamage(in DamageData data)
     {
         TakeDamage(data.Amount, data.HitPoint, data.HitNormal, data.FlightDirection);
     }
 
-    // Сохранён для совместимости со старыми вызовами
+    // РЎРѕС…СЂР°РЅС‘РЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё СЃРѕ СЃС‚Р°СЂС‹РјРё РІС‹Р·РѕРІР°РјРё
     public void TakeDamage(float rawDamage, Vector3 hitPoint, Vector3 hitNormal, Vector3 flightDirection)
     {
         if (isModuleDestroyed) return;
@@ -40,7 +40,7 @@ public class VehicleModule : MonoBehaviour, IDamageable
         float angleFactor = Mathf.Abs(Vector3.Dot(flightDirection, hitNormal));
         if (angleFactor < 0.25f)
         {
-            Debug.Log("Рикошет кумулятивной струи!");
+            Debug.Log("Р РёРєРѕС€РµС‚ РєСѓРјСѓР»СЏС‚РёРІРЅРѕР№ СЃС‚СЂСѓРё!");
             return;
         }
 
@@ -90,7 +90,7 @@ public class VehicleModule : MonoBehaviour, IDamageable
         {
             detachableMesh.transform.SetParent(null);
 
-            // ВАЖНО: НЕ использовать ?? для UnityEngine.Object — fake null.
+            // Р’РђР–РќРћ: РќР• РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ ?? РґР»СЏ UnityEngine.Object вЂ” fake null.
             Rigidbody partRb = detachableMesh.GetComponent<Rigidbody>();
             if (partRb == null) partRb = detachableMesh.AddComponent<Rigidbody>();
 

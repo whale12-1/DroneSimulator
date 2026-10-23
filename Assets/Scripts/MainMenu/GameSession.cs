@@ -4,7 +4,7 @@ public class GameSession : MonoBehaviour
 {
     public static GameSession Instance { get; private set; }
 
-    [Header("Текущая конфигурация игрока")]
+    [Header("РўРµРєСѓС‰Р°СЏ РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ РёРіСЂРѕРєР°")]
     public DroneConfig SelectedDroneConfig;
 
     private void Awake()

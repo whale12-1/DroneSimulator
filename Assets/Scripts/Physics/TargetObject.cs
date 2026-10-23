@@ -2,10 +2,10 @@ using UnityEngine;
 
 public class TargetObject : MonoBehaviour
 {
-    [Header("Ïàðàìåòðû Öåëè")]
-    public string targetName = "Òåõíèêà";
+    [Header("ÐŸÐ°Ñ€Ð°Ð¼ÐµÑ‚Ñ€Ñ‹ Ð¦ÐµÐ»Ð¸")]
+    public string targetName = "Ð¢ÐµÑ…Ð½Ð¸ÐºÐ°";
     public bool isHostile = true;
 
-    // Òî÷êà ïðèöåëèâàíèÿ (öåíòð îáúåêòà)
+    // Ð¢Ð¾Ñ‡ÐºÐ° Ð¿Ñ€Ð¸Ñ†ÐµÐ»Ð¸Ð²Ð°Ð½Ð¸Ñ (Ñ†ÐµÐ½Ñ‚Ñ€ Ð¾Ð±ÑŠÐµÐºÑ‚Ð°)
     public Vector3 TargetPosition => transform.position + Vector3.up * 0.5f;
 }

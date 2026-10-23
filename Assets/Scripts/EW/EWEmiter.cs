@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class EWEmitter : MonoBehaviour
 {
-    [Header("Ïàğàìåòğû ĞİÁ")]
+    [Header("ĞŸĞ°Ñ€Ğ°Ğ¼ĞµÑ‚Ñ€Ñ‹ Ğ Ğ­Ğ‘")]
     public float jamRadius = 150f;
     public bool isActive = true;
 

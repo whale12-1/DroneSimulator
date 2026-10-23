@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class FPVZoom : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
     private Camera cam;
@@ -23,7 +23,7 @@ public class FPVZoom : MonoBehaviour
     {
         if (cam == null) return;
 
-        // Если зум отключен для этого дрона — плавный сброс к дефолтному FOV
+        // Р•СЃР»Рё Р·СѓРј РѕС‚РєР»СЋС‡РµРЅ РґР»СЏ СЌС‚РѕРіРѕ РґСЂРѕРЅР° вЂ” РїР»Р°РІРЅС‹Р№ СЃР±СЂРѕСЃ Рє РґРµС„РѕР»С‚РЅРѕРјСѓ FOV
         if (config != null && !config.allowZoom)
         {
             float baseFOV = GetZoomLevel(0);
@@ -36,7 +36,7 @@ public class FPVZoom : MonoBehaviour
 
         int maxIndex = GetZoomLevelsCount() - 1;
 
-        // Увеличение кратности (уменьшение FOV)
+        // РЈРІРµР»РёС‡РµРЅРёРµ РєСЂР°С‚РЅРѕСЃС‚Рё (СѓРјРµРЅСЊС€РµРЅРёРµ FOV)
         if (Input.GetKeyDown(zoomInKey))
         {
             if (currentZoomIndex < maxIndex)
@@ -45,7 +45,7 @@ public class FPVZoom : MonoBehaviour
             }
         }
 
-        // Уменьшение кратности (увеличение FOV)
+        // РЈРјРµРЅСЊС€РµРЅРёРµ РєСЂР°С‚РЅРѕСЃС‚Рё (СѓРІРµР»РёС‡РµРЅРёРµ FOV)
         if (Input.GetKeyDown(zoomOutKey))
         {
             if (currentZoomIndex > 0)
@@ -54,7 +54,7 @@ public class FPVZoom : MonoBehaviour
             }
         }
 
-        // Плавный переход к целевому FOV
+        // РџР»Р°РІРЅС‹Р№ РїРµСЂРµС…РѕРґ Рє С†РµР»РµРІРѕРјСѓ FOV
         float targetFOV = GetZoomLevel(currentZoomIndex);
         cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFOV, Time.deltaTime * GetZoomSpeed());
     }
@@ -67,7 +67,7 @@ public class FPVZoom : MonoBehaviour
             return config.zoomLevels[clampedIndex];
         }
 
-        // Дефолтные значения при отсутствии конфига
+        // Р”РµС„РѕР»С‚РЅС‹Рµ Р·РЅР°С‡РµРЅРёСЏ РїСЂРё РѕС‚СЃСѓС‚СЃС‚РІРёРё РєРѕРЅС„РёРіР°
         float[] fallbackLevels = new float[] { 100f, 50f, 25f, 10f };
         return fallbackLevels[Mathf.Clamp(index, 0, fallbackLevels.Length - 1)];
     }

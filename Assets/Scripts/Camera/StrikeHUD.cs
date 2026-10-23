@@ -2,10 +2,10 @@ using UnityEngine;
 
 public class StrikeHUD : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("РџСЂРѕС„РёР»СЊ Р”СЂРѕРЅР°")]
     [SerializeField] private DroneConfig config;
 
-    [Header("Ссылки на компоненты")]
+    [Header("РЎСЃС‹Р»РєРё РЅР° РєРѕРјРїРѕРЅРµРЅС‚С‹")]
     [SerializeField] private DroneCameraModule cameraModule;
     [SerializeField] private EWReceiver ewReceiver;
 
@@ -23,13 +23,13 @@ public class StrikeHUD : MonoBehaviour
 
     private void OnGUI()
     {
-        // 1. Проверяем режим камеры и флаг отображения HUD
+        // 1. РџСЂРѕРІРµСЂСЏРµРј СЂРµР¶РёРј РєР°РјРµСЂС‹ Рё С„Р»Р°Рі РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ HUD
         CameraType camType = (config != null) ? config.cameraType : (cameraModule != null ? cameraModule.CurrentCameraType : CameraType.StrikeFixed);
         bool isEnabled = (config != null) ? config.showStrikeHUD : true;
 
         if (camType == CameraType.ReconGimbal || !isEnabled) return;
 
-        // 2. Считываем визуальные параметры из конфига
+        // 2. РЎС‡РёС‚С‹РІР°РµРј РІРёР·СѓР°Р»СЊРЅС‹Рµ РїР°СЂР°РјРµС‚СЂС‹ РёР· РєРѕРЅС„РёРіР°
         Color activeHudColor = (config != null) ? config.hudColor : new Color(0.1f, 1.0f, 0.2f, 0.85f);
         float crosshairSize = (config != null) ? config.crosshairSize : 14f;
         Vector2 boxSize = (config != null) ? config.targetBoxSize : new Vector2(160f, 110f);
@@ -38,15 +38,15 @@ public class StrikeHUD : MonoBehaviour
         GUI.color = activeHudColor;
         Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
-        // 3. Центральное перекрестие (+)
+        // 3. Р¦РµРЅС‚СЂР°Р»СЊРЅРѕРµ РїРµСЂРµРєСЂРµСЃС‚РёРµ (+)
         DrawRect(new Rect(center.x - crosshairSize, center.y - (lineWidth / 2f), crosshairSize * 2f, lineWidth));
         DrawRect(new Rect(center.x - (lineWidth / 2f), center.y - crosshairSize, lineWidth, crosshairSize * 2f));
 
-        // 4. Прямоугольник захвата цели (Target Box)
+        // 4. РџСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє Р·Р°С…РІР°С‚Р° С†РµР»Рё (Target Box)
         Rect targetRect = new Rect(center.x - boxSize.x / 2f, center.y - boxSize.y / 2f, boxSize.x, boxSize.y);
         DrawBoxOutline(targetRect, lineWidth);
 
-        // 5. Системные надписи OSD
+        // 5. РЎРёСЃС‚РµРјРЅС‹Рµ РЅР°РґРїРёСЃРё OSD
         GUIStyle textStyle = new GUIStyle
         {
             fontSize = 13,
@@ -60,7 +60,7 @@ public class StrikeHUD : MonoBehaviour
         GUI.Label(new Rect(targetRect.x, targetRect.y - 20f, 250f, 20f), droneLabel, textStyle);
         GUI.Label(new Rect(targetRect.x, targetRect.yMax + 4f, 250f, 20f), warheadLabel, textStyle);
 
-        // 6. Предупреждение о РЭБ
+        // 6. РџСЂРµРґСѓРїСЂРµР¶РґРµРЅРёРµ Рѕ Р Р­Р‘
         if (ewReceiver != null && ewReceiver.jamIntensity > 0.1f)
         {
             GUIStyle warningStyle = new GUIStyle(textStyle);
@@ -71,13 +71,13 @@ public class StrikeHUD : MonoBehaviour
 
     private void DrawBoxOutline(Rect rect, float width)
     {
-        // Верх
+        // Р’РµСЂС…
         DrawRect(new Rect(rect.x, rect.y, rect.width, width));
-        // Низ
+        // РќРёР·
         DrawRect(new Rect(rect.x, rect.yMax - width, rect.width, width));
-        // Лево
+        // Р›РµРІРѕ
         DrawRect(new Rect(rect.x, rect.y, width, rect.height));
-        // Право
+        // РџСЂР°РІРѕ
         DrawRect(new Rect(rect.xMax - width, rect.y, width, rect.height));
     }
 

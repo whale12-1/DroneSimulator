@@ -2,13 +2,13 @@ using UnityEngine;
 
 public class VehicleHealth : MonoBehaviour, IDamageable
 {
-    [Header("Ïğî÷íîñòü è Âèçóàë")]
+    [Header("ĞŸÑ€Ğ¾Ñ‡Ğ½Ğ¾ÑÑ‚ÑŒ Ğ¸ Ğ’Ğ¸Ğ·ÑƒĞ°Ğ»")]
     public float totalHealth = 300f;
     public GameObject explosionVFX;
     public Transform turretTransform;
     [SerializeField] private Material overallBurntMaterial;
 
-    [Header("Ôèçèêà è Äâèæåíèå")]
+    [Header("Ğ¤Ğ¸Ğ·Ğ¸ĞºĞ° Ğ¸ Ğ”Ğ²Ğ¸Ğ¶ĞµĞ½Ğ¸Ğµ")]
     [SerializeField] private WheelCollider[] wheelColliders;
     [SerializeField] private MonoBehaviour vehicleDriveScript;
     [SerializeField] private MonoBehaviour vehicleAIScript;
@@ -16,7 +16,7 @@ public class VehicleHealth : MonoBehaviour, IDamageable
     private bool isDestroyed;
     private Vector3 lastHitPoint = Vector3.zero;
 
-    // Åäèíûé êîíòğàêò óğîíà — ïğèõîäèò îò ExplosionService èëè ëşáîãî IDamageable-êàíàëà.
+    // Ğ•Ğ´Ğ¸Ğ½Ñ‹Ğ¹ ĞºĞ¾Ğ½Ñ‚Ñ€Ğ°ĞºÑ‚ ÑƒÑ€Ğ¾Ğ½Ğ° â€” Ğ¿Ñ€Ğ¸Ñ…Ğ¾Ğ´Ğ¸Ñ‚ Ğ¾Ñ‚ ExplosionService Ğ¸Ğ»Ğ¸ Ğ»ÑĞ±Ğ¾Ğ³Ğ¾ IDamageable-ĞºĞ°Ğ½Ğ°Ğ»Ğ°.
     public void ApplyDamage(in DamageData data)
     {
         OnModuleHit(data.Module, data.Amount, isModuleDestroyed: false, data.HitPoint);
@@ -48,10 +48,10 @@ public class VehicleHealth : MonoBehaviour, IDamageable
             case ModuleType.Engine:
             case ModuleType.Tracks:
                 DisableVehicleMovement();
-                Debug.Log("<color=yellow>ÒÅÕÍÈÊÀ ÏÎÒÅĞßËÀ ÕÎÄ!</color>");
+                Debug.Log("<color=yellow>Ğ¢Ğ•Ğ¥ĞĞ˜ĞšĞ ĞŸĞĞ¢Ğ•Ğ Ğ¯Ğ›Ğ Ğ¥ĞĞ”!</color>");
                 break;
             case ModuleType.AmmoRack:
-                Debug.Log("<color=red>ÄÅÒÎÍÀÖÈß ÁÎÅÊÎÌÏËÅÊÒÀ!</color>");
+                Debug.Log("<color=red>Ğ”Ğ•Ğ¢ĞĞĞĞ¦Ğ˜Ğ¯ Ğ‘ĞĞ•ĞšĞĞœĞŸĞ›Ğ•ĞšĞ¢Ğ!</color>");
                 break;
         }
     }
@@ -108,6 +108,6 @@ public class VehicleHealth : MonoBehaviour, IDamageable
         }
 
         GameEvents.RaiseVehicleDestroyed(this);
-        Debug.Log("<color=red>ÒÅÕÍÈÊÀ ÏÎËÍÎÑÒÜŞ ÓÍÈ×ÒÎÆÅÍÀ!</color>");
+        Debug.Log("<color=red>Ğ¢Ğ•Ğ¥ĞĞ˜ĞšĞ ĞŸĞĞ›ĞĞĞ¡Ğ¢Ğ¬Ğ® Ğ£ĞĞ˜Ğ§Ğ¢ĞĞ–Ğ•ĞĞ!</color>");
     }
 }
