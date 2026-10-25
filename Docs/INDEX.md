@@ -18,7 +18,7 @@ FPS-камера → Assets/Scenes/player.unity → Player/CameraPivot/Main Came
 
 Animator Controller → Assets/Models/Player/PlayerAnimator.controller
 
-Параметры Animator → Speed, Direction, IsGrounded → PlayerAnimator.controller
+Параметры Animator → Speed, Direction, IsGrounded, IsSitting, IsTyping → PlayerAnimator.controller
 
 Взаимодействие и UI
 Скрипт взаимодействия → Assets/Scripts/Interaction/PlayerInteractionDetector.cs
@@ -26,6 +26,7 @@ Animator Controller → Assets/Models/Player/PlayerAnimator.controller
 UI взаимодействия (магазин/карта) → Assets/Scripts/Interaction/InteractionUIController.cs
 Интерактивный объект «Магазин» → Assets/Scripts/Interaction/HangarInteractable.cs
 Интерактивный объект «Карта миссий» → Assets/Scripts/Interaction/MissionBoardInteractable.cs
+Интерактивный объект «Стул» (сесть за компьютер) → Assets/Scripts/Interaction/ChairInteractable.cs
 
 Заготовка Input-взаимодействия → Assets/Input/InputSystem_Actions.inputactions → Player/Interact
 

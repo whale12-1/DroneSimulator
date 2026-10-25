@@ -1,15 +1,15 @@
 using UnityEngine;
-using UnityEngine.InputSystem; // РСЃРїРѕР»СЊР·СѓРµРј РЅРѕРІС‹Р№ Input System
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
     public float speed = 3f;
-    public float runSpeed = 6f;
     public float gravity = -9.81f;
     public float mouseSensitivity = 100f;
     public Transform cameraTransform;
     public Animator animator;
+    public bool isSitting = false;
 
     private CharacterController controller;
     private Vector3 velocity;
@@ -21,8 +21,7 @@ public class PlayerController : MonoBehaviour
         if (animator == null)
             animator = GetComponentInChildren<Animator>();
         if (cameraTransform == null)
-            Debug.LogWarning("[PlayerController] cameraTransform РЅРµ РЅР°Р·РЅР°С‡РµРЅ вЂ” РІСЂР°С‰РµРЅРёРµ РєР°РјРµСЂС‹ РѕС‚РєР»СЋС‡РµРЅРѕ.");
-        // Р‘Р»РѕРєРёСЂСѓРµРј РєСѓСЂСЃРѕСЂ РІ С†РµРЅС‚СЂРµ СЌРєСЂР°РЅР°
+            Debug.LogWarning("[PlayerController] cameraTransform is not assigned.");
         Cursor.lockState = CursorLockMode.Locked;
     }
 
@@ -31,7 +30,9 @@ public class PlayerController : MonoBehaviour
         var mouse = Mouse.current;
         var keyboard = Keyboard.current;
 
-        // 1. Р’СЂР°С‰РµРЅРёРµ РєР°РјРµСЂРѕР№ (РњС‹С€СЊ)
+        float animSpeed = 0f;
+        float direction = 0f;
+
         if (mouse != null)
         {
             Vector2 mouseDelta = mouse.delta.ReadValue();
@@ -39,56 +40,59 @@ public class PlayerController : MonoBehaviour
             float mouseY = mouseDelta.y * mouseSensitivity * Time.deltaTime;
 
             xRotation -= mouseY;
-            xRotation = Mathf.Clamp(xRotation, -70f, 90f); // СЃС‚СЂР°С…РѕРІРєР°: РІРЅРёР· РЅРµ РіР»СѓР±Р¶Рµ -70В°
+            xRotation = Mathf.Clamp(xRotation, -70f, 90f);
             if (cameraTransform != null)
                 cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
             transform.Rotate(Vector3.up * mouseX);
         }
 
-        // 2. Р”РІРёР¶РµРЅРёРµ (WASD) + Р±РµРі (Left Shift)
-        float animSpeed = 0f;   // СЃРєРѕСЂРѕСЃС‚СЊ РґР»СЏ Animator (0 = Idle, 3 = Walk, 6 = Run)
-        float direction = 0f;
-        if (keyboard != null)
+        if (!isSitting)
         {
-            Vector2 moveInput = new Vector2(
-                (keyboard.dKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed ? 1 : 0),
-                (keyboard.wKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed ? 1 : 0)
-            );
+            if (keyboard != null)
+            {
+                Vector2 moveInput = new Vector2(
+                    (keyboard.dKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed ? 1 : 0),
+                    (keyboard.wKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed ? 1 : 0)
+                );
 
-            // Р‘Р°Р·РѕРІР°СЏ СЃРєРѕСЂРѕСЃС‚СЊ: С…РѕРґСЊР±Р° РёР»Рё Р±РµРі
-            float moveSpeed = keyboard.leftShiftKey.isPressed ? runSpeed : speed;
+                float moveSpeed = speed;
 
-            // РќР°РїСЂР°РІР»РµРЅРёРµ РґРІРёР¶РµРЅРёСЏ РІ РјРёСЂРѕРІС‹С… РєРѕРѕСЂРґРёРЅР°С‚Р°С…
-            Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
+                Vector3 move = transform.right * moveInput.x + transform.forward * moveInput.y;
 
-            // Р¤РРљРЎ: РЅРѕСЂРјР°Р»РёР·СѓРµРј, С‡С‚РѕР±С‹ РїРѕ РґРёР°РіРѕРЅР°Р»Рё СЃРєРѕСЂРѕСЃС‚СЊ РЅРµ Р±С‹Р»Р° РІС‹С€Рµ, С‡РµРј РїРѕ РїСЂСЏРјРѕР№
-            // (W+D РґР°С‘С‚ magnitude в‰€ 1.414 РІРјРµСЃС‚Рѕ 1.0 вЂ” РёР·-Р·Р° СЌС‚РѕРіРѕ Animator РґСѓРјР°Р», С‡С‚Рѕ РјС‹ Р±РµР¶РёРј)
-            if (move.magnitude > 1f)
-                move.Normalize();
+                if (move.magnitude > 1f)
+                    move.Normalize();
 
-            // Р”РІРёРіР°РµРј РїРµСЂСЃРѕРЅР°Р¶Р°
-            controller.Move(move * moveSpeed * Time.deltaTime);
+                controller.Move(move * moveSpeed * Time.deltaTime);
 
-            // Р”Р»СЏ Animator: РµСЃР»Рё СЃС‚РѕРёРј РЅР° РјРµСЃС‚Рµ вЂ” 0, РёРЅР°С‡Рµ РїРµСЂРµРґР°С‘Рј С†РµР»РµРІСѓСЋ СЃРєРѕСЂРѕСЃС‚СЊ (3 РёР»Рё 6),
-            // Р° РќР• СЂРµР°Р»СЊРЅСѓСЋ (move.magnitude * moveSpeed), С‡С‚РѕР±С‹ Р°РЅРёРјР°С†РёСЏ РЅРµ РґС‘СЂРіР°Р»Р°СЃСЊ
-            animSpeed = moveInput.magnitude > 0.01f ? moveSpeed : 0f;
-            direction = moveInput.y;
+                animSpeed = moveInput.magnitude > 0.01f ? moveSpeed : 0f;
+                direction = moveInput.y;
+            }
         }
 
-        // 3. Р“СЂР°РІРёС‚Р°С†РёСЏ (С‡С‚РѕР±С‹ РЅРµ Р»РµС‚Р°Р»).
-        if (controller.isGrounded && velocity.y < 0)
+        if (!isSitting)
         {
-            velocity.y = -2f; // РќРµР±РѕР»СЊС€РѕРµ РїСЂРёР¶Р°С‚РёРµ Рє Р·РµРјР»Рµ
-        }
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+            if (controller.isGrounded && velocity.y < 0)
+                velocity.y = -2f;
 
-        // 4. РџР°СЂР°РјРµС‚СЂС‹ Animator
+            velocity.y += gravity * Time.deltaTime;
+            controller.Move(velocity * Time.deltaTime);
+        }
+
         if (animator != null)
         {
             animator.SetFloat("Speed", animSpeed);
             animator.SetFloat("Direction", direction);
             animator.SetBool("IsGrounded", controller.isGrounded);
         }
+    }
+
+    public void SetSitting(bool isSitting)
+    {
+        animator.SetBool("IsSitting", isSitting);
+    }
+
+    public void SetTyping(bool isTyping)
+    {
+        animator.SetBool("IsTyping", isTyping);
     }
 }

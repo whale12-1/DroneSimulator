@@ -327,9 +327,10 @@ Assets/Scripts/Player/PlayerController.cs
 
 Статус: подключён в player.unity
 
-Поля: speed, runSpeed, gravity, mouseSensitivity, cameraTransform, animator
+Поля: speed, gravity, mouseSensitivity, cameraTransform, animator, isSitting (при посадке
+блокируются движение и гравитация; вращение камеры мышью остаётся доступным)
 
-Методы: Start, Update
+Методы: Start, Update, SetSitting, SetTyping
 
 5.2 Camera / HUD
 Camera/DroneCameraModule.cs
@@ -856,6 +857,11 @@ HangarInteractable.cs — IInteractable, открывает магазин, пр
 
 MissionBoardInteractable.cs — IInteractable, открывает карту миссий, промпт «Карта миссий [E]».
 
+ChairInteractable.cs — IInteractable, посадка за компьютер (телепорт в sitPosition,
+отключение коллайдера стула chairCollider и полное отключение CharacterController на время
+сидения, SetSitting(true) + блокировка движения через isSitting), вставание по Escape с
+телепортом в standPosition и обратным включением коллайдера и CharacterController.
+
 6. Сцены
 Всего найдено 15 сцен.
 
@@ -961,6 +967,12 @@ Assets/Models/Player/Animations/Slow Run.fbx
 
 Assets/Models/Player/Animations/Walking Backwards.fbx
 
+Assets/Models/Player/Animations/Stand To Sit.fbx
+
+Assets/Models/Player/Animations/Sitting.fbx
+
+Assets/Models/Player/Animations/Sit To Type.fbx
+
 Дроны
 Assets/Models/Drones/fpv_drone.glb
 
@@ -992,9 +1004,9 @@ Assets/ALP_Assets/country house01/Models/House.fbx
 Animator
 Основной controller: Assets/Models/Player/PlayerAnimator.controller.
 
-Параметры: Speed, Direction, IsGrounded.
+Параметры: Speed, Direction, IsGrounded, IsSitting (Bool), IsTyping (Bool).
 
-Состояния: Idle, Walk, Run, WalkBackward.
+Состояния: Idle, Walk, WalkBackward, SitDown, SitIdle, SitTyping (состояние Run удалено — бег отключён из-за малых размеров бункера).
 
 Отдельных .anim файлов не найдено — клипы импортируются из FBX.
 

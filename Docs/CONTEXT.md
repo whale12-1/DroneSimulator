@@ -145,13 +145,21 @@ FPS-камера;
 
 ходьба;
 
-бег;
-
 вращение мышью;
 
 Animator;
 
-состояния Idle, Walk, Run, WalkBackward;
+состояния Idle, Walk, WalkBackward (бег убран);
+
+начата работа над механикой сидения за компьютером: добавлены параметры Animator
+IsSitting и IsTyping и состояния SitDown / SitIdle / SitTyping (клипы Stand To Sit.fbx,
+Sitting.fbx, Sit To Type.fbx); в PlayerController.cs добавлены методы SetSitting(bool)
+и SetTyping(bool); создан скрипт ChairInteractable (Assets/Scripts/Interaction/) для
+посадки за компьютер по E и вставания по Esc; при посадке скрипт отключает коллайдер
+стула (Chair_Blocker) и полностью выключает CharacterController игрока (гравитация в
+PlayerController игнорируется через isSitting), а при вставании включает их обратно и
+телепортирует игрока на StandPoint; во время сидения вращение камеры (мышью) доступно —
+оператор может осматриваться, а движение (WASD) и гравитация заблокированы;
 
 четыре невидимые границы:
 
@@ -188,6 +196,11 @@ URP camera/light components.
 - Позиция Player выровнена по полу (Y = -1.74).
 
 Осталось в настройке: невидимые границы периметра Bounds_* (в Bunker(main) пока отсутствуют).
+
+Бег у игрока отключён: локация бункера слишком мала, бег выглядел нереалистично и ломал
+анимацию. В PlayerController.cs убрана переменная runSpeed — скорость движения всегда равна
+базовой speed (3). В PlayerAnimator.controller удалено только состояние Run (Idle, Walk и
+WalkBackward сохранены). FBX-файлы и клипы бега не удалялись — они лишь отвязаны от графа аниматора.
 
 Дроновый прототип
 В проекте уже присутствует отдельный набор систем:
@@ -308,7 +321,8 @@ ProgressService.
 В Input Actions уже есть действие Interact. Написана базовая система взаимодействия
 (Assets/Scripts/Interaction/): интерфейс IInteractable, PlayerInteractionDetector (луч из камеры,
 клавиша E, слой Interactable), InteractionUIController (окна «Магазин» и «Карта миссий»),
-готовые интерактивные объекты HangarInteractable и MissionBoardInteractable.
+готовые интерактивные объекты HangarInteractable, MissionBoardInteractable и
+ChairInteractable (посадка за компьютер; управляет коллайдером стула и точкой вставания StandPoint).
 Система подключена к Bunker(main): создан терминал Interact_OperatorTerminal, ссылки uiController назначены.
 
 6. Важные ограничения для будущих задач
