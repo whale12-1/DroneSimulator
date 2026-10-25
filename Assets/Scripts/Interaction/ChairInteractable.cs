@@ -7,6 +7,7 @@ public class ChairInteractable : MonoBehaviour, IInteractable
     [SerializeField] private Transform standPosition;
     [SerializeField] private PlayerController playerController;
     [SerializeField] private Collider chairCollider;
+    [SerializeField] private InteractionUIController uiController;
 
     private CharacterController characterController;
     private bool isSitting;
@@ -19,7 +20,7 @@ public class ChairInteractable : MonoBehaviour, IInteractable
 
     public string GetInteractionPrompt()
     {
-        return isSitting ? "Встать [Esc]" : "Сесть [E]";
+        return isSitting ? "Встать [Пробел]" : "Сесть [E]";
     }
 
     public bool CanInteract(GameObject interactor)
@@ -41,7 +42,7 @@ public class ChairInteractable : MonoBehaviour, IInteractable
             return;
 
         Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+        if (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
             StandUp();
     }
 
@@ -65,6 +66,9 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         isSitting = true;
         playerController.isSitting = true;
         playerController.SetSitting(true);
+
+        if (uiController != null)
+            uiController.ShowHint("Встать [Пробел]");
     }
 
     private void StandUp()
@@ -91,6 +95,9 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         isSitting = false;
         playerController.isSitting = false;
         playerController.SetSitting(false);
+
+        if (uiController != null)
+            uiController.HideHint();
     }
 
     private void ResolvePlayer(GameObject interactor)
@@ -101,5 +108,7 @@ public class ChairInteractable : MonoBehaviour, IInteractable
             playerController = FindAnyObjectByType<PlayerController>();
         if (characterController == null && playerController != null)
             characterController = playerController.GetComponent<CharacterController>();
+        if (uiController == null)
+            uiController = FindAnyObjectByType<InteractionUIController>();
     }
 }
