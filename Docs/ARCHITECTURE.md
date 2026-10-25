@@ -973,6 +973,10 @@ Assets/Models/Player/Animations/Sitting.fbx
 
 Assets/Models/Player/Animations/Sit To Type.fbx
 
+Assets/Models/Player/Animations/Left Strafe Walking.fbx
+
+Assets/Models/Player/Animations/Right Strafe Walking.fbx
+
 Дроны
 Assets/Models/Drones/fpv_drone.glb
 
@@ -1004,9 +1008,9 @@ Assets/ALP_Assets/country house01/Models/House.fbx
 Animator
 Основной controller: Assets/Models/Player/PlayerAnimator.controller.
 
-Параметры: Speed, Direction, IsGrounded, IsSitting (Bool), IsTyping (Bool).
+Параметры: Speed, Direction, Strafe, IsGrounded, IsSitting (Bool), IsTyping (Bool).
 
-Состояния: Idle, Walk, WalkBackward, SitDown, SitIdle, SitTyping (состояние Run удалено — бег отключён из-за малых размеров бункера).
+Состояния: Idle, Walk, WalkBackward, StrafeLeft, StrafeRight, SitDown, SitIdle, SitTyping (состояние Run удалено — бег отключён из-за малых размеров бункера). Стрейф включается параметром Strafe только при чисто горизонтальном вводе A/D; диагональ (W+A/W+D) остаётся обычной ходьбой Walk.
 
 Отдельных .anim файлов не найдено — клипы импортируются из FBX.
 

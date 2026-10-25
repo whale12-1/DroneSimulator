@@ -149,7 +149,7 @@ FPS-камера;
 
 Animator;
 
-состояния Idle, Walk, WalkBackward (бег убран);
+состояния Idle, Walk, WalkBackward, StrafeLeft, StrafeRight (бег убран); в Animator теперь передаётся параметр Strafe (горизонтальный ввод A/D) для ходьбы боком;
 
 начата работа над механикой сидения за компьютером: добавлены параметры Animator
 IsSitting и IsTyping и состояния SitDown / SitIdle / SitTyping (клипы Stand To Sit.fbx,
@@ -200,7 +200,7 @@ URP camera/light components.
 Бег у игрока отключён: локация бункера слишком мала, бег выглядел нереалистично и ломал
 анимацию. В PlayerController.cs убрана переменная runSpeed — скорость движения всегда равна
 базовой speed (3). В PlayerAnimator.controller удалено только состояние Run (Idle, Walk и
-WalkBackward сохранены). FBX-файлы и клипы бега не удалялись — они лишь отвязаны от графа аниматора.
+WalkBackward сохранены; для движения боком по A/D добавлены состояния StrafeLeft и StrafeRight). FBX-файлы и клипы бега не удалялись — они лишь отвязаны от графа аниматора.
 
 Дроновый прототип
 В проекте уже присутствует отдельный набор систем:

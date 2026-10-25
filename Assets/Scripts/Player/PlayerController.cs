@@ -32,6 +32,7 @@ public class PlayerController : MonoBehaviour
 
         float animSpeed = 0f;
         float direction = 0f;
+        float strafe = 0f;
 
         if (mouse != null)
         {
@@ -66,6 +67,7 @@ public class PlayerController : MonoBehaviour
 
                 animSpeed = moveInput.magnitude > 0.01f ? moveSpeed : 0f;
                 direction = moveInput.y;
+                strafe = Mathf.Abs(moveInput.y) < 0.1f ? moveInput.x : 0f;
             }
         }
 
@@ -82,6 +84,7 @@ public class PlayerController : MonoBehaviour
         {
             animator.SetFloat("Speed", animSpeed);
             animator.SetFloat("Direction", direction);
+            animator.SetFloat("Strafe", strafe);
             animator.SetBool("IsGrounded", controller.isGrounded);
         }
     }
