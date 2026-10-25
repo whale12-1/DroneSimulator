@@ -87,4 +87,23 @@ public class NightVisionController : MonoBehaviour
             irSpotlight.enabled = active;
         }
     }
+
+    // --- НОВЫЙ КОД ---
+    private void OnEnable()
+    {
+        // При включении дрона (переключении на него) принудительно выключаем ПНВ
+        SetNightVisionState(false);
+    }
+
+    private void OnDisable()
+    {
+        // При выключении дрона (переключении на другого) сбрасываем глобальный эффект
+        if (isNightVisionActive)
+        {
+            SetNightVisionState(false);
+        }
+    }
+    // -----------------
+
+
 }
