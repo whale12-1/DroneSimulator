@@ -3,7 +3,97 @@ guid: 86d029fc4e8380844a95442621757ffb
 ModelImporter:
   serializedVersion: 24600
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ACUnitNSafe
+    second: {fileID: 2100000, guid: 46f11441ac41ccc44b7b314acb200821, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ComputerNCam
+    second: {fileID: 2100000, guid: f186506691898e741bc4dc96f7424e81, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Correspondence
+    second: {fileID: 2100000, guid: fd85dc0f42967614eaf7ddc2d09a8e27, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: DoorsVents
+    second: {fileID: 2100000, guid: e7e16e2a5b3a00f4ab7b8c220ffe250d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: FloorGrass
+    second: {fileID: 2100000, guid: 693bc1b36b903ba40a12f2bd69ebf93c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: GrassTransp
+    second: {fileID: 2100000, guid: bbf62bbb0ab21a641b1e7f96424756fa, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: LightNTransparency
+    second: {fileID: 2100000, guid: 7064087a467c08c469cefd219aba011d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: LightReflectd
+    second: {fileID: 2100000, guid: e5a57e4cab218eb4e9cd01032b2a7765, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MetalFloor
+    second: {fileID: 2100000, guid: ea3c5e9c5ba9ec54b8698f5c6a2a474e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: PultNPeripherals
+    second: {fileID: 2100000, guid: ee55487c239549f4eabd27678f61d89a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Roof
+    second: {fileID: 2100000, guid: 309231a13f8bec7468b506a4d1103958, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Shadows
+    second: {fileID: 2100000, guid: c5a3df346c39f2f4697e8c275df1af71, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TVsNshit
+    second: {fileID: 2100000, guid: cc6ba860f34f2274895d2d797c6f4cca, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TrashCanMat
+    second: {fileID: 2100000, guid: 131e4ee9e5dbb8645801a0164b87e41a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TreeMat
+    second: {fileID: 2100000, guid: 75af6edad559b774684f874015e3cd27, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: TvScreens
+    second: {fileID: 2100000, guid: e0f4818ed80580c47b4a8a331cd05e50, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Wall
+    second: {fileID: 2100000, guid: 979c099c053e6094e8cd6e5751a9a160, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: WoodNPaper
+    second: {fileID: 2100000, guid: 762891f1a896bf946afdd077a2b1f9d2, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
