@@ -1,24 +1,25 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class DroneManager : MonoBehaviour
 {
-    [Header("Объекты Дронов")]
-    [SerializeField] private GameObject reconDrone;
-    [SerializeField] private GameObject strikeDrone;
-    [SerializeField] private GameObject strikeDrone_2;
-    [SerializeField] private GameObject dropDrone;
-    [SerializeField] private GameObject intersectorDrone;
+    [System.Serializable]
+    public class DroneSetup
+    {
+        public GameObject droneObject;
+        public DroneConfig config;
+    }
 
-    [Header("Профили (должны совпадать по порядку с объектами выше)")]
-    [SerializeField] private DroneConfig reconConfig;
-    [SerializeField] private DroneConfig strikeConfig;
-    [SerializeField] private DroneConfig strike2Config;
-    [SerializeField] private DroneConfig dropConfig;
-    [SerializeField] private DroneConfig intersectorConfig;
+    [Header("Все дроны в сцене (пул)")]
+    [Tooltip("Перетащи сюда все префабы/объекты дронов, которые могут быть в этой сцене")]
+    [SerializeField] private DroneSetup[] allDronesInScene;
+
+    // Активные слоты для текущей миссии (формируются на старте)
+    private List<DroneSetup> activeSlots = new List<DroneSetup>();
+    private int currentActiveIndex = -1;
 
     private void OnEnable()
     {
-        // Подписываемся на событие уничтожения дрона
         GameEvents.DroneExploded += OnDroneDestroyed;
     }
 
@@ -29,88 +30,132 @@ public class DroneManager : MonoBehaviour
 
     private void Start()
     {
-        SelectRecon();
+        InitializeDrones();
+    }
+
+    private void InitializeDrones()
+    {
+        // 1. Выключаем всех дронов на сцене
+        foreach (var setup in allDronesInScene)
+        {
+            if (setup.droneObject != null) setup.droneObject.SetActive(false);
+        }
+
+        activeSlots.Clear();
+
+        // 2. Получаем список разрешенных конфигов из миссии
+        var mission = MissionContext.Current;
+        if (mission != null && mission.availableDrones != null && mission.availableDrones.Length > 0)
+        {
+            // Проходим по всем доступным дронам в миссии
+            foreach (var allowedConfig in mission.availableDrones)
+            {
+                if (allowedConfig == null) continue;
+
+                // Ищем в пуле сцены подходящий по конфигу
+                var match = System.Array.Find(allDronesInScene, d => d.config == allowedConfig);
+
+                if (match != null && !activeSlots.Contains(match))
+                {
+                    activeSlots.Add(match);
+                }
+                else
+                {
+                    Debug.LogWarning($"[DroneManager] В сцене нет дрона с конфигом '{allowedConfig.name}'");
+                }
+            }
+        }
+        else
+        {
+            // Если миссия не задана (тестовый запуск), берем всех
+            activeSlots.AddRange(allDronesInScene);
+        }
+
+        // 3. Если есть хотя бы один дрон - активируем первого
+        if (activeSlots.Count > 0)
+        {
+            SelectDroneByIndex(0);
+        }
     }
 
     private void Update()
     {
-        // Проверяем, что дрон не null (то есть он ещё жив), прежде чем переключаться
-        if (Input.GetKeyDown(KeyCode.Alpha1) && reconDrone != null) SelectRecon();
-        if (Input.GetKeyDown(KeyCode.Alpha2) && strikeDrone != null) SelectStrike();
-        if (Input.GetKeyDown(KeyCode.Alpha3) && strikeDrone_2 != null) SelectStrike1();
-        if (Input.GetKeyDown(KeyCode.Alpha4) && dropDrone != null) SelectDropDrone();
-        if (Input.GetKeyDown(KeyCode.Alpha5) && intersectorDrone != null) SelectIntersector();
+        // Динамическое переключение по клавишам 1-9
+        for (int i = 0; i < activeSlots.Count; i++)
+        {
+            if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            {
+                SelectDroneByIndex(i);
+            }
+        }
     }
 
-    /// <summary>Активирует дрон по конфигу. Если не найдено или уничтожен — игнорирует.</summary>
+    public void SelectDroneByIndex(int index)
+    {
+        if (index < 0 || index >= activeSlots.Count) return;
+
+        // Проверяем, жив ли дрон (объект может быть null, если уничтожен)
+        if (activeSlots[index].droneObject == null) return;
+
+        SetActive(activeSlots[index].droneObject);
+        currentActiveIndex = index;
+    }
+
+    /// <summary>Активирует дрон по конфигу. Используется в миссиях.</summary>
     public void SelectByConfig(DroneConfig cfg)
     {
         if (cfg == null) return;
 
-        if (cfg == reconConfig && reconDrone != null) { SelectRecon(); return; }
-        if (cfg == strikeConfig && strikeDrone != null) { SelectStrike(); return; }
-        if (cfg == strike2Config && strikeDrone_2 != null) { SelectStrike1(); return; }
-        if (cfg == dropConfig && dropDrone != null) { SelectDropDrone(); return; }
-        if (cfg == intersectorConfig && intersectorDrone != null) { SelectIntersector(); return; }
-
-        Debug.LogWarning($"[DroneManager] Конфиг '{cfg.name}' не привязан или дрон уже уничтожен.");
+        int index = activeSlots.FindIndex(s => s.config == cfg && s.droneObject != null);
+        if (index != -1)
+        {
+            SelectDroneByIndex(index);
+        }
+        else
+        {
+            Debug.LogWarning($"[DroneManager] Конфиг '{cfg.name}' не найден среди активных дронов.");
+        }
     }
-
-    public void SelectRecon() => SetActive(reconDrone);
-    public void SelectStrike() => SetActive(strikeDrone);
-    public void SelectStrike1() => SetActive(strikeDrone_2);
-    public void SelectDropDrone() => SetActive(dropDrone);
-    public void SelectIntersector() => SetActive(intersectorDrone);
 
     private void SetActive(GameObject target)
     {
-        // Если дрон уничтожен (null), ничего не делаем
         if (target == null) return;
 
-        // Выключаем всех, кроме target
-        Toggle(reconDrone, target);
-        Toggle(strikeDrone, target);
-        Toggle(strikeDrone_2, target);
-        Toggle(dropDrone, target);
-        Toggle(intersectorDrone, target);
+        foreach (var slot in activeSlots)
+        {
+            if (slot.droneObject != null)
+                slot.droneObject.SetActive(slot.droneObject == target);
+        }
 
         GameEvents.RaiseDroneSwitched(target);
     }
 
-    private static void Toggle(GameObject go, GameObject active)
-    {
-        if (go != null) go.SetActive(go == active);
-    }
-
     // --- Логика отслеживания смертей ---
-
     private void OnDroneDestroyed(Vector3 pos, MonoBehaviour destroyedDroneScript)
     {
         GameObject destroyedObj = destroyedDroneScript.gameObject;
 
-        // Обнуляем ссылки на уничтоженный дрон
-        if (reconDrone == destroyedObj) reconDrone = null;
-        if (strikeDrone == destroyedObj) strikeDrone = null;
-        if (strikeDrone_2 == destroyedObj) strikeDrone_2 = null;
-        if (dropDrone == destroyedObj) dropDrone = null;
-        if (intersectorDrone == destroyedObj) intersectorDrone = null;
+        // Обнуляем ссылку в слоте
+        var slot = activeSlots.Find(s => s.droneObject == destroyedObj);
+        if (slot != null)
+        {
+            slot.droneObject = null; // Помечаем, что дрон уничтожен
+        }
 
         int alive = GetAliveDronesCount();
         if (alive > 0)
         {
-            Debug.Log($"<color=orange>[DroneManager]</color> Дрон уничтожен! Осталось: {alive}. Нажмите 1-5, чтобы выбрать другого.");
+            Debug.Log($"<color=orange>[DroneManager]</color> Дрон уничтожен! Осталось: {alive}.");
         }
     }
 
-    /// <summary>Возвращает количество живых дронов (для MissionController).</summary>
     public int GetAliveDronesCount()
     {
         int count = 0;
-        if (reconDrone != null) count++;
-        if (strikeDrone != null) count++;
-        if (strikeDrone_2 != null) count++;
-        if (dropDrone != null) count++;
-        if (intersectorDrone != null) count++;
+        foreach (var slot in activeSlots)
+        {
+            if (slot.droneObject != null) count++;
+        }
         return count;
     }
 }

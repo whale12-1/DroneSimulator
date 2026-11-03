@@ -14,6 +14,10 @@ public class VehiclePatrol : MonoBehaviour
     [SerializeField] private float frontRearOffset = 2.5f;     // Расстояние между передом и кормой (для ЗиЛ/БТР ~ 2.5)
     [SerializeField] private float suspensionSmoothness = 6f;  // Плавность сглаживания подвески
 
+    [Header("Конец маршрута")]
+    [SerializeField] private bool stopAtLastWaypoint = true; // ставим галочку для засады
+    public bool IsFinished { get; private set; } = false; // проверка для других скриптов
+
     private int currentWaypointIndex = 0;
     private Rigidbody rb;
 
@@ -74,7 +78,18 @@ public class VehiclePatrol : MonoBehaviour
         if (Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z),
                              new Vector3(target.position.x, 0, target.position.z)) < 2.5f)
         {
-            currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.Length;
+            // Если это была ПОСЛЕДНЯЯ точка, и мы хотим остановиться
+            if (currentWaypointIndex == waypoints.Length - 1 && stopAtLastWaypoint)
+            {
+                IsFinished = true;
+                this.enabled = false; // Выключаем движение
+                Debug.Log($"[{gameObject.name}] Прибыл в конечную точку и остановился.");
+            }
+            else
+            {
+                // Иначе едем по кругу
+                currentWaypointIndex = (currentWaypointIndex + 1) % waypoints.Length;
+            }
         }
     }
 
@@ -136,5 +151,23 @@ public class VehiclePatrol : MonoBehaviour
         Vector3 rearOrigin = transform.position - transform.forward * frontRearOffset + Vector3.up * 3f;
         Gizmos.DrawRay(frontOrigin, Vector3.down * raycastDistance);
         Gizmos.DrawRay(rearOrigin, Vector3.down * raycastDistance);
+    }
+
+    /// <summary>
+    /// Запускает отступление: разворачивает маршрут и ускоряет машину.
+    /// </summary>
+    /// <param name="retreatSpeed">Скорость, с которой машина будет уезжать</param>
+    public void StartRetreat(float retreatSpeed)
+    {
+        if (IsFinished) // Отступаем только если мы уже доехали до конца
+        {
+            System.Array.Reverse(waypoints); // Разворачиваем массив точек задом наперед
+            speed = retreatSpeed;
+            currentWaypointIndex = 1; // Едем к предпоследней точке (которая стала второй)
+            stopAtLastWaypoint = false; // Отключаем остановку, чтобы уехать до конца
+            IsFinished = false;
+            this.enabled = true; // Включаем движение обратно
+            Debug.Log($"[{gameObject.name}] НАЧИНАЕТ ОТСТУПЛЕНИЕ!");
+        }
     }
 }

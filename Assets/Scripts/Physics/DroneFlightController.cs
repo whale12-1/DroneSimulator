@@ -52,6 +52,9 @@ public class DroneFlightController : MonoBehaviour
     [Header("Влияние РЭБ")]
     [SerializeField] private bool enableEWImpact = true;
 
+    [Header("Состояние")]
+    public bool isInputLocked = false;
+
     // Состояние стиков
     private float targetPitchInput;
     private float targetRollInput;
@@ -113,39 +116,48 @@ public class DroneFlightController : MonoBehaviour
 
     private void ReadInput()
     {
-        if (droneType == DroneType.ReconDrop)
+        if (isInputLocked)
         {
-            if (Input.GetKeyDown(KeyCode.H))
-            {
-                hoverMode = !hoverMode;
-                if (hoverMode) angleMode = true;
-            }
-            if (Input.GetKeyDown(KeyCode.M))
-            {
-                angleMode = !angleMode;
-                if (!angleMode) hoverMode = false;
-            }
+            targetPitchInput = Mathf.MoveTowards(targetPitchInput, 0f, Time.deltaTime * 8f);
+            targetRollInput = Mathf.MoveTowards(targetRollInput, 0f, Time.deltaTime * 8f);
+            targetYawInput = Mathf.MoveTowards(targetYawInput, 0f, Time.deltaTime * 8f);
 
-            if (hoverMode)
+            if (droneType == DroneType.ReconDrop)
             {
-                bool anyMove =
-                    Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.S) ||
-                    Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.D) ||
-                    Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.DownArrow) ||
-                    Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.RightArrow);
-
-                if (anyMove) hoverMode = false;
+                hoverMode = true;
+                angleMode = true;
             }
+            throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleSpeed);
+            return;
+        }
+
+        if (droneType == DroneType.ReconDrop && Input.GetKeyDown(KeyCode.H))
+        {
+            hoverMode = !hoverMode;
+            if (hoverMode) angleMode = true;
+        }
+
+        if (droneType == DroneType.ReconDrop && Input.GetKeyDown(KeyCode.M))
+        {
+            angleMode = !angleMode;
+            if (!angleMode) hoverMode = false;
         }
 
         UpdateStickRate(ref targetPitchInput, KeyCode.UpArrow, KeyCode.DownArrow);
         UpdateStickRate(ref targetRollInput, KeyCode.RightArrow, KeyCode.LeftArrow);
         UpdateStickRate(ref targetYawInput, KeyCode.D, KeyCode.A);
 
-        if (Input.GetKey(KeyCode.W))
-            throttleInput = Mathf.MoveTowards(throttleInput, 1f, Time.deltaTime * throttleSpeed);
-        else if (Input.GetKey(KeyCode.S))
-            throttleInput = Mathf.MoveTowards(throttleInput, 0f, Time.deltaTime * throttleSpeed);
+        // Читаем газ ТОЛЬКО если мы не в режиме зависания
+        if (!hoverMode)
+        {
+            if (Input.GetKey(KeyCode.W))
+                throttleInput = Mathf.MoveTowards(throttleInput, 1f, Time.deltaTime * throttleSpeed);
+            else if (Input.GetKey(KeyCode.S))
+                throttleInput = Mathf.MoveTowards(throttleInput, 0f, Time.deltaTime * throttleSpeed);
+            else
+                // ВАЖНО: Если клавиши отпущены, газ плавно возвращается к 0.5 (зависание)
+                throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleSpeed);
+        }
 
         float jam = (enableEWImpact && ewReceiver != null) ? ewReceiver.jamIntensity : 0f;
         if (jam > 0f)

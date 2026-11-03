@@ -16,6 +16,8 @@ public class VehicleHealth : MonoBehaviour, IDamageable
     private bool isDestroyed;
     private Vector3 lastHitPoint = Vector3.zero;
 
+    public float currentHealth => totalHealth;
+
     // Единый контракт урона — приходит от ExplosionService или любого IDamageable-канала.
     public void ApplyDamage(in DamageData data)
     {
@@ -58,14 +60,40 @@ public class VehicleHealth : MonoBehaviour, IDamageable
 
     private void DisableVehicleMovement()
     {
+        // 1. Отключаем скрипты, переданные вручную в инспекторе
         if (vehicleDriveScript != null) vehicleDriveScript.enabled = false;
-        if (wheelColliders == null) return;
+        if (vehicleAIScript != null) vehicleAIScript.enabled = false;
 
-        foreach (var wheel in wheelColliders)
+        // 2. ПРИНУДИТЕЛЬНО отключаем наши скрипты движения и ИИ (самый надежный способ)
+        var patrol = GetComponent<VehiclePatrol>();
+        if (patrol != null) patrol.enabled = false;
+
+        var ai = GetComponent<VehicleSmartAI>();
+        if (ai != null) ai.enabled = false;
+
+        // 3. Обнуляем скорость Rigidbody, чтобы машина не катилась по инерции
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
         {
-            if (wheel == null) continue;
-            wheel.motorTorque = 0f;
-            wheel.brakeTorque = 10000f;
+            // СНАЧАЛА делаем кинематическим, чтобы физика перестала работать
+            rb.isKinematic = true;
+
+            // Теперь обнуляем скорости (это безопасно, так как машина уже заморожена)
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        // 4. Останавливаем колеса (если они есть)
+        if (wheelColliders != null)
+        {
+            foreach (var wheel in wheelColliders)
+            {
+                if (wheel != null)
+                {
+                    wheel.motorTorque = 0f;
+                    wheel.brakeTorque = 10000f;
+                }
+            }
         }
     }
 
@@ -74,7 +102,7 @@ public class VehicleHealth : MonoBehaviour, IDamageable
         if (isDestroyed) return;
         isDestroyed = true;
 
-        if (vehicleAIScript != null) vehicleAIScript.enabled = false;
+        // Сначала полностью останавливаем машину
         DisableVehicleMovement();
 
         if (explosionVFX != null)
@@ -98,7 +126,6 @@ public class VehicleHealth : MonoBehaviour, IDamageable
         if (catastrophicAmmoExplosion && turretTransform != null)
         {
             turretTransform.SetParent(null);
-
             Rigidbody turretRb = turretTransform.GetComponent<Rigidbody>();
             if (turretRb == null) turretRb = turretTransform.gameObject.AddComponent<Rigidbody>();
 
