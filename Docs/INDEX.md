@@ -24,6 +24,7 @@ Animator Controller → Assets/Models/Player/PlayerAnimator.controller
 Скрипт взаимодействия → Assets/Scripts/Interaction/PlayerInteractionDetector.cs
 Интерфейс взаимодействия → Assets/Scripts/Interaction/IInteractable.cs
 UI взаимодействия (магазин/карта) → Assets/Scripts/Interaction/InteractionUIController.cs
+Контроллер выбора миссий на компьютере → Assets/Scripts/Interaction/MissionMenuController.cs
 Интерактивный объект «Магазин» → Assets/Scripts/Interaction/HangarInteractable.cs
 Интерактивный объект «Карта миссий» → Assets/Scripts/Interaction/MissionBoardInteractable.cs
 Интерактивный объект «Стул» (сесть за компьютер) → Assets/Scripts/Interaction/ChairInteractable.cs

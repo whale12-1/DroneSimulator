@@ -15,6 +15,15 @@ public class SceneLoader : MonoBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    public static void EnsureInstance()
+    {
+        if (Instance == null)
+        {
+            GameObject go = new GameObject("SceneLoader");
+            go.AddComponent<SceneLoader>();
+        }
+    }
+
     public async void LoadAsync(string sceneName)
     {
         var op = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);

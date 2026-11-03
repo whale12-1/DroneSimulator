@@ -332,7 +332,17 @@ ChairInteractable (посадка за компьютер; управляет к
 (панель плавно появляется CanvasGroup.alpha 0→1 и зумится localScale 0.1→1 за 0.3 с, курсор
 разблокируется, Time.timeScale = 0). Закрытие — по E или Esc независимо от направления взгляда:
 ComputerUIController.Update() вызывает CloseDesktop() (alpha = 0, курсор блокируется,
-Time.timeScale = 1).
+Time.timeScale = 1). Esc закрывает окна по очереди: первое нажатие закрывает меню миссий (возврат
+на рабочий стол), второе нажатие (когда меню миссий уже закрыто) закрывает сам рабочий стол и
+выпускает игрока из компьютера.
+
+На рабочем столе ComputerOS есть интерактивная иконка-кнопка «Миссии» (скрипт DesktopIcon,
+Assets/Scripts/Interaction/DesktopIcon.cs). По клику мышью поверх рабочего стола ComputerOS
+открывается полнофункциональная панель выбора миссий из MainMenu.unity (префаб MissionSelectPanel
+с MissionSelectScreen и карточками MissionCard), управляемая скриптом MissionMenuController
+(Assets/Scripts/Interaction/MissionMenuController.cs). Рабочий стол ComputerOS остаётся видимым на
+фоне. Старая статичная картинка MissionBoardWindow удалена. Кнопка «Назад» закрывает панель и
+возвращает на рабочий стол, а кнопка «Начать» запускает миссию через MissionContext и SceneLoader.
 
 6. Важные ограничения для будущих задач
 Проект находится на стадии обучения и прототипирования. Поэтому:

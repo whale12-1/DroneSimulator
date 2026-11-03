@@ -96,7 +96,7 @@ Bunker(main)
 ├── Blockers_ACUnits      (ACUnit_Blocker, ACUnit1_Blocker)
 ├── Blockers_Furniture    (Chair_Blocker, Chair1/2_Blocker, CupBoard_Blocker ×5)
 ├── Interact_OperatorTerminal (layer Interactable, BoxCollider Is Trigger = off, ComputerInteractable → ОС ComputerOS: открытие по E, закрытие по E/Esc глобально)
-├── InteractionCanvas     (перенесён из player.unity: Canvas + InteractionUIController + Hint/ShopWindow/MissionBoardWindow + ComputerOS)
+├── InteractionCanvas     (Canvas + InteractionUIController + Hint/ShopWindow/ComputerOS + MissionSelectPanel (префаб из MainMenu, выбор миссий))
 ├── EventSystem           (перенесён из player.unity: EventSystem + InputSystemUIInputModule)
 └── Player
     ├── CharacterController
@@ -872,8 +872,20 @@ ComputerUIController.cs — висит на панели ComputerOS (Interaction
 CanvasGroup.alpha (0→1) и зум RectTransform.localScale (0.1→1) за 0.3 с через Mathf.Lerp,
 разблокировка курсора, Time.timeScale = 0. Update() при IsOpen закрывает окно по E/Esc
 (eKey/escapeKey.wasPressedThisFrame) независимо от направления взгляда, с защитой от повторного
-нажатия (lastOpenTime, 0.2 с). CloseDesktop() ставит IsOpen = false, alpha = 0, блокировка курсора,
+нажатия (lastOpenTime, 0.2 с). Если открыто меню миссий (MissionMenuController.IsOpen), Update() не
+закрывает рабочий стол, поэтому Esc закрывает окна по очереди: первое нажатие — меню миссий, второе —
+сам рабочий стол. CloseDesktop() ставит IsOpen = false, alpha = 0, блокировка курсора,
 Time.timeScale = 1.
+
+DesktopIcon.cs — висит на кнопке-иконке «Миссии» внутри ComputerOS: OnIconClicked() вызывает
+MissionMenuController.OpenMissionMenu(), который открывает панель выбора миссий (MissionSelectPanel
+из MainMenu) поверх рабочего стола ComputerOS — рабочий стол остаётся видимым на фоне.
+
+MissionMenuController.cs — контроллер панели выбора миссий внутри бункера. OpenMissionMenu()
+заполняет MissionSelectScreen миссиями из MissionRegistry и показывает панель поверх рабочего стола
+ComputerOS (рабочий стол не выключается); CloseMissionMenu() (кнопка «Назад») просто скрывает панель —
+рабочий стол остаётся на месте; StartMission() запускает миссию через MissionContext.Begin() и
+SceneLoader.LoadAsync(). Старый MissionBoardWindow удалён.
 
 6. Сцены
 Всего найдено 15 сцен.
