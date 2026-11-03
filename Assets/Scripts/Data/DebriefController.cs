@@ -10,13 +10,18 @@ public class DebriefController : MonoBehaviour
     [SerializeField] private TMP_Text statsText;
     [SerializeField] private Button returnToMenuButton;
 
+    private bool isReturning = false;
+
     private void Start()
     {
         // Подписываемся на смену состояния
         GameStateMachine.StateChanged += OnStateChanged;
 
         if (returnToMenuButton != null)
+        {
+            returnToMenuButton.onClick.RemoveAllListeners();
             returnToMenuButton.onClick.AddListener(ReturnToMenu);
+        }
 
         panel.SetActive(false);
     }
@@ -63,7 +68,12 @@ public class DebriefController : MonoBehaviour
 
     public void ReturnToMenu()
     {
+        if (isReturning) return;
+        isReturning = true;
+
         panel.SetActive(false);
+
+        MissionContext.ReturnedFromMission = true;
 
         if (GameStateMachine.CanTransitionTo(GameState.Loading))
         {

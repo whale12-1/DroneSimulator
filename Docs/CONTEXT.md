@@ -265,6 +265,8 @@ ScriptableObject-описаний миссий;
 
 асинхронной загрузки сцен;
 
+экрана загрузки «LOADING...» при переключении сцен;
+
 настроек громкости, качества и fullscreen.
 
 Возврат на базу после миссии
@@ -274,9 +276,50 @@ Assets/Scripts/Data/DebriefController.cs, метод ReturnToMenu(): панел�
 скрывается, состояние переводится из Debrief в Gameplay (через разрешённый переход
 Debrief → Loading → Gameplay, так как FSM не допускает Debrief → Gameplay напрямую),
 после чего вызывается SceneLoader.Instance.LoadAsync("Bunker(main)").
+ReturnToMenu() защищён от повторного вызова флагом isReturning (повторный вызов
+игнорируется), а SceneLoader.LoadAsync() — флагом isLoading, который сбрасывается
+после завершения загрузки сцены. Это устранило баг двойной загрузки сцены
+Bunker(main) (логи показывали два вызова ReturnToMenu() и LoadAsync() в одну и ту же
+миллисекунду), из-за которого игрок после возврата с миссии телепортировался на точку
+спавна стоя, а не оставался сидеть за компьютером.
 Сцена Bunker(main) добавлена в Build Settings, поэтому загрузка проходит без ошибки.
 Русский текст дебрифинга («МИССИЯ ВЫПОЛНЕНА», «МИССИЯ ПРОВАЛЕНА», статистика) сохранён,
 сам файл переведён из Windows-1251 в UTF-8 без BOM — как и остальные C#-скрипты проекта.
+
+Восстановление состояния бункера после возврата
+При возврате с миссии игрок больше не появляется на стартовой точке стоя. Состояние бункера
+восстанавливается автоматически:
+
+DebriefController.ReturnToMenu() перед загрузкой сцены ставит флаг
+MissionContext.ReturnedFromMission = true (Assets/Scripts/Data/MissionContext.cs).
+
+В сцене Bunker(main) на объекте Player висит скрипт BunkerStateRestorer
+(Assets/Scripts/Interaction/BunkerStateRestorer.cs). В Start() при поднятом флаге он с задержкой
+в один кадр (чтобы отработали все Start, включая блокировку курсора в PlayerController):
+
+сажает игрока на стул — ChairInteractable.Interact() (телепорт на SitPoint, отключение
+CharacterController и коллайдера стула, анимация IsSitting);
+
+открывает рабочий стол ComputerOS — ComputerUIController.OpenDesktop();
+
+поверх рабочего стола открывает панель миссий — MissionMenuController.OpenMissionMenu();
+
+сбрасывает флаг ReturnedFromMission = false.
+
+Прогресс миссий при этом актуален: MissionController.EndMission() при успешном завершении вызывает
+ProgressService.CompleteMission(), а OpenMissionMenu() пересоздаёт карточки через
+MissionSelectScreen.Populate(), которая заново читает ProgressService — галочки «Пройдено»
+отображаются сразу.
+
+Экран загрузки при переключении сцен
+При переключении сцен (например, возврат с миссии в Bunker(main)) SceneLoader
+(Assets/Scripts/Core/SceneLoader.cs) показывает чёрный экран «LOADING...». В LoadAsync()
+перед LoadSceneAsync вызывается ShowLoading() (CanvasGroup alpha = 1, blocksRaycasts = true),
+а после завершения активации новой сцены (op.isDone) — HideLoading() (alpha = 0,
+blocksRaycasts = false), после чего сбрасывается флаг isLoading. Пустая сцена при переходе
+больше не мигает. UI экрана загрузки — Panel на весь экран с текстом «LOADING...»,
+дочерняя к объекту SceneLoader (переживает смену сцен благодаря DontDestroyOnLoad);
+ссылка назначается в поле Loading Screen инспектора SceneLoader.
 
 4. Что существует в коде, но пока не соединено с базой
 Следующие подсистемы присутствуют в проекте, но не подключены к основной FPS-сцене player.unity как единый игровой цикл:
@@ -345,7 +388,9 @@ ChairInteractable (посадка за компьютер; управляет к
 ComputerUIController.Update() вызывает CloseDesktop() (alpha = 0, курсор блокируется,
 Time.timeScale = 1). Esc закрывает окна по очереди: первое нажатие закрывает меню миссий (возврат
 на рабочий стол), второе нажатие (когда меню миссий уже закрыто) закрывает сам рабочий стол и
-выпускает игрока из компьютера.
+выпускает игрока из компьютера. ComputerUIController игнорирует Esc, пока меню миссий открыто
+(MissionMenuController.IsOpen), а также в течение 0.2 с после его закрытия (LastClosedTime), поэтому
+порядок выполнения Update() двух скриптов не влияет на результат.
 
 На рабочем столе ComputerOS есть интерактивная иконка-кнопка «Миссии» (скрипт DesktopIcon,
 Assets/Scripts/Interaction/DesktopIcon.cs). По клику мышью поверх рабочего стола ComputerOS

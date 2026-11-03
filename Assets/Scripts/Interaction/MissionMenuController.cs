@@ -12,6 +12,7 @@ public class MissionMenuController : MonoBehaviour
     private float lastOpenTime;
 
     public bool IsOpen { get; private set; }
+    public float LastClosedTime { get; private set; } = -10f;
 
     private void Awake()
     {
@@ -63,6 +64,7 @@ public class MissionMenuController : MonoBehaviour
     public void CloseMissionMenu()
     {
         IsOpen = false;
+        LastClosedTime = Time.unscaledTime;
         HidePanel();
 
         if (GameStateMachine.CanTransitionTo(GameState.MainMenu))

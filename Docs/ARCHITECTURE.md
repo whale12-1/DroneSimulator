@@ -102,6 +102,7 @@ Bunker(main)
     ├── CharacterController
     ├── PlayerController
     ├── PlayerInteractionDetector   (uiController → InteractionCanvas/InteractionUIController)
+    ├── BunkerStateRestorer         (восстановление состояния после возврата с миссии)
     ├── Visual/SWAT (Animator → PlayerAnimator)
     └── CameraPivot/Main Camera     (единственный AudioListener в сцене)
 
@@ -167,6 +168,10 @@ Assets/Scripts/Data/MissionContext.cs
 
 Статический реестр источников помех EWEmitter. Возвращает максимальный уровень РЭБ в заданной точке.
 
+Содержит также флаг ReturnedFromMission: DebriefController.ReturnToMenu() ставит его в true перед
+загрузкой сцены Bunker(main), а BunkerStateRestorer сбрасывает в false после восстановления
+состояния бункера.
+
 ProgressService
 
 Файл:
@@ -221,10 +226,21 @@ MissionController.EndMission(.)
 DebriefController
   ├── ShowDebrief() — результаты миссии
   └── ReturnToMenu()
+        ├── MissionContext.ReturnedFromMission = true
         ├── GameStateMachine → Loading → Gameplay
         └── SceneLoader.LoadAsync("Bunker(main)")
+              (ReturnToMenu() и LoadAsync() защищены от повторного вызова флагами
+               isReturning и isLoading — двойная загрузка сцены исключена)
+              LoadAsync: ShowLoading() → LoadSceneAsync (allowSceneActivation = false)
+              → progress ≥ 0.9 → allowSceneActivation = true → op.isDone → HideLoading()
                   ↓
               Bunker(main)
+                  ↓
+              BunkerStateRestorer (на Player, только при ReturnedFromMission == true)
+        ├── ChairInteractable.Interact(.) → посадка на стул
+        ├── ComputerUIController.OpenDesktop() → ComputerOS
+        ├── MissionMenuController.OpenMissionMenu() → MissionSelectPanel
+        └── ReturnedFromMission = false
 
 Текущий фактический статус:
 
@@ -232,7 +248,9 @@ Mission1 указывает SampleScene;
 Mission2 и Mission3 не имеют sceneName;
 player.unity отсутствует в Build Settings;
 сцена базы Bunker(main) добавлена в Build Settings;
-debrief UI — базовая панель DebriefController; возврат с миссии ведёт в Bunker(main).
+debrief UI — базовая панель DebriefController; возврат с миссии ведёт в Bunker(main);
+двойная загрузка сцены при возврате устранена — ReturnToMenu() и LoadAsync()
+защищены флагами isReturning и isLoading
 4.2 Drone flow
 
 MissionDefinition.defaultDrone
@@ -519,11 +537,16 @@ Core/SceneLoader.cs
 
 Класс: SceneLoader
 
-Назначение: асинхронная загрузка сцен
+Назначение: асинхронная загрузка сцен с экраном загрузки «LOADING...»
 
-Зависимости: SceneManager
+Зависимости: SceneManager, CanvasGroup (поле loadingScreen)
 
-Статус: MainMenu/Bootstrapper
+Статус: MainMenu/Bootstrapper; LoadAsync() защищён от повторного входа флагом
+isLoading (сбрасывается после завершения загрузки) — повторный вызов игнорируется,
+двойная загрузка одной и той же сцены исключена. Перед LoadSceneAsync вызывается
+ShowLoading() (alpha = 1, blocksRaycasts = true), после завершения активации новой
+сцены (op.isDone) — HideLoading() (alpha = 0, blocksRaycasts = false). Если сцена
+не найдена (op == null), экран скрывается и isLoading сбрасывается
 
 5.4 Data / Missions
 Data/MissionContext.cs
@@ -575,7 +598,8 @@ Data/DebriefController.cs
 Зависимости: GameStateMachine, SceneLoader, MissionContext, TMP_Text
 
 Статус: по кнопке дебрифинга переводит состояние Debrief → Loading → Gameplay
-и загружает сцену Bunker(main)
+и загружает сцену Bunker(main); перед загрузкой ставит MissionContext.ReturnedFromMission = true;
+метод ReturnToMenu() защищён от повторного вызова флагом isReturning
 
 5.5 DroneTypes
 DroneTypes/DroneConfig.cs
@@ -894,8 +918,9 @@ ComputerUIController.cs — висит на панели ComputerOS (Interaction
 CanvasGroup.alpha (0→1) и зум RectTransform.localScale (0.1→1) за 0.3 с через Mathf.Lerp,
 разблокировка курсора, Time.timeScale = 0. Update() при IsOpen закрывает окно по E/Esc
 (eKey/escapeKey.wasPressedThisFrame) независимо от направления взгляда, с защитой от повторного
-нажатия (lastOpenTime, 0.2 с). Если открыто меню миссий (MissionMenuController.IsOpen), Update() не
-закрывает рабочий стол, поэтому Esc закрывает окна по очереди: первое нажатие — меню миссий, второе —
+нажатия (lastOpenTime, 0.2 с). Если открыто меню миссий (MissionMenuController.IsOpen) или оно было
+закрыто менее 0.2 с назад (LastClosedTime), Update() не закрывает рабочий стол, поэтому Esc закрывает
+окна по очереди независимо от порядка выполнения Update(): первое нажатие — меню миссий, второе —
 сам рабочий стол. CloseDesktop() ставит IsOpen = false, alpha = 0, блокировка курсора,
 Time.timeScale = 1.
 
@@ -905,9 +930,15 @@ MissionMenuController.OpenMissionMenu(), который открывает па�
 
 MissionMenuController.cs — контроллер панели выбора миссий внутри бункера. OpenMissionMenu()
 заполняет MissionSelectScreen миссиями из MissionRegistry и показывает панель поверх рабочего стола
-ComputerOS (рабочий стол не выключается); CloseMissionMenu() (кнопка «Назад») просто скрывает панель —
-рабочий стол остаётся на месте; StartMission() запускает миссию через MissionContext.Begin() и
+ComputerOS (рабочий стол не выключается); CloseMissionMenu() (кнопка «Назад» или Esc в Update(), с защитой lastOpenTime 0.2 с) скрывает панель —
+рабочий стол остаётся на месте — и фиксирует LastClosedTime; StartMission() запускает миссию через MissionContext.Begin() и
 SceneLoader.LoadAsync(). Старый MissionBoardWindow удалён.
+
+BunkerStateRestorer.cs — висит на Player в сцене Bunker(main). При MissionContext.ReturnedFromMission
+== true в Start() через корутину с задержкой в один кадр (чтобы отработали все Start сцены)
+восстанавливает состояние возврата с миссии: ChairInteractable.Interact() (посадка на стул),
+ComputerUIController.OpenDesktop() (ComputerOS) и MissionMenuController.OpenMissionMenu()
+(MissionSelectPanel с актуальным прогрессом), затем сбрасывает флаг ReturnedFromMission = false.
 
 6. Сцены
 Всего найдено 15 сцен.
@@ -1153,10 +1184,6 @@ Mission3 не имеет sceneName и defaultDrone
 Смешан новый и старый Input System
 
 Где: PlayerController, drone scripts, InputManager
-
-SceneLoader.ShowLoading/HideLoading не вызываются
-
-Где: SceneLoader.cs
 
 MissionController.startTime не инициализируется
 

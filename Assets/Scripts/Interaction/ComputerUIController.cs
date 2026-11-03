@@ -21,11 +21,11 @@ public class ComputerUIController : MonoBehaviour
 
     private void Update()
     {
-        MissionMenuController missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
-        if (missionMenu != null && missionMenu.IsOpen) return;
-
         if (!IsOpen) return;
         if (Time.unscaledTime - lastOpenTime < 0.2f) return;
+
+        MissionMenuController missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
+        if (missionMenu != null && (missionMenu.IsOpen || Time.unscaledTime - missionMenu.LastClosedTime < 0.2f)) return;
 
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && (keyboard.eKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))

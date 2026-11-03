@@ -35,6 +35,7 @@ public class ChairInteractable : MonoBehaviour, IInteractable
 
     private void SitDown(GameObject interactor)
     {
+        Debug.Log($"[ChairInteractable] SitDown() called: isSitting = {isSitting}, time = {Time.unscaledTime:F3}");
         ResolvePlayer(interactor);
         if (playerController == null || sitPosition == null) return;
 
@@ -54,11 +55,16 @@ public class ChairInteractable : MonoBehaviour, IInteractable
             uiController.HideHint();
             uiController.ShowSittingHint("Встать [Пробел]");
         }
+
+        Debug.Log($"[ChairInteractable] SitDown() done: player position = {player.position}, isSitting = {isSitting}");
     }
 
     private void StandUp()
     {
+        Debug.Log($"[ChairInteractable] StandUp() called: isSitting = {isSitting}, time = {Time.unscaledTime:F3}");
         if (playerController == null) return;
+
+        Debug.Log($"[ChairInteractable] StandUp(): player position before = {playerController.transform.position}");
 
         if (characterController != null) characterController.enabled = false;
         if (standPosition != null)
@@ -75,6 +81,8 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         playerController.SetSitting(false);
 
         if (uiController != null) uiController.HideSittingHint();
+
+        Debug.Log($"[ChairInteractable] StandUp() done: player position = {playerController.transform.position}, isSitting = {isSitting}");
     }
 
     private void ResolvePlayer(GameObject interactor)

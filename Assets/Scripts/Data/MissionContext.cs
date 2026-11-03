@@ -12,10 +12,12 @@ public static class MissionContext
     public static MissionDefinition Current { get; private set; }
     public static DroneConfig SelectedDrone { get; private set; }
 
-    // Результаты последней сессии
+    // Р РµР·СѓР»СЊС‚Р°С‚С‹ РїРѕСЃР»РµРґРЅРµР№ СЃРµСЃСЃРёРё
     public static MissionResult LastResult { get; private set; } = MissionResult.None;
     public static float LastTimeElapsed { get; private set; }
     public static int LastTargetsDestroyed { get; private set; }
+
+    public static bool ReturnedFromMission { get; set; }
 
     public static void Begin(MissionDefinition mission, DroneConfig drone)
     {
