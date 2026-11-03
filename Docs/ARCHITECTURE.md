@@ -214,14 +214,25 @@ MainMenuController.StartMission(.)
           ↓
 MissionController.Awake()
   └── DroneManager.SelectByConfig(mission.defaultDrone)
+          ↓
+MissionController.EndMission(.)
+  └── GameStateMachine → Debrief
+          ↓
+DebriefController
+  ├── ShowDebrief() — результаты миссии
+  └── ReturnToMenu()
+        ├── GameStateMachine → Loading → Gameplay
+        └── SceneLoader.LoadAsync("Bunker(main)")
+                  ↓
+              Bunker(main)
 
 Текущий фактический статус:
 
 Mission1 указывает SampleScene;
 Mission2 и Mission3 не имеют sceneName;
 player.unity отсутствует в Build Settings;
-debrief UI не подключён;
-возврат на базу не собран.
+сцена базы Bunker(main) добавлена в Build Settings;
+debrief UI — базовая панель DebriefController; возврат с миссии ведёт в Bunker(main).
 4.2 Drone flow
 
 MissionDefinition.defaultDrone
@@ -554,6 +565,17 @@ Data/ProgressService.cs
 Зависимости: JsonUtility, IO
 
 Статус: вызывается UI/миссиями
+
+Data/DebriefController.cs
+
+Класс: DebriefController
+
+Назначение: панель результатов миссии и возврат с миссии на базу
+
+Зависимости: GameStateMachine, SceneLoader, MissionContext, TMP_Text
+
+Статус: по кнопке дебрифинга переводит состояние Debrief → Loading → Gameplay
+и загружает сцену Bunker(main)
 
 5.5 DroneTypes
 DroneTypes/DroneConfig.cs
@@ -918,7 +940,8 @@ Assets/Scenes/Bunker(main).unity
 
 Назначение: новая FPS-локация (военный бункер Bunker07Anim)
 
-Статус: в настройке — физика, коллайдеры, интерактивный терминал; НЕ в Build Settings
+Статус: в настройке — физика, коллайдеры, интерактивный терминал; в Build Settings;
+сюда возвращает DebriefController после завершения миссии
 
 Assets/Scenes/FunctionalUI-Demo.unity
 
@@ -951,11 +974,13 @@ Assets/Scenes/MainMenu.unity
 
 Assets/Scenes/SampleScene.unity
 
+Assets/Scenes/TerrainDemoScene.unity
+
+Assets/Scenes/Bunker(main).unity
+
 Не включены:
 
 Assets/Scenes/player.unity
-
-Assets/Scenes/TerrainDemoScene.unity
 
 7. Игровые префабы
 Дроны

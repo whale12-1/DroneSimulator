@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 public class DebriefController : MonoBehaviour
 {
-    [Header("UI Элементы")]
+    [Header("UI Р­Р»РµРјРµРЅС‚С‹")]
     [SerializeField] private GameObject panel;
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text statsText;
@@ -12,7 +12,7 @@ public class DebriefController : MonoBehaviour
 
     private void Start()
     {
-        // Подписываемся на смену состояния
+        // РџРѕРґРїРёСЃС‹РІР°РµРјСЃСЏ РЅР° СЃРјРµРЅСѓ СЃРѕСЃС‚РѕСЏРЅРёСЏ
         GameStateMachine.StateChanged += OnStateChanged;
 
         if (returnToMenuButton != null)
@@ -43,20 +43,20 @@ public class DebriefController : MonoBehaviour
 
         if (result == MissionResult.Success)
         {
-            titleText.text = "МИССИЯ ВЫПОЛНЕНА";
+            titleText.text = "РњРРЎРЎРРЇ Р’Р«РџРћР›РќР•РќРђ";
             titleText.color = Color.green;
         }
         else
         {
-            titleText.text = "МИССИЯ ПРОВАЛЕНА";
+            titleText.text = "РњРРЎРЎРРЇ РџР РћР’РђР›Р•РќРђ";
             titleText.color = Color.red;
         }
 
-        statsText.text = $"Время: {MissionContext.LastTimeElapsed:F1} сек\n" +
-                         $"Целей уничтожено: {MissionContext.LastTargetsDestroyed} / {mission.targetCount}\n" +
-                         $"Награда: {(result == MissionResult.Success ? mission.rewardPoints : 0)} очков";
+        statsText.text = $"Р’СЂРµРјСЏ: {MissionContext.LastTimeElapsed:F1} СЃРµРє\n" +
+                         $"Р¦РµР»РµР№ СѓРЅРёС‡С‚РѕР¶РµРЅРѕ: {MissionContext.LastTargetsDestroyed} / {mission.targetCount}\n" +
+                         $"РќР°РіСЂР°РґР°: {(result == MissionResult.Success ? mission.rewardPoints : 0)} РѕС‡РєРѕРІ";
 
-        // Отключаем управление игроком/камерой и включаем курсор
+        // РћС‚РєР»СЋС‡Р°РµРј СѓРїСЂР°РІР»РµРЅРёРµ РёРіСЂРѕРєРѕРј/РєР°РјРµСЂРѕР№ Рё РІРєР»СЋС‡Р°РµРј РєСѓСЂСЃРѕСЂ
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
@@ -65,11 +65,13 @@ public class DebriefController : MonoBehaviour
     {
         panel.SetActive(false);
 
-        // Переводим стейт-машину обратно в MainMenu
-        GameStateMachine.TransitionTo(GameState.MainMenu);
+        if (GameStateMachine.CanTransitionTo(GameState.Loading))
+        {
+            GameStateMachine.TransitionTo(GameState.Loading);
+            GameStateMachine.TransitionTo(GameState.Gameplay);
+        }
 
-        // Загружаем сцену меню/хаба
         if (SceneLoader.Instance != null)
-            SceneLoader.Instance.LoadAsync("MainMenu"); // Или "Hub", если используешь 3D базу
+            SceneLoader.Instance.LoadAsync("Bunker(main)");
     }
 }
