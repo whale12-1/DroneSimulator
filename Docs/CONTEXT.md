@@ -191,7 +191,10 @@ URP camera/light components.
 - Мелкий мусор (бумаги Paper*, кассеты Cassete*, провода Cables, клавиатуры Keyboard*, мыши)
   намеренно оставлен БЕЗ коллайдеров.
 - Interact_OperatorTerminal — терминал оператора на мониторе (layer Interactable,
-  BoxCollider Is Trigger = off, скрипт MissionBoardInteractable).
+  BoxCollider Is Trigger = off, скрипт ComputerInteractable). Открытие ОС ComputerOS — по E,
+  если игрок сидит и прицел направлен на терминал; закрытие — по E или Esc в любой момент,
+  независимо от направления взгляда (обрабатывается в ComputerUIController). Появление с
+  анимацией зума и прозрачности.
 - InteractionCanvas и EventSystem перенесены из player.unity; ссылки uiController назначены.
 - Позиция Player выровнена по полу (Y = -1.74).
 
@@ -324,6 +327,12 @@ ProgressService.
 готовые интерактивные объекты HangarInteractable, MissionBoardInteractable и
 ChairInteractable (посадка за компьютер; управляет коллайдером стула и точкой вставания StandPoint).
 Система подключена к Bunker(main): создан терминал Interact_OperatorTerminal, ссылки uiController назначены.
+Интерфейс компьютера ComputerOS работает как переключатель (Toggle). Открытие — по E, когда прицел
+направлен на терминал и игрок сидит: ComputerInteractable вызывает ComputerUIController.OpenDesktop()
+(панель плавно появляется CanvasGroup.alpha 0→1 и зумится localScale 0.1→1 за 0.3 с, курсор
+разблокируется, Time.timeScale = 0). Закрытие — по E или Esc независимо от направления взгляда:
+ComputerUIController.Update() вызывает CloseDesktop() (alpha = 0, курсор блокируется,
+Time.timeScale = 1).
 
 6. Важные ограничения для будущих задач
 Проект находится на стадии обучения и прототипирования. Поэтому:

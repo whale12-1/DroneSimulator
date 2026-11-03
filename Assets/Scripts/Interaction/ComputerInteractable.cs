@@ -24,16 +24,26 @@ public class ComputerInteractable : MonoBehaviour, IInteractable
 
     public void Interact(GameObject interactor)
     {
-        if (computerUIPanel != null)
+        if (computerUIPanel == null)
         {
-            computerUIPanel.SetActive(true);
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-            Time.timeScale = 0f;
+            Debug.Log("Компьютер включен, но UI пока не назначен.");
+            return;
+        }
+
+        ComputerUIController controller = computerUIPanel.GetComponent<ComputerUIController>();
+        if (controller == null)
+        {
+            Debug.Log("На объекте ComputerOS отсутствует компонент ComputerUIController.");
+            return;
+        }
+
+        if (controller.IsOpen)
+        {
+            controller.CloseDesktop();
         }
         else
         {
-            Debug.Log("Компьютер включен, но UI пока не назначен.");
+            controller.OpenDesktop();
         }
     }
 }

@@ -95,8 +95,8 @@ Bunker(main)
 ├── Blockers_Console      (пульт ControlPanel_Blocker + ComputerNCamGEo_Blocker)
 ├── Blockers_ACUnits      (ACUnit_Blocker, ACUnit1_Blocker)
 ├── Blockers_Furniture    (Chair_Blocker, Chair1/2_Blocker, CupBoard_Blocker ×5)
-├── Interact_OperatorTerminal (layer Interactable, BoxCollider Is Trigger = off, MissionBoardInteractable)
-├── InteractionCanvas     (перенесён из player.unity: Canvas + InteractionUIController + Hint/ShopWindow/MissionBoardWindow)
+├── Interact_OperatorTerminal (layer Interactable, BoxCollider Is Trigger = off, ComputerInteractable → ОС ComputerOS: открытие по E, закрытие по E/Esc глобально)
+├── InteractionCanvas     (перенесён из player.unity: Canvas + InteractionUIController + Hint/ShopWindow/MissionBoardWindow + ComputerOS)
 ├── EventSystem           (перенесён из player.unity: EventSystem + InputSystemUIInputModule)
 └── Player
     ├── CharacterController
@@ -861,6 +861,19 @@ ChairInteractable.cs — IInteractable, посадка за компьютер (
 отключение коллайдера стула chairCollider и полное отключение CharacterController на время
 сидения, SetSitting(true) + блокировка движения через isSitting), вставание по Escape с
 телепортом в standPosition и обратным включением коллайдера и CharacterController.
+
+ComputerInteractable.cs — IInteractable, терминал оператора Interact_OperatorTerminal: открытие по E
+(если игрок сидит, playerController.isSitting, прицел на терминале) — вызывает
+ComputerUIController.OpenDesktop(); закрытие при взгляде на терминал также доступно, но глобально
+окно закрывается через ComputerUIController.Update() по E/Esc.
+
+ComputerUIController.cs — висит на панели ComputerOS (InteractionCanvas): свойство IsOpen (false по
+умолчанию). OpenDesktop() ставит IsOpen = true и запускает корутину AnimateOpen() — плавное появление
+CanvasGroup.alpha (0→1) и зум RectTransform.localScale (0.1→1) за 0.3 с через Mathf.Lerp,
+разблокировка курсора, Time.timeScale = 0. Update() при IsOpen закрывает окно по E/Esc
+(eKey/escapeKey.wasPressedThisFrame) независимо от направления взгляда, с защитой от повторного
+нажатия (lastOpenTime, 0.2 с). CloseDesktop() ставит IsOpen = false, alpha = 0, блокировка курсора,
+Time.timeScale = 1.
 
 6. Сцены
 Всего найдено 15 сцен.
