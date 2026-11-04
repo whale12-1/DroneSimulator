@@ -37,13 +37,6 @@ public class ComputerInteractable : MonoBehaviour, IInteractable
             return;
         }
 
-        if (controller.IsOpen)
-        {
-            controller.CloseDesktop();
-        }
-        else
-        {
-            controller.OpenDesktop();
-        }
+        controller.ToggleDesktop();
     }
 }

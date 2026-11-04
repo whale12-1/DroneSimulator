@@ -45,7 +45,17 @@ public class MissionMenuController : MonoBehaviour
 
     public void OpenMissionMenu()
     {
-        if (missionSelect == null || registry == null) return;
+        if (missionSelect == null)
+        {
+            Debug.LogError("[MissionMenuController] Поле missionSelect не назначено.");
+            return;
+        }
+
+        if (registry == null)
+        {
+            Debug.LogError("[MissionMenuController] Поле registry не назначено.");
+            return;
+        }
 
         missionSelect.Populate(registry, StartMission);
 
@@ -67,8 +77,8 @@ public class MissionMenuController : MonoBehaviour
         LastClosedTime = Time.unscaledTime;
         HidePanel();
 
-        if (GameStateMachine.CanTransitionTo(GameState.MainMenu))
-            GameStateMachine.TransitionTo(GameState.MainMenu);
+        if (GameStateMachine.CanTransitionTo(GameState.Gameplay))
+            GameStateMachine.TransitionTo(GameState.Gameplay);
     }
 
     private void StartMission(MissionDefinition mission)

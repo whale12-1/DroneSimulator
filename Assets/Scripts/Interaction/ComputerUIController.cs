@@ -12,6 +12,7 @@ public class ComputerUIController : MonoBehaviour
     private float lastCloseTime = -1f;
 
     public bool IsOpen { get; private set; }
+    public bool IsOpenAnimationComplete { get; private set; }
 
     private void Awake()
     {
@@ -38,9 +39,13 @@ public class ComputerUIController : MonoBehaviour
     {
         if (Time.unscaledTime - lastCloseTime < 0.2f) return;
 
-        IsOpen = true;
-        lastOpenTime = Time.unscaledTime;
         gameObject.SetActive(true);
+
+        if (canvasGroup != null) canvasGroup.blocksRaycasts = true;
+
+        IsOpen = true;
+        IsOpenAnimationComplete = false;
+        lastOpenTime = Time.unscaledTime;
 
         if (openRoutine != null)
         {
@@ -55,6 +60,7 @@ public class ComputerUIController : MonoBehaviour
     {
         lastCloseTime = Time.unscaledTime;
         IsOpen = false;
+        IsOpenAnimationComplete = false;
 
         if (openRoutine != null)
         {
@@ -62,15 +68,31 @@ public class ComputerUIController : MonoBehaviour
             openRoutine = null;
         }
 
-        if (canvasGroup != null) canvasGroup.alpha = 0f;
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.blocksRaycasts = false;
+        }
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         Time.timeScale = 1f;
     }
 
+    public void ToggleDesktop()
+    {
+        MissionMenuController missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
+        if (missionMenu != null && missionMenu.IsOpen)
+            return;
+
+        if (IsOpen) CloseDesktop();
+        else OpenDesktop();
+    }
+
     private IEnumerator AnimateOpen()
     {
+        Time.timeScale = 0f;
+
         if (canvasGroup != null) canvasGroup.alpha = 0f;
         if (panelTransform != null) panelTransform.localScale = Vector3.one * 0.1f;
 
@@ -94,7 +116,7 @@ public class ComputerUIController : MonoBehaviour
         if (canvasGroup != null) canvasGroup.alpha = 1f;
         if (panelTransform != null) panelTransform.localScale = Vector3.one;
 
-        Time.timeScale = 0f;
         openRoutine = null;
+        IsOpenAnimationComplete = true;
     }
 }

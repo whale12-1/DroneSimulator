@@ -198,9 +198,19 @@ Bootstrapper
   └── загружает MainMenu
           ↓
 MainMenuController
-  ├── MissionRegistry
-  ├── MissionSelectScreen
+  ├── кнопка «Играть» → OnOpenMissions()
+  │     ├── MissionContext.ReturnedFromMission = false
+  │     ├── GameStateMachine → Loading → Gameplay
+  │     └── SceneLoader.LoadAsync("Bunker(main)")
   └── SettingsScreen
+          ↓
+Bunker(main) — игрок появляется стоя на точке спавна
+          ↓
+ходьба по бункеру → ChairInteractable (посадка по E) → ComputerInteractable (по E, сидя)
+          ↓
+ComputerUIController.OpenDesktop() → ComputerOS (рабочий стол)
+          ↓
+DesktopIcon «Миссии» → MissionMenuController.OpenMissionMenu()
           ↓
 MissionSelectScreen.Populate(.)
           ↓
@@ -210,7 +220,7 @@ MissionCardView.Bind(.)
           ↓
 клик по карточке
           ↓
-MainMenuController.StartMission(.)
+MissionMenuController.StartMission(.)
   ├── MissionContext.Begin(.)
   ├── GameStateMachine → Loading
   └── SceneLoader.LoadAsync(mission.sceneName)
@@ -248,6 +258,8 @@ Mission1 указывает SampleScene;
 Mission2 и Mission3 не имеют sceneName;
 player.unity отсутствует в Build Settings;
 сцена базы Bunker(main) добавлена в Build Settings;
+кнопка «Играть» в MainMenu загружает Bunker(main) (ReturnedFromMission = false, игрок стоит на спавне);
+выбор миссии — только через компьютер в бункере (MissionMenuController);
 debrief UI — базовая панель DebriefController; возврат с миссии ведёт в Bunker(main);
 двойная загрузка сцены при возврате устранена — ReturnToMenu() и LoadAsync()
 защищены флагами isReturning и isLoading
@@ -678,7 +690,8 @@ MainMenu/MainMenuController.cs
 
 Класс: MainMenuController
 
-Назначение: навигация меню и запуск миссии
+Назначение: навигация меню; кнопка «Играть» (OnOpenMissions) ставит
+MissionContext.ReturnedFromMission = false и загружает сцену Bunker(main)
 
 Зависимости: FSM, MissionContext, SceneLoader
 
@@ -949,6 +962,10 @@ Assets/Scenes/Boot.unity
 
 Статус: основная цепочка
 
+Камера-заглушка: BootCamera (Camera: Clear Flags = Solid Color, чёрный фон,
+Culling Mask = Nothing, Depth = -100) — рисует чёрный фон позади UI, чтобы в окне Game
+не появлялась надпись «No cameras rendering» при запуске игры.
+
 Assets/Scenes/MainMenu.unity
 
 Назначение: меню, миссии, настройки
@@ -985,6 +1002,11 @@ Assets/Scenes/TerrainDemoScene.unity
 Назначение: terrain и drone demo
 
 Статус: прототип
+
+Камера-заглушка: DebriefCamera (Camera: Clear Flags = Solid Color, чёрный фон,
+Culling Mask = Nothing), по умолчанию выключена. Включается DebriefController в ShowDebrief()
+при показе результатов миссии и выключается в ReturnToMenu() при возврате на базу, чтобы
+в окне Game не появлялась надпись «No cameras rendering», когда камера дрона отключается.
 
 Assets/_Recovery/0.unity — резерв terrain-сцены, recovery.
 Assets/_Recovery/0 (1).unity — резерв terrain-сцены, recovery.

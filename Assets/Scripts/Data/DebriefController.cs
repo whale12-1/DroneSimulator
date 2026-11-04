@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
@@ -9,12 +10,12 @@ public class DebriefController : MonoBehaviour
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text statsText;
     [SerializeField] private Button returnToMenuButton;
+    [SerializeField] private Camera debriefCamera;
 
     private bool isReturning = false;
 
     private void Start()
     {
-        // Подписываемся на смену состояния
         GameStateMachine.StateChanged += OnStateChanged;
 
         if (returnToMenuButton != null)
@@ -43,6 +44,11 @@ public class DebriefController : MonoBehaviour
     {
         panel.SetActive(true);
 
+        if (debriefCamera != null)
+        {
+            debriefCamera.gameObject.SetActive(true);
+        }
+
         var result = MissionContext.LastResult;
         var mission = MissionContext.Current;
 
@@ -61,7 +67,6 @@ public class DebriefController : MonoBehaviour
                          $"Целей уничтожено: {MissionContext.LastTargetsDestroyed} / {mission.targetCount}\n" +
                          $"Награда: {(result == MissionResult.Success ? mission.rewardPoints : 0)} очков";
 
-        // Отключаем управление игроком/камерой и включаем курсор
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
@@ -73,15 +78,33 @@ public class DebriefController : MonoBehaviour
 
         panel.SetActive(false);
 
+        if (debriefCamera != null)
+        {
+            debriefCamera.gameObject.SetActive(false);
+        }
+
         MissionContext.ReturnedFromMission = true;
 
         if (GameStateMachine.CanTransitionTo(GameState.Loading))
         {
             GameStateMachine.TransitionTo(GameState.Loading);
-            GameStateMachine.TransitionTo(GameState.Gameplay);
         }
 
+        SceneLoader.EnsureInstance();
         if (SceneLoader.Instance != null)
             SceneLoader.Instance.LoadAsync("Bunker(main)");
+
+        StartCoroutine(ResetReturnFlagAfterTimeout(5f));
+    }
+
+    private IEnumerator ResetReturnFlagAfterTimeout(float seconds)
+    {
+        yield return new WaitForSecondsRealtime(seconds);
+
+        if (isReturning)
+        {
+            isReturning = false;
+            Debug.LogWarning("[DebriefController] Возврат на базу не завершился за отведённое время. Флаг isReturning сброшен.");
+        }
     }
 }

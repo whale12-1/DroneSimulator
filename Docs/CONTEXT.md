@@ -128,6 +128,28 @@ C#-скрипты сохранены в UTF-8 без BOM;
 Возврат на базу — сцена Bunker(main)
 
 3. Что уже готово
+
+Текущий игровой цикл сцен (реализован):
+
+Boot → MainMenu → кнопка «Играть» → Bunker(main) (игрок стоит на точке спавна) →
+ходьба по бункеру → посадка на стул (E) → терминал компьютера (E) → рабочий стол
+ComputerOS → иконка «Миссии» → выбор миссии → сцена миссии → дебрифинг →
+Bunker(main) с восстановлением состояния (игрок снова сидит за компьютером).
+
+Камеры-заглушки фона (устранение технической надписи Unity «No cameras rendering»):
+В сцене Boot.unity добавлен объект BootCamera (Camera: Clear Flags = Solid Color, чёрный фон,
+Culling Mask = Nothing, Depth = -100) — рисует чёрный фон позади UI при запуске игры, где раньше
+не было ни одной камеры. В сцене TerrainDemoScene добавлен объект DebriefCamera (Camera:
+Clear Flags = Solid Color, чёрный фон, Culling Mask = Nothing), по умолчанию выключен; его
+включает DebriefController при показе экрана результатов (Debrief) и выключает при возврате
+на базу, когда камера дрона отключается. Эти камеры-заглушки убирают надпись «No cameras rendering»
+в окне Game в обеих ситуациях.
+
+Кнопка «Играть» в MainMenu (MainMenuController.OnOpenMissions) больше НЕ открывает
+меню выбора миссий: она ставит MissionContext.ReturnedFromMission = false и загружает
+сцену Bunker(main) через SceneLoader.Instance.LoadAsync("Bunker(main)"). Выбор миссии
+теперь доступен только внутри бункера через компьютер (MissionMenuController).
+
 FPS-база
 В Assets/Scenes/player.unity уже есть:
 

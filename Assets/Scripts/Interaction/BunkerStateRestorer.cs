@@ -3,41 +3,51 @@ using UnityEngine;
 
 public class BunkerStateRestorer : MonoBehaviour
 {
+    [SerializeField] private ChairInteractable chair;
+    [SerializeField] private ComputerUIController computer;
+    [SerializeField] private MissionMenuController missionMenu;
+
     private void Start()
     {
-        Debug.Log($"[BunkerStateRestorer] Start() called: ReturnedFromMission = {MissionContext.ReturnedFromMission}, time = {Time.unscaledTime:F3}");
+        if (GameStateMachine.Current == GameState.Loading && GameStateMachine.CanTransitionTo(GameState.Gameplay))
+            GameStateMachine.TransitionTo(GameState.Gameplay);
 
         if (!MissionContext.ReturnedFromMission)
             return;
 
-        MissionContext.ReturnedFromMission = false;
         StartCoroutine(RestoreStateRoutine());
     }
 
     private IEnumerator RestoreStateRoutine()
     {
+        float loadDeadline = Time.unscaledTime + 2f;
+        while (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading && Time.unscaledTime < loadDeadline)
+            yield return null;
+
         yield return null;
 
-        PlayerController player = FindAnyObjectByType<PlayerController>();
-        if (player != null)
-            Debug.Log($"[BunkerStateRestorer] Before chair.Interact(): player position = {player.transform.position}, isSitting = {player.isSitting}");
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
-        ChairInteractable chair = FindAnyObjectByType<ChairInteractable>();
         if (chair != null)
-        {
-            Debug.Log($"[BunkerStateRestorer] Calling chair.Interact() on {chair.name}");
-            chair.Interact(gameObject);
-        }
+            chair.Interact(gameObject, true);
 
-        if (player != null)
-            Debug.Log($"[BunkerStateRestorer] After chair.Interact(): player position = {player.transform.position}, isSitting = {player.isSitting}");
-
-        ComputerUIController computer = FindAnyObjectByType<ComputerUIController>(FindObjectsInactive.Include);
         if (computer != null)
+        {
             computer.OpenDesktop();
 
-        MissionMenuController missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
+            float animDeadline = Time.unscaledTime + 2f;
+            while (!computer.IsOpenAnimationComplete && Time.unscaledTime < animDeadline)
+                yield return null;
+        }
+
+        if (GameStateMachine.CanTransitionTo(GameState.Gameplay))
+            GameStateMachine.TransitionTo(GameState.Gameplay);
+
         if (missionMenu != null)
             missionMenu.OpenMissionMenu();
+
+        MissionContext.ReturnedFromMission = false;
     }
 }

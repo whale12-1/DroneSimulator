@@ -8,18 +8,25 @@ public class PlayerController : MonoBehaviour
     public float gravity = -9.81f;
     public float mouseSensitivity = 100f;
     public Transform cameraTransform;
-    public Animator animator;
+    [SerializeField] private Animator animator;
     public bool isSitting = false;
 
     private CharacterController controller;
     private Vector3 velocity;
     private float xRotation = 0f;
 
+    void Awake()
+    {
+        if (animator == null)
+            animator = GetComponentInChildren<Animator>();
+
+        if (animator == null)
+            Debug.LogError("[PlayerController] Animator не назначен и не найден у дочерних объектов. Анимации сидения и печати не будут работать.");
+    }
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        if (animator == null)
-            animator = GetComponentInChildren<Animator>();
         if (cameraTransform == null)
             Debug.LogWarning("[PlayerController] cameraTransform is not assigned.");
         Cursor.lockState = CursorLockMode.Locked;
@@ -91,11 +98,13 @@ public class PlayerController : MonoBehaviour
 
     public void SetSitting(bool isSitting)
     {
+        if (animator == null) return;
         animator.SetBool("IsSitting", isSitting);
     }
 
     public void SetTyping(bool isTyping)
     {
+        if (animator == null) return;
         animator.SetBool("IsTyping", isTyping);
     }
 }

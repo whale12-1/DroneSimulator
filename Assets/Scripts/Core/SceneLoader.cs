@@ -1,4 +1,4 @@
-// Core/SceneLoader.cs
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -10,9 +10,17 @@ public class SceneLoader : MonoBehaviour
 
     private bool isLoading = false;
 
+    public bool IsLoading => isLoading;
+
     private void Awake()
     {
-        if (Instance != null) { Destroy(gameObject); return; }
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogError("[SceneLoader] Обнаружен дубликат SceneLoader. Лишний компонент удаляется, GameObject остаётся.");
+            Destroy(this);
+            return;
+        }
+
         Instance = this;
         DontDestroyOnLoad(gameObject);
     }
@@ -26,34 +34,69 @@ public class SceneLoader : MonoBehaviour
         }
     }
 
-    public async void LoadAsync(string sceneName)
+    public void LoadAsync(string sceneName)
     {
-        if (isLoading) return;
-        isLoading = true;
+        if (isLoading)
+        {
+            Debug.LogWarning($"[SceneLoader] Загрузка уже выполняется, повторный вызов для {sceneName} проигнорирован.");
+            return;
+        }
 
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            Debug.LogError("[SceneLoader] Имя сцены не задано.");
+            return;
+        }
+
+        if (!IsSceneInBuildSettings(sceneName))
+        {
+            Debug.LogError($"[SceneLoader] Сцена '{sceneName}' не найдена в Build Settings. Загрузка отменена.");
+            return;
+        }
+
+        StartCoroutine(LoadRoutine(sceneName));
+    }
+
+    private static bool IsSceneInBuildSettings(string sceneName)
+    {
+        int count = SceneManager.sceneCountInBuildSettings;
+        for (int i = 0; i < count; i++)
+        {
+            string path = SceneUtility.GetScenePathByBuildIndex(i);
+            if (System.IO.Path.GetFileNameWithoutExtension(path) == sceneName)
+                return true;
+        }
+
+        return false;
+    }
+
+    private IEnumerator LoadRoutine(string sceneName)
+    {
+        isLoading = true;
         ShowLoading();
 
-        var op = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
-        if (op == null)
+        try
+        {
+            AsyncOperation op = SceneManager.LoadSceneAsync(sceneName);
+            if (op == null)
+            {
+                Debug.LogError($"[SceneLoader] Сцена не найдена или не добавлена в Build Settings: {sceneName}");
+                yield break;
+            }
+
+            op.allowSceneActivation = false;
+            while (op.progress < 0.9f)
+                yield return null;
+
+            op.allowSceneActivation = true;
+            while (!op.isDone)
+                yield return null;
+        }
+        finally
         {
             HideLoading();
             isLoading = false;
-            return;
         }
-        op.allowSceneActivation = false;
-        while (op.progress < 0.9f) await System.Threading.Tasks.Task.Yield();
-        op.allowSceneActivation = true;
-        while (!op.isDone) await System.Threading.Tasks.Task.Yield();
-
-        float hold = 1.0f;
-        while (hold > 0f)
-        {
-            hold -= Time.unscaledDeltaTime;
-            await System.Threading.Tasks.Task.Yield();
-        }
-
-        HideLoading();
-        isLoading = false;
     }
 
     private void ShowLoading() { if (loadingScreen) { loadingScreen.alpha = 1; loadingScreen.blocksRaycasts = true; } }

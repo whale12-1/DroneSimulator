@@ -1,7 +1,7 @@
-// Core/GameStateMachine.cs
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+
 public enum GameState
 {
     Boot,
@@ -22,9 +22,9 @@ public static class GameStateMachine
     {
         { GameState.Boot,          new[] { GameState.MainMenu } },
         { GameState.MainMenu,      new[] { GameState.MissionSelect, GameState.Loading, GameState.Boot } },
-        { GameState.MissionSelect, new[] { GameState.MainMenu, GameState.Loading } },
+        { GameState.MissionSelect, new[] { GameState.MainMenu, GameState.Loading, GameState.Gameplay } },
         { GameState.Loading,       new[] { GameState.Gameplay, GameState.MainMenu } },
-        { GameState.Gameplay,      new[] { GameState.Paused, GameState.Debrief, GameState.MainMenu } },
+        { GameState.Gameplay,      new[] { GameState.Paused, GameState.Debrief, GameState.MainMenu, GameState.MissionSelect } },
         { GameState.Paused,        new[] { GameState.Gameplay, GameState.MainMenu } },
         { GameState.Debrief,       new[] { GameState.MainMenu, GameState.Loading } },
     };
@@ -39,6 +39,7 @@ public static class GameStateMachine
             Debug.LogWarning($"[FSM] Недопустимый переход {Current} → {next}");
             return;
         }
+
         var prev = Current;
         Current = next;
         StateChanged?.Invoke(prev, next);

@@ -15,6 +15,10 @@ public class MainMenuController : MonoBehaviour
 
     private void Start()
     {
+        Time.timeScale = 1f;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
         Log("Start()");
         DumpFields();
 
@@ -46,45 +50,17 @@ public class MainMenuController : MonoBehaviour
     {
         Log("OnOpenMissions() — кнопка нажата");
 
-        if (registry == null)
-        {
-            Debug.LogError("[MainMenu] registry == NULL. Перетащи MissionRegistry в поле 'Registry'.");
-            return;
-        }
+        MissionContext.ReturnedFromMission = false;
 
-        if (registry.allMissions == null || registry.allMissions.Length == 0)
-        {
-            Debug.LogError("[MainMenu] registry.allMissions пустой. Открой MissionRegistry.asset и добавь миссии.");
-            return;
-        }
-
-        mainPanel?.Hide();
-
-        if (missionSelect != null)
-        {
-            Log($"Populate: {registry.allMissions.Length} миссий");
-            try
-            {
-                missionSelect.Populate(registry, StartMission);
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"[MainMenu] Ошибка в Populate: {e}");
-                return;
-            }
-
-            Log("missionSelect.Show()");
-            missionSelect.Show();
-        }
+        if (GameStateMachine.CanTransitionTo(GameState.Loading))
+            GameStateMachine.TransitionTo(GameState.Loading);
         else
-        {
-            Debug.LogError("[MainMenu] missionSelect == NULL. Перетащи MissionSelectPanel в поле 'Mission Select'.");
-            return;
-        }
+            Debug.LogWarning($"[MainMenu] Переход в Loading запрещён из {GameStateMachine.Current}");
 
-        Log($"CanTransitionTo(MissionSelect) = {GameStateMachine.CanTransitionTo(GameState.MissionSelect)}, current = {GameStateMachine.Current}");
-        if (GameStateMachine.CanTransitionTo(GameState.MissionSelect))
-            GameStateMachine.TransitionTo(GameState.MissionSelect);
+        if (SceneLoader.Instance != null)
+            SceneLoader.Instance.LoadAsync("Bunker(main)");
+        else
+            Debug.LogError("[MainMenu] SceneLoader.Instance == null.");
     }
 
     // Вызывается с кнопки SettingsButton
@@ -129,33 +105,6 @@ public class MainMenuController : MonoBehaviour
 #endif
     }
 
-    // ------------------ Запуск миссии ------------------
-
-    private void StartMission(MissionDefinition mission)
-    {
-        Log($"StartMission('{(mission != null ? mission.displayName : "NULL")}')");
-
-        if (mission == null) { Debug.LogWarning("[MainMenu] mission == null"); return; }
-
-        if (string.IsNullOrEmpty(mission.sceneName))
-        {
-            Debug.LogError($"[MainMenu] У миссии '{mission.displayName}' не задан sceneName.");
-            return;
-        }
-
-        MissionContext.Begin(mission, mission.defaultDrone);
-
-        if (GameStateMachine.CanTransitionTo(GameState.Loading))
-            GameStateMachine.TransitionTo(GameState.Loading);
-        else
-            Debug.LogWarning($"[MainMenu] Переход в Loading запрещён из {GameStateMachine.Current}");
-
-        if (SceneLoader.Instance != null)
-            SceneLoader.Instance.LoadAsync(mission.sceneName);
-        else
-            Debug.LogError("[MainMenu] SceneLoader.Instance == null.");
-    }
-
     // ------------------ Реакция на смену состояния ------------------
 
     private void OnEnable()
@@ -193,13 +142,11 @@ public class MainMenuController : MonoBehaviour
 
     private void OnValidate()
     {
-        // Проверка прямо в редакторе при изменении инспектора
         if (registry == null) Debug.LogWarning("[MainMenu] Поле Registry не назначено.", this);
         if (mainPanel == null) Debug.LogWarning("[MainMenu] Поле Main Panel не назначено.", this);
         if (missionSelect == null) Debug.LogWarning("[MainMenu] Поле Mission Select не назначено.", this);
         if (settings == null) Debug.LogWarning("[MainMenu] Поле Settings не назначено.", this);
 
-        // Проверка CanvasGroup у панелей — часто забывают
         WarnIfNoCanvasGroup(mainPanel);
         WarnIfNoCanvasGroup(missionSelect);
         WarnIfNoCanvasGroup(settings);

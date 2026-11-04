@@ -26,6 +26,18 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         else SitDown(interactor);
     }
 
+    public void Interact(GameObject interactor, bool forceSitDown)
+    {
+        if (forceSitDown)
+        {
+            if (!isSitting) SitDown(interactor);
+        }
+        else
+        {
+            Interact(interactor);
+        }
+    }
+
     private void Update()
     {
         if (!isSitting) return;
@@ -39,16 +51,16 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         ResolvePlayer(interactor);
         if (playerController == null || sitPosition == null) return;
 
+        isSitting = true;
+        playerController.isSitting = true;
+        playerController.SetSitting(true);
+
         if (characterController != null) characterController.enabled = false;
         if (chairCollider != null) chairCollider.enabled = false;
 
         Transform player = playerController.transform;
         player.position = sitPosition.position;
         player.rotation = sitPosition.rotation;
-
-        isSitting = true;
-        playerController.isSitting = true;
-        playerController.SetSitting(true);
 
         if (uiController != null)
         {
