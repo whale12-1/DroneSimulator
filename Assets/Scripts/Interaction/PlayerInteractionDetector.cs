@@ -8,37 +8,29 @@ public class PlayerInteractionDetector : MonoBehaviour
     [SerializeField] private LayerMask interactableLayer;
     [SerializeField] private InteractionUIController uiController;
 
-    private void Awake()
-    {
-        if (playerCamera == null)
-            playerCamera = GetComponentInChildren<Camera>();
-    }
-
     private void Update()
     {
-        if (uiController != null && uiController.IsWindowOpen)
-        {
-            uiController.HideHint();
-            return;
-        }
+        if (playerCamera == null) return;
 
-        if (playerCamera == null || uiController == null)
-            return;
-
-        IInteractable interactable = null;
         Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
         if (Physics.Raycast(ray, out RaycastHit hit, interactionRange, interactableLayer, QueryTriggerInteraction.Ignore))
-            interactable = hit.collider.GetComponentInParent<IInteractable>();
-
-        if (interactable == null || !interactable.CanInteract(gameObject))
         {
-            uiController.HideHint();
-            return;
+            IInteractable interactable = hit.collider.GetComponentInParent<IInteractable>();
+
+            if (interactable != null && interactable.CanInteract(gameObject))
+            {
+                if (uiController != null)
+                    uiController.ShowHint(interactable.GetInteractionPrompt());
+
+                if (Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame)
+                {
+                    interactable.Interact(gameObject);
+                }
+                return;
+            }
         }
 
-        uiController.ShowHint(interactable.GetInteractionPrompt());
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
-            interactable.Interact(gameObject);
+        if (uiController != null)
+            uiController.HideHint();
     }
 }

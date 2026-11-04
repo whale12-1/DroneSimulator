@@ -4,142 +4,103 @@ using TMPro;
 
 public class InteractionUIController : MonoBehaviour
 {
+    [Header("Center Hint")]
     [SerializeField] private CanvasGroup hintGroup;
-    [SerializeField] private CanvasGroup shopGroup;
-    [SerializeField] private CanvasGroup missionBoardGroup;
     [SerializeField] private TMP_Text hintText;
 
+    [Header("Bottom Sitting Hint")]
+    [SerializeField] private CanvasGroup sittingHintGroup;
+    [SerializeField] private TMP_Text sittingHintText;
+
+    [Header("Windows")]
+    [SerializeField] private CanvasGroup shopGroup;
+    [SerializeField] private CanvasGroup missionBoardGroup;
+
     private float lastOpenTime;
-    private OpenWindow openWindow;
-
-    public bool IsWindowOpen => openWindow != OpenWindow.None;
-
-    private enum OpenWindow
-    {
-        None,
-        Shop,
-        MissionBoard
-    }
+    private int currentOpenWindow = 0;
 
     private void Awake()
     {
-        SetGroupVisible(shopGroup, false);
-        SetGroupVisible(missionBoardGroup, false);
-        HideHint();
+        if (hintGroup != null) hintGroup.alpha = 0f;
+        if (sittingHintGroup != null) sittingHintGroup.alpha = 0f;
+        if (shopGroup != null) shopGroup.alpha = 0f;
+        if (missionBoardGroup != null) missionBoardGroup.alpha = 0f;
     }
 
     private void Update()
     {
-        if (!IsWindowOpen)
-            return;
+        if (currentOpenWindow == 0) return;
+        if (Time.unscaledTime - lastOpenTime < 0.2f) return;
 
         Keyboard keyboard = Keyboard.current;
-        if (keyboard == null)
-            return;
-
-        if (Time.unscaledTime - lastOpenTime < 0.2f)
-            return;
-
-        if (keyboard.eKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame)
-            CloseOpenWindow();
+        if (keyboard != null && (keyboard.escapeKey.wasPressedThisFrame || keyboard.eKey.wasPressedThisFrame))
+        {
+            if (currentOpenWindow == 1) CloseShop();
+            else if (currentOpenWindow == 2) CloseMissionBoard();
+        }
     }
 
-    public void ShowHint()
+    public void ShowHint(string text)
     {
-        ShowHint("Нажмите E");
-    }
-
-    public void ShowHint(string prompt)
-    {
-        if (hintText != null)
-            hintText.text = string.IsNullOrEmpty(prompt) ? "Нажмите E" : prompt;
-        if (hintGroup == null)
-            return;
-        hintGroup.alpha = 1f;
-        hintGroup.interactable = false;
-        hintGroup.blocksRaycasts = false;
+        if (hintText != null) hintText.text = text;
+        if (hintGroup != null) hintGroup.alpha = 1f;
     }
 
     public void HideHint()
     {
-        if (hintGroup == null)
-            return;
-        hintGroup.alpha = 0f;
-        hintGroup.interactable = false;
-        hintGroup.blocksRaycasts = false;
+        if (hintGroup != null) hintGroup.alpha = 0f;
+    }
+
+    public void ShowSittingHint(string text)
+    {
+        if (sittingHintText != null) sittingHintText.text = text;
+        if (sittingHintGroup != null) sittingHintGroup.alpha = 1f;
+    }
+
+    public void HideSittingHint()
+    {
+        if (sittingHintGroup != null) sittingHintGroup.alpha = 0f;
     }
 
     public void OpenShop()
     {
-        OpenWindowWithGroup(OpenWindow.Shop, shopGroup);
-    }
-
-    public void OpenMissionBoard()
-    {
         lastOpenTime = Time.unscaledTime;
-        OpenWindowWithGroup(OpenWindow.MissionBoard, missionBoardGroup);
-    }
-
-    public void CloseShop()
-    {
-        if (openWindow == OpenWindow.Shop)
-            CloseOpenWindow();
-    }
-
-    public void CloseMissionBoard()
-    {
-        if (openWindow == OpenWindow.MissionBoard)
-            CloseOpenWindow();
-    }
-
-    private void OpenWindowWithGroup(OpenWindow window, CanvasGroup group)
-    {
-        lastOpenTime = Time.unscaledTime;
-        if (IsWindowOpen)
-            return;
-
-        openWindow = window;
-        SetGroupVisible(group, true);
+        currentOpenWindow = 1;
+        if (shopGroup != null) shopGroup.alpha = 1f;
         HideHint();
+        HideSittingHint();
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         Time.timeScale = 0f;
     }
 
-    private void CloseOpenWindow()
+    public void CloseShop()
     {
-        if (!IsWindowOpen)
-            return;
-
-        CloseShopVisuals();
-        openWindow = OpenWindow.None;
+        currentOpenWindow = 0;
+        if (shopGroup != null) shopGroup.alpha = 0f;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
         Time.timeScale = 1f;
     }
 
-    private void CloseShopVisuals()
+    public void OpenMissionBoard()
     {
-        SetGroupVisible(shopGroup, false);
-        SetGroupVisible(missionBoardGroup, false);
+        lastOpenTime = Time.unscaledTime;
+        currentOpenWindow = 2;
+        if (missionBoardGroup != null) missionBoardGroup.alpha = 1f;
+        HideHint();
+        HideSittingHint();
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        Time.timeScale = 0f;
     }
 
-    private static void SetGroupVisible(CanvasGroup group, bool visible)
+    public void CloseMissionBoard()
     {
-        if (group == null)
-            return;
-        group.alpha = visible ? 1f : 0f;
-        group.interactable = visible;
-        group.blocksRaycasts = visible;
-    }
-
-    private void OnDisable()
-    {
-        if (IsWindowOpen)
-        {
-            CloseShopVisuals();
-            openWindow = OpenWindow.None;
-            Time.timeScale = 1f;
-        }
+        currentOpenWindow = 0;
+        if (missionBoardGroup != null) missionBoardGroup.alpha = 0f;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        Time.timeScale = 1f;
     }
 }

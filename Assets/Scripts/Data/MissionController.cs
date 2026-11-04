@@ -14,20 +14,19 @@ public class MissionController : MonoBehaviour
 
     private void Awake()
     {
-        mission = MissionContext.Current;
-        if (mission == null) return;
-
-        if (mission.defaultDrone != null)
-            droneManager.SelectByConfig(mission.defaultDrone);
-
-        startTime = Time.time;
-        isEnded = false;
-
-        // ВОТ ЭТА СТРОКА: Сообщаем FSM, что сцена загрузилась и игра началась
         if (GameStateMachine.Current == GameState.Loading)
         {
             GameStateMachine.TransitionTo(GameState.Gameplay);
         }
+
+        mission = MissionContext.Current;
+        if (mission == null) return;
+
+        if (mission.defaultDrone != null && droneManager != null)
+            droneManager.SelectByConfig(mission.defaultDrone);
+
+        startTime = Time.time;
+        isEnded = false;
     }
 
     private void OnEnable() => GameEvents.VehicleDestroyed += OnVehicleDestroyed;
@@ -37,7 +36,6 @@ public class MissionController : MonoBehaviour
     {
         if (mission == null || isEnded) return;
 
-        // Проверка таймера (для миссий с лимитом, но не на выживание)
         if (mission.timeLimit > 0 && mission.objectiveType != MissionObjectiveType.SurviveTime)
         {
             if (Time.time - startTime > mission.timeLimit)
@@ -65,9 +63,8 @@ public class MissionController : MonoBehaviour
                 break;
 
             case MissionObjectiveType.ReachPoint:
-                if (reachPointTarget != null)
+                if (reachPointTarget != null && droneManager != null)
                 {
-                    // Проверяем, долетел ли хоть один дрон
                     float dist = Vector3.Distance(droneManager.transform.position, reachPointTarget.position);
                     if (dist <= reachRadius) EndMission(MissionResult.Success);
                 }
@@ -79,7 +76,6 @@ public class MissionController : MonoBehaviour
     {
         if (mission == null || mission.objectiveType != MissionObjectiveType.DestroyAllTargets) return;
 
-        // Проверяем, является ли уничтоженный объект целью миссии
         TargetObject target = v.GetComponent<TargetObject>();
 
         if (target != null && target.isHostile)
@@ -93,12 +89,10 @@ public class MissionController : MonoBehaviour
         }
     }
 
-    // Вызывается в Update, чтобы отслеживать потерю всех дронов
     private void LateUpdate()
     {
-        if (isEnded || mission == null) return;
+        if (isEnded || mission == null || droneManager == null) return;
 
-        // Если у игрока не осталось дронов, а цели не выполнены — провал
         if (droneManager.GetAliveDronesCount() <= 0)
         {
             Debug.Log("[MissionController] Все дроны потеряны. Провал.");

@@ -95,13 +95,14 @@ Bunker(main)
 ├── Blockers_Console      (пульт ControlPanel_Blocker + ComputerNCamGEo_Blocker)
 ├── Blockers_ACUnits      (ACUnit_Blocker, ACUnit1_Blocker)
 ├── Blockers_Furniture    (Chair_Blocker, Chair1/2_Blocker, CupBoard_Blocker ×5)
-├── Interact_OperatorTerminal (layer Interactable, BoxCollider Is Trigger = off, MissionBoardInteractable)
-├── InteractionCanvas     (перенесён из player.unity: Canvas + InteractionUIController + Hint/ShopWindow/MissionBoardWindow)
+├── Interact_OperatorTerminal (layer Interactable, BoxCollider Is Trigger = off, ComputerInteractable → ОС ComputerOS: открытие по E, закрытие по E/Esc глобально)
+├── InteractionCanvas     (Canvas + InteractionUIController + Hint/ShopWindow/ComputerOS + MissionSelectPanel (префаб из MainMenu, выбор миссий))
 ├── EventSystem           (перенесён из player.unity: EventSystem + InputSystemUIInputModule)
 └── Player
     ├── CharacterController
     ├── PlayerController
     ├── PlayerInteractionDetector   (uiController → InteractionCanvas/InteractionUIController)
+    ├── BunkerStateRestorer         (восстановление состояния после возврата с миссии)
     ├── Visual/SWAT (Animator → PlayerAnimator)
     └── CameraPivot/Main Camera     (единственный AudioListener в сцене)
 
@@ -167,6 +168,10 @@ Assets/Scripts/Data/MissionContext.cs
 
 Статический реестр источников помех EWEmitter. Возвращает максимальный уровень РЭБ в заданной точке.
 
+Содержит также флаг ReturnedFromMission: DebriefController.ReturnToMenu() ставит его в true перед
+загрузкой сцены Bunker(main), а BunkerStateRestorer сбрасывает в false после восстановления
+состояния бункера.
+
 ProgressService
 
 Файл:
@@ -193,9 +198,19 @@ Bootstrapper
   └── загружает MainMenu
           ↓
 MainMenuController
-  ├── MissionRegistry
-  ├── MissionSelectScreen
+  ├── кнопка «Играть» → OnOpenMissions()
+  │     ├── MissionContext.ReturnedFromMission = false
+  │     ├── GameStateMachine → Loading → Gameplay
+  │     └── SceneLoader.LoadAsync("Bunker(main)")
   └── SettingsScreen
+          ↓
+Bunker(main) — игрок появляется стоя на точке спавна
+          ↓
+ходьба по бункеру → ChairInteractable (посадка по E) → ComputerInteractable (по E, сидя)
+          ↓
+ComputerUIController.OpenDesktop() → ComputerOS (рабочий стол)
+          ↓
+DesktopIcon «Миссии» → MissionMenuController.OpenMissionMenu()
           ↓
 MissionSelectScreen.Populate(.)
           ↓
@@ -205,7 +220,7 @@ MissionCardView.Bind(.)
           ↓
 клик по карточке
           ↓
-MainMenuController.StartMission(.)
+MissionMenuController.StartMission(.)
   ├── MissionContext.Begin(.)
   ├── GameStateMachine → Loading
   └── SceneLoader.LoadAsync(mission.sceneName)
@@ -214,14 +229,42 @@ MainMenuController.StartMission(.)
           ↓
 MissionController.Awake()
   └── DroneManager.SelectByConfig(mission.defaultDrone)
+          ↓
+MissionController.EndMission(.)
+  └── GameStateMachine → Debrief
+          ↓
+DebriefController
+  ├── ShowDebrief() — результаты миссии
+  └── ReturnToMenu()
+        ├── MissionContext.ReturnedFromMission = true
+        ├── GameStateMachine → Loading → Gameplay
+        └── SceneLoader.LoadAsync("Bunker(main)")
+              (ReturnToMenu() и LoadAsync() защищены от повторного вызова флагами
+               isReturning и isLoading — двойная загрузка сцены исключена)
+              LoadAsync: ShowLoading() → LoadSceneAsync (allowSceneActivation = false)
+              → progress ≥ 0.9 → allowSceneActivation = true → op.isDone
+               → задержка postLoadDelay (1.5 с) → ожидание BunkerStateRestorer.IsRestoring
+               → HideLoading()
+                  ↓
+              Bunker(main)
+                  ↓
+              BunkerStateRestorer (на Player, только при ReturnedFromMission == true)
+        ├── ChairInteractable.Interact(.) → посадка на стул
+        ├── ComputerUIController.OpenDesktop() → ComputerOS
+        ├── MissionMenuController.OpenMissionMenu() → MissionSelectPanel
+        └── ReturnedFromMission = false
 
 Текущий фактический статус:
 
 Mission1 указывает SampleScene;
 Mission2 и Mission3 не имеют sceneName;
 player.unity отсутствует в Build Settings;
-debrief UI не подключён;
-возврат на базу не собран.
+сцена базы Bunker(main) добавлена в Build Settings;
+кнопка «Играть» в MainMenu загружает Bunker(main) (ReturnedFromMission = false, игрок стоит на спавне);
+выбор миссии — только через компьютер в бункере (MissionMenuController);
+debrief UI — базовая панель DebriefController; возврат с миссии ведёт в Bunker(main);
+двойная загрузка сцены при возврате устранена — ReturnToMenu() и LoadAsync()
+защищены флагами isReturning и isLoading
 4.2 Drone flow
 
 MissionDefinition.defaultDrone
@@ -327,9 +370,10 @@ Assets/Scripts/Player/PlayerController.cs
 
 Статус: подключён в player.unity
 
-Поля: speed, runSpeed, gravity, mouseSensitivity, cameraTransform, animator
+Поля: speed, gravity, mouseSensitivity, cameraTransform, animator, isSitting (при посадке
+блокируются движение и гравитация; вращение камеры мышью остаётся доступным)
 
-Методы: Start, Update
+Методы: Start, Update, SetSitting, SetTyping, ForceSitIdle (сбрасывает Animator в SitIdle)
 
 5.2 Camera / HUD
 Camera/DroneCameraModule.cs
@@ -507,11 +551,19 @@ Core/SceneLoader.cs
 
 Класс: SceneLoader
 
-Назначение: асинхронная загрузка сцен
+Назначение: асинхронная загрузка сцен с экраном загрузки «LOADING...»
 
-Зависимости: SceneManager
+Зависимости: SceneManager, CanvasGroup (поле loadingScreen), BunkerStateRestorer (IsRestoring)
 
-Статус: MainMenu/Bootstrapper
+Статус: MainMenu/Bootstrapper; LoadAsync() защищён от повторного входа флагом
+isLoading (сбрасывается после завершения загрузки) — повторный вызов игнорируется,
+двойная загрузка одной и той же сцены исключена. Перед LoadSceneAsync вызывается
+ShowLoading() (alpha = 1, blocksRaycasts = true). После завершения активации новой
+сцены (op.isDone) экран остаётся непрозрачным ещё postLoadDelay (1.5 с, таймер на
+Time.unscaledDeltaTime), а при возврате в бункер — до завершения
+BunkerStateRestorer.IsRestoring (таймаут restoreWaitTimeout = 3 с). Затем вызывается
+HideLoading() (alpha = 0, blocksRaycasts = false) и сбрасывается isLoading. Если сцена
+не найдена (op == null), экран скрывается и isLoading сбрасывается
 
 5.4 Data / Missions
 Data/MissionContext.cs
@@ -553,6 +605,18 @@ Data/ProgressService.cs
 Зависимости: JsonUtility, IO
 
 Статус: вызывается UI/миссиями
+
+Data/DebriefController.cs
+
+Класс: DebriefController
+
+Назначение: панель результатов миссии и возврат с миссии на базу
+
+Зависимости: GameStateMachine, SceneLoader, MissionContext, TMP_Text
+
+Статус: по кнопке дебрифинга переводит состояние Debrief → Loading → Gameplay
+и загружает сцену Bunker(main); перед загрузкой ставит MissionContext.ReturnedFromMission = true;
+метод ReturnToMenu() защищён от повторного вызова флагом isReturning
 
 5.5 DroneTypes
 DroneTypes/DroneConfig.cs
@@ -631,7 +695,8 @@ MainMenu/MainMenuController.cs
 
 Класс: MainMenuController
 
-Назначение: навигация меню и запуск миссии
+Назначение: навигация меню; кнопка «Играть» (OnOpenMissions) ставит
+MissionContext.ReturnedFromMission = false и загружает сцену Bunker(main)
 
 Зависимости: FSM, MissionContext, SceneLoader
 
@@ -856,6 +921,51 @@ HangarInteractable.cs — IInteractable, открывает магазин, пр
 
 MissionBoardInteractable.cs — IInteractable, открывает карту миссий, промпт «Карта миссий [E]».
 
+ChairInteractable.cs — IInteractable, посадка за компьютер (телепорт в sitPosition,
+отключение коллайдера стула chairCollider и полное отключение CharacterController на время
+сидения, SetSitting(true) + блокировка движения через isSitting), вставание по Пробелу (в Update()) или
+вызовом публичного StandUp() с телепортом в standPosition и обратным включением коллайдера и
+CharacterController; StandUp() защищён проверкой isSitting (не срабатывает, если игрок не сидит).
+
+ComputerInteractable.cs — IInteractable, терминал оператора Interact_OperatorTerminal: открытие по E
+(если игрок сидит, playerController.isSitting, прицел на терминале) — вызывает
+ComputerUIController.OpenDesktop(); закрытие при взгляде на терминал также доступно, но глобально
+окно закрывается через ComputerUIController.Update() по E/Esc.
+
+ComputerUIController.cs — висит на панели ComputerOS (InteractionCanvas): свойство IsOpen (false по
+умолчанию). OpenDesktop() ставит IsOpen = true и запускает корутину AnimateOpen() — плавное появление
+CanvasGroup.alpha (0→1) и зум RectTransform.localScale (0.1→1) за 0.3 с через Mathf.Lerp,
+разблокировка курсора, Time.timeScale = 0. Update() при IsOpen закрывает окно по E/Esc
+(eKey/escapeKey.wasPressedThisFrame) независимо от направления взгляда, с защитой от повторного
+нажатия (lastOpenTime, 0.2 с). Если открыто меню миссий (MissionMenuController.IsOpen) или оно было
+закрыто менее 0.2 с назад (LastClosedTime), Update() не закрывает рабочий стол, поэтому Esc закрывает
+окна по очереди независимо от порядка выполнения Update(): первое нажатие — меню миссий, второе —
+сам рабочий стол. CloseDesktop() ставит IsOpen = false, alpha = 0, Time.timeScale = 1,
+блокирует курсор и НЕ вызывает StandUp() — игрок остаётся сидеть. Вместо этого после возврата
+Time.timeScale в 1 вызывается PlayerController.ForceSitIdle(): он ставит IsSitting = true и через
+animator.Play("SitIdle", 0, 1f) принудительно сбрасывает Animator в финальную позу сидения, из-за
+чего застывшая при Time.timeScale = 0 анимация посадки (Stand To Sit) не доигрывается после закрытия
+рабочего стола. Вставание со стула происходит только по Пробелу в ChairInteractable.Update().
+
+DesktopIcon.cs — висит на кнопке-иконке «Миссии» внутри ComputerOS: OnIconClicked() вызывает
+MissionMenuController.OpenMissionMenu(), который открывает панель выбора миссий (MissionSelectPanel
+из MainMenu) поверх рабочего стола ComputerOS — рабочий стол остаётся видимым на фоне.
+
+MissionMenuController.cs — контроллер панели выбора миссий внутри бункера. OpenMissionMenu()
+заполняет MissionSelectScreen миссиями из MissionRegistry и показывает панель поверх рабочего стола
+ComputerOS (рабочий стол не выключается); CloseMissionMenu() (кнопка «Назад» или Esc в Update(), с защитой lastOpenTime 0.2 с) скрывает панель —
+рабочий стол остаётся на месте — и фиксирует LastClosedTime; StartMission() запускает миссию через MissionContext.Begin() и
+SceneLoader.LoadAsync(). Старый MissionBoardWindow удалён.
+
+BunkerStateRestorer.cs — висит на Player в сцене Bunker(main). Публичное свойство IsRestoring
+выставляется в true в Awake() при MissionContext.ReturnedFromMission == true и сбрасывается в
+false в конце восстановления. При ReturnedFromMission == true в Start() через корутину с задержкой
+в один кадр (чтобы отработали все Start сцены) восстанавливает состояние возврата с миссии:
+ChairInteractable.Interact() (посадка на стул), ComputerUIController.OpenDesktop() (ComputerOS)
+и MissionMenuController.OpenMissionMenu() (MissionSelectPanel с актуальным прогрессом), затем
+сбрасывает флаг ReturnedFromMission = false. SceneLoader ждёт IsRestoring == false, чтобы не
+снять экран «LOADING...» раньше времени.
+
 6. Сцены
 Всего найдено 15 сцен.
 
@@ -864,6 +974,10 @@ Assets/Scenes/Boot.unity
 Назначение: старт и Bootstrapper
 
 Статус: основная цепочка
+
+Камера-заглушка: BootCamera (Camera: Clear Flags = Solid Color, чёрный фон,
+Culling Mask = Nothing, Depth = -100) — рисует чёрный фон позади UI, чтобы в окне Game
+не появлялась надпись «No cameras rendering» при запуске игры.
 
 Assets/Scenes/MainMenu.unity
 
@@ -887,7 +1001,8 @@ Assets/Scenes/Bunker(main).unity
 
 Назначение: новая FPS-локация (военный бункер Bunker07Anim)
 
-Статус: в настройке — физика, коллайдеры, интерактивный терминал; НЕ в Build Settings
+Статус: в настройке — физика, коллайдеры, интерактивный терминал; в Build Settings;
+сюда возвращает DebriefController после завершения миссии
 
 Assets/Scenes/FunctionalUI-Demo.unity
 
@@ -900,6 +1015,11 @@ Assets/Scenes/TerrainDemoScene.unity
 Назначение: terrain и drone demo
 
 Статус: прототип
+
+Камера-заглушка: DebriefCamera (Camera: Clear Flags = Solid Color, чёрный фон,
+Culling Mask = Nothing), по умолчанию выключена. Включается DebriefController в ShowDebrief()
+при показе результатов миссии и выключается в ReturnToMenu() при возврате на базу, чтобы
+в окне Game не появлялась надпись «No cameras rendering», когда камера дрона отключается.
 
 Assets/_Recovery/0.unity — резерв terrain-сцены, recovery.
 Assets/_Recovery/0 (1).unity — резерв terrain-сцены, recovery.
@@ -920,11 +1040,13 @@ Assets/Scenes/MainMenu.unity
 
 Assets/Scenes/SampleScene.unity
 
+Assets/Scenes/TerrainDemoScene.unity
+
+Assets/Scenes/Bunker(main).unity
+
 Не включены:
 
 Assets/Scenes/player.unity
-
-Assets/Scenes/TerrainDemoScene.unity
 
 7. Игровые префабы
 Дроны
@@ -961,6 +1083,16 @@ Assets/Models/Player/Animations/Slow Run.fbx
 
 Assets/Models/Player/Animations/Walking Backwards.fbx
 
+Assets/Models/Player/Animations/Stand To Sit.fbx
+
+Assets/Models/Player/Animations/Sitting.fbx
+
+Assets/Models/Player/Animations/Sit To Type.fbx
+
+Assets/Models/Player/Animations/Left Strafe Walking.fbx
+
+Assets/Models/Player/Animations/Right Strafe Walking.fbx
+
 Дроны
 Assets/Models/Drones/fpv_drone.glb
 
@@ -992,9 +1124,9 @@ Assets/ALP_Assets/country house01/Models/House.fbx
 Animator
 Основной controller: Assets/Models/Player/PlayerAnimator.controller.
 
-Параметры: Speed, Direction, IsGrounded.
+Параметры: Speed, Direction, Strafe, IsGrounded, IsSitting (Bool), IsTyping (Bool).
 
-Состояния: Idle, Walk, Run, WalkBackward.
+Состояния: Idle, Walk, WalkBackward, StrafeLeft, StrafeRight, SitDown, SitIdle, SitTyping (состояние Run удалено — бег отключён из-за малых размеров бункера). Стрейф включается параметром Strafe только при чисто горизонтальном вводе A/D; диагональ (W+A/W+D) остаётся обычной ходьбой Walk.
 
 Отдельных .anim файлов не найдено — клипы импортируются из FBX.
 
@@ -1087,10 +1219,6 @@ Mission3 не имеет sceneName и defaultDrone
 Смешан новый и старый Input System
 
 Где: PlayerController, drone scripts, InputManager
-
-SceneLoader.ShowLoading/HideLoading не вызываются
-
-Где: SceneLoader.cs
 
 MissionController.startTime не инициализируется
 
