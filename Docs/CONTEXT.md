@@ -328,6 +328,11 @@ CharacterController и коллайдера стула, анимация IsSitti
 
 сбрасывает флаг ReturnedFromMission = false.
 
+Скрипт выставляет публичное свойство IsRestoring = true в Awake() (при поднятом флаге
+ReturnedFromMission) и сбрасывает его в false в конце корутины RestoreStateRoutine().
+SceneLoader после загрузки сцены ждёт, пока IsRestoring станет false, поэтому экран
+«LOADING...» остаётся поверх сцены до полного восстановления состояния бункера.
+
 Прогресс миссий при этом актуален: MissionController.EndMission() при успешном завершении вызывает
 ProgressService.CompleteMission(), а OpenMissionMenu() пересоздаёт карточки через
 MissionSelectScreen.Populate(), которая заново читает ProgressService — галочки «Пройдено»
@@ -336,12 +341,17 @@ MissionSelectScreen.Populate(), которая заново читает Progres
 Экран загрузки при переключении сцен
 При переключении сцен (например, возврат с миссии в Bunker(main)) SceneLoader
 (Assets/Scripts/Core/SceneLoader.cs) показывает чёрный экран «LOADING...». В LoadAsync()
-перед LoadSceneAsync вызывается ShowLoading() (CanvasGroup alpha = 1, blocksRaycasts = true),
-а после завершения активации новой сцены (op.isDone) — HideLoading() (alpha = 0,
-blocksRaycasts = false), после чего сбрасывается флаг isLoading. Пустая сцена при переходе
-больше не мигает. UI экрана загрузки — Panel на весь экран с текстом «LOADING...»,
-дочерняя к объекту SceneLoader (переживает смену сцен благодаря DontDestroyOnLoad);
-ссылка назначается в поле Loading Screen инспектора SceneLoader.
+перед LoadSceneAsync вызывается ShowLoading() (CanvasGroup alpha = 1, blocksRaycasts = true).
+После завершения активации новой сцены (op.isDone) экран остаётся непрозрачным ещё на
+пост-задержку postLoadDelay (1.5 с, таймер на Time.unscaledDeltaTime), а при возврате в
+бункер — до завершения восстановления состояния BunkerStateRestorer.IsRestoring (таймаут
+restoreWaitTimeout = 3 с). Только после этого вызывается HideLoading() (alpha = 0,
+blocksRaycasts = false) и сбрасывается флаг isLoading. Это скрывает «швы» перехода:
+прогрузку текстур миссии, появление игрока стоя и открытие рабочего стола/меню миссий.
+Пустая сцена при переходе больше не мигает. UI экрана загрузки — Panel на весь экран с
+текстом «LOADING...», дочерняя к объекту SceneLoader (переживает смену сцен благодаря
+DontDestroyOnLoad); ссылка назначается в поле Loading Screen инспектора SceneLoader.
+Поля postLoadDelay и restoreWaitTimeout настраиваются в инспекторе SceneLoader.
 
 4. Что существует в коде, но пока не соединено с базой
 Следующие подсистемы присутствуют в проекте, но не подключены к основной FPS-сцене player.unity как единый игровой цикл:

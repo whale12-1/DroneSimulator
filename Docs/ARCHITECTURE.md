@@ -242,7 +242,9 @@ DebriefController
               (ReturnToMenu() и LoadAsync() защищены от повторного вызова флагами
                isReturning и isLoading — двойная загрузка сцены исключена)
               LoadAsync: ShowLoading() → LoadSceneAsync (allowSceneActivation = false)
-              → progress ≥ 0.9 → allowSceneActivation = true → op.isDone → HideLoading()
+              → progress ≥ 0.9 → allowSceneActivation = true → op.isDone
+               → задержка postLoadDelay (1.5 с) → ожидание BunkerStateRestorer.IsRestoring
+               → HideLoading()
                   ↓
               Bunker(main)
                   ↓
@@ -551,13 +553,16 @@ Core/SceneLoader.cs
 
 Назначение: асинхронная загрузка сцен с экраном загрузки «LOADING...»
 
-Зависимости: SceneManager, CanvasGroup (поле loadingScreen)
+Зависимости: SceneManager, CanvasGroup (поле loadingScreen), BunkerStateRestorer (IsRestoring)
 
 Статус: MainMenu/Bootstrapper; LoadAsync() защищён от повторного входа флагом
 isLoading (сбрасывается после завершения загрузки) — повторный вызов игнорируется,
 двойная загрузка одной и той же сцены исключена. Перед LoadSceneAsync вызывается
-ShowLoading() (alpha = 1, blocksRaycasts = true), после завершения активации новой
-сцены (op.isDone) — HideLoading() (alpha = 0, blocksRaycasts = false). Если сцена
+ShowLoading() (alpha = 1, blocksRaycasts = true). После завершения активации новой
+сцены (op.isDone) экран остаётся непрозрачным ещё postLoadDelay (1.5 с, таймер на
+Time.unscaledDeltaTime), а при возврате в бункер — до завершения
+BunkerStateRestorer.IsRestoring (таймаут restoreWaitTimeout = 3 с). Затем вызывается
+HideLoading() (alpha = 0, blocksRaycasts = false) и сбрасывается isLoading. Если сцена
 не найдена (op == null), экран скрывается и isLoading сбрасывается
 
 5.4 Data / Missions
@@ -947,11 +952,14 @@ ComputerOS (рабочий стол не выключается); CloseMissionMe
 рабочий стол остаётся на месте — и фиксирует LastClosedTime; StartMission() запускает миссию через MissionContext.Begin() и
 SceneLoader.LoadAsync(). Старый MissionBoardWindow удалён.
 
-BunkerStateRestorer.cs — висит на Player в сцене Bunker(main). При MissionContext.ReturnedFromMission
-== true в Start() через корутину с задержкой в один кадр (чтобы отработали все Start сцены)
-восстанавливает состояние возврата с миссии: ChairInteractable.Interact() (посадка на стул),
-ComputerUIController.OpenDesktop() (ComputerOS) и MissionMenuController.OpenMissionMenu()
-(MissionSelectPanel с актуальным прогрессом), затем сбрасывает флаг ReturnedFromMission = false.
+BunkerStateRestorer.cs — висит на Player в сцене Bunker(main). Публичное свойство IsRestoring
+выставляется в true в Awake() при MissionContext.ReturnedFromMission == true и сбрасывается в
+false в конце восстановления. При ReturnedFromMission == true в Start() через корутину с задержкой
+в один кадр (чтобы отработали все Start сцены) восстанавливает состояние возврата с миссии:
+ChairInteractable.Interact() (посадка на стул), ComputerUIController.OpenDesktop() (ComputerOS)
+и MissionMenuController.OpenMissionMenu() (MissionSelectPanel с актуальным прогрессом), затем
+сбрасывает флаг ReturnedFromMission = false. SceneLoader ждёт IsRestoring == false, чтобы не
+снять экран «LOADING...» раньше времени.
 
 6. Сцены
 Всего найдено 15 сцен.

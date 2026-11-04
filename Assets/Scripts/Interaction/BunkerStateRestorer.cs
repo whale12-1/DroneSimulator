@@ -7,6 +7,14 @@ public class BunkerStateRestorer : MonoBehaviour
     [SerializeField] private ComputerUIController computer;
     [SerializeField] private MissionMenuController missionMenu;
 
+    public bool IsRestoring { get; private set; }
+
+    private void Awake()
+    {
+        if (MissionContext.ReturnedFromMission)
+            IsRestoring = true;
+    }
+
     private void Start()
     {
         if (GameStateMachine.Current == GameState.Loading && GameStateMachine.CanTransitionTo(GameState.Gameplay))
@@ -20,10 +28,6 @@ public class BunkerStateRestorer : MonoBehaviour
 
     private IEnumerator RestoreStateRoutine()
     {
-        float loadDeadline = Time.unscaledTime + 2f;
-        while (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading && Time.unscaledTime < loadDeadline)
-            yield return null;
-
         yield return null;
 
         Time.timeScale = 1f;
@@ -49,5 +53,6 @@ public class BunkerStateRestorer : MonoBehaviour
             missionMenu.OpenMissionMenu();
 
         MissionContext.ReturnedFromMission = false;
+        IsRestoring = false;
     }
 }

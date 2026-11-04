@@ -7,6 +7,8 @@ public class SceneLoader : MonoBehaviour
     public static SceneLoader Instance { get; private set; }
 
     [SerializeField] private CanvasGroup loadingScreen;
+    [SerializeField] private float postLoadDelay = 1.5f;
+    [SerializeField] private float restoreWaitTimeout = 3f;
 
     private bool isLoading = false;
 
@@ -91,12 +93,36 @@ public class SceneLoader : MonoBehaviour
             op.allowSceneActivation = true;
             while (!op.isDone)
                 yield return null;
+
+            yield return WaitUnscaled(postLoadDelay);
+            yield return WaitForBunkerRestore();
         }
         finally
         {
             HideLoading();
             isLoading = false;
         }
+    }
+
+    private IEnumerator WaitUnscaled(float seconds)
+    {
+        float elapsed = 0f;
+        while (elapsed < seconds)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+    }
+
+    private IEnumerator WaitForBunkerRestore()
+    {
+        BunkerStateRestorer restorer = FindFirstObjectByType<BunkerStateRestorer>();
+        if (restorer == null)
+            yield break;
+
+        float deadline = Time.unscaledTime + restoreWaitTimeout;
+        while (restorer.IsRestoring && Time.unscaledTime < deadline)
+            yield return null;
     }
 
     private void ShowLoading() { if (loadingScreen) { loadingScreen.alpha = 1; loadingScreen.blocksRaycasts = true; } }
