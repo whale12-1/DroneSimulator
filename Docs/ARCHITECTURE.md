@@ -373,7 +373,7 @@ Assets/Scripts/Player/PlayerController.cs
 Поля: speed, gravity, mouseSensitivity, cameraTransform, animator, isSitting (при посадке
 блокируются движение и гравитация; вращение камеры мышью остаётся доступным)
 
-Методы: Start, Update, SetSitting, SetTyping
+Методы: Start, Update, SetSitting, SetTyping, ForceSitIdle (сбрасывает Animator в SitIdle)
 
 5.2 Camera / HUD
 Camera/DroneCameraModule.cs
@@ -923,8 +923,9 @@ MissionBoardInteractable.cs — IInteractable, открывает карту м�
 
 ChairInteractable.cs — IInteractable, посадка за компьютер (телепорт в sitPosition,
 отключение коллайдера стула chairCollider и полное отключение CharacterController на время
-сидения, SetSitting(true) + блокировка движения через isSitting), вставание по Escape с
-телепортом в standPosition и обратным включением коллайдера и CharacterController.
+сидения, SetSitting(true) + блокировка движения через isSitting), вставание по Пробелу (в Update()) или
+вызовом публичного StandUp() с телепортом в standPosition и обратным включением коллайдера и
+CharacterController; StandUp() защищён проверкой isSitting (не срабатывает, если игрок не сидит).
 
 ComputerInteractable.cs — IInteractable, терминал оператора Interact_OperatorTerminal: открытие по E
 (если игрок сидит, playerController.isSitting, прицел на терминале) — вызывает
@@ -939,8 +940,12 @@ CanvasGroup.alpha (0→1) и зум RectTransform.localScale (0.1→1) за 0.3 
 нажатия (lastOpenTime, 0.2 с). Если открыто меню миссий (MissionMenuController.IsOpen) или оно было
 закрыто менее 0.2 с назад (LastClosedTime), Update() не закрывает рабочий стол, поэтому Esc закрывает
 окна по очереди независимо от порядка выполнения Update(): первое нажатие — меню миссий, второе —
-сам рабочий стол. CloseDesktop() ставит IsOpen = false, alpha = 0, блокировка курсора,
-Time.timeScale = 1.
+сам рабочий стол. CloseDesktop() ставит IsOpen = false, alpha = 0, Time.timeScale = 1,
+блокирует курсор и НЕ вызывает StandUp() — игрок остаётся сидеть. Вместо этого после возврата
+Time.timeScale в 1 вызывается PlayerController.ForceSitIdle(): он ставит IsSitting = true и через
+animator.Play("SitIdle", 0, 1f) принудительно сбрасывает Animator в финальную позу сидения, из-за
+чего застывшая при Time.timeScale = 0 анимация посадки (Stand To Sit) не доигрывается после закрытия
+рабочего стола. Вставание со стула происходит только по Пробелу в ChairInteractable.Update().
 
 DesktopIcon.cs — висит на кнопке-иконке «Миссии» внутри ComputerOS: OnIconClicked() вызывает
 MissionMenuController.OpenMissionMenu(), который открывает панель выбора миссий (MissionSelectPanel

@@ -71,8 +71,10 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         Debug.Log($"[ChairInteractable] SitDown() done: player position = {player.position}, isSitting = {isSitting}");
     }
 
-    private void StandUp()
+    public void StandUp()
     {
+        if (!isSitting) return;
+
         Debug.Log($"[ChairInteractable] StandUp() called: isSitting = {isSitting}, time = {Time.unscaledTime:F3}");
         if (playerController == null) return;
 

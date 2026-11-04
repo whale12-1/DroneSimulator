@@ -179,7 +179,7 @@ Animator;
 IsSitting и IsTyping и состояния SitDown / SitIdle / SitTyping (клипы Stand To Sit.fbx,
 Sitting.fbx, Sit To Type.fbx); в PlayerController.cs добавлены методы SetSitting(bool)
 и SetTyping(bool); создан скрипт ChairInteractable (Assets/Scripts/Interaction/) для
-посадки за компьютер по E и вставания по Esc; при посадке скрипт отключает коллайдер
+посадки за компьютер по E и вставания по Пробелу; при посадке скрипт отключает коллайдер
 стула (Chair_Blocker) и полностью выключает CharacterController игрока (гравитация в
 PlayerController игнорируется через isSitting), а при вставании включает их обратно и
 телепортирует игрока на StandPoint; во время сидения вращение камеры (мышью) доступно —
@@ -417,10 +417,13 @@ ChairInteractable (посадка за компьютер; управляет к
 направлен на терминал и игрок сидит: ComputerInteractable вызывает ComputerUIController.OpenDesktop()
 (панель плавно появляется CanvasGroup.alpha 0→1 и зумится localScale 0.1→1 за 0.3 с, курсор
 разблокируется, Time.timeScale = 0). Закрытие — по E или Esc независимо от направления взгляда:
-ComputerUIController.Update() вызывает CloseDesktop() (alpha = 0, курсор блокируется,
-Time.timeScale = 1). Esc закрывает окна по очереди: первое нажатие закрывает меню миссий (возврат
-на рабочий стол), второе нажатие (когда меню миссий уже закрыто) закрывает сам рабочий стол и
-выпускает игрока из компьютера. ComputerUIController игнорирует Esc, пока меню миссий открыто
+ComputerUIController.Update() вызывает CloseDesktop() (alpha = 0, Time.timeScale = 1,
+курсор блокируется, StandUp() НЕ вызывается — игрок ОСТАЁТСЯ сидеть; Animator принудительно
+сбрасывается в позу SitIdle через PlayerController.ForceSitIdle(), чтобы застывшая анимация
+посадки не доигрывалась). Игрок встаёт со стула только по клавише Пробел через
+ChairInteractable.Update(). Esc закрывает окна по очереди: первое нажатие закрывает меню миссий
+(возврат на рабочий стол), второе нажатие (когда меню миссий уже закрыто) закрывает сам рабочий
+стол, но игрок остаётся сидеть. ComputerUIController игнорирует Esc, пока меню миссий открыто
 (MissionMenuController.IsOpen), а также в течение 0.2 с после его закрытия (LastClosedTime), поэтому
 порядок выполнения Update() двух скриптов не влияет на результат.
 

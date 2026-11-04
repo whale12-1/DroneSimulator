@@ -6,6 +6,7 @@ public class ComputerUIController : MonoBehaviour
 {
     [SerializeField] private CanvasGroup canvasGroup;
     [SerializeField] private RectTransform panelTransform;
+    [SerializeField] private PlayerController playerController;
 
     private Coroutine openRoutine;
     private float lastOpenTime;
@@ -74,9 +75,12 @@ public class ComputerUIController : MonoBehaviour
             canvasGroup.blocksRaycasts = false;
         }
 
+        Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-        Time.timeScale = 1f;
+
+        if (playerController == null) playerController = FindAnyObjectByType<PlayerController>();
+        if (playerController != null) playerController.ForceSitIdle();
     }
 
     public void ToggleDesktop()

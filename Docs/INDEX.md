@@ -25,9 +25,10 @@ Animator Controller → Assets/Models/Player/PlayerAnimator.controller
 Интерфейс взаимодействия → Assets/Scripts/Interaction/IInteractable.cs
 UI взаимодействия (магазин/карта) → Assets/Scripts/Interaction/InteractionUIController.cs
 Контроллер выбора миссий на компьютере → Assets/Scripts/Interaction/MissionMenuController.cs
+Контроллер рабочего стола ComputerOS (закрытие оставляет игрока сидеть; вставание по Пробелу) → Assets/Scripts/Interaction/ComputerUIController.cs
 Интерактивный объект «Магазин» → Assets/Scripts/Interaction/HangarInteractable.cs
 Интерактивный объект «Карта миссий» → Assets/Scripts/Interaction/MissionBoardInteractable.cs
-Интерактивный объект «Стул» (сесть за компьютер) → Assets/Scripts/Interaction/ChairInteractable.cs
+Интерактивный объект «Стул» (сесть за компьютер по E, встать по Пробелу, публичный StandUp) → Assets/Scripts/Interaction/ChairInteractable.cs
 Восстановление состояния бункера после миссии → Assets/Scripts/Interaction/BunkerStateRestorer.cs
 
 Заготовка Input-взаимодействия → Assets/Input/InputSystem_Actions.inputactions → Player/Interact

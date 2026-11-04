@@ -102,6 +102,13 @@ public class PlayerController : MonoBehaviour
         animator.SetBool("IsSitting", isSitting);
     }
 
+    public void ForceSitIdle()
+    {
+        if (animator == null) return;
+        animator.SetBool("IsSitting", true);
+        animator.Play("SitIdle", 0, 1f);
+    }
+
     public void SetTyping(bool isTyping)
     {
         if (animator == null) return;
