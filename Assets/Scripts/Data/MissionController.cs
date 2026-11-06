@@ -35,8 +35,17 @@ public class MissionController : MonoBehaviour
             droneManager.SelectByConfig(mission.defaultDrone);
     }
 
-    private void OnEnable() => GameEvents.VehicleDestroyed += OnVehicleDestroyed;
-    private void OnDisable() => GameEvents.VehicleDestroyed -= OnVehicleDestroyed;
+    private void OnEnable()
+    {
+        GameEvents.VehicleDestroyed += OnVehicleDestroyed;
+        GameEvents.DroneExploded += OnDroneDestroyed;
+    }
+
+    private void OnDisable()
+    {
+        GameEvents.VehicleDestroyed -= OnVehicleDestroyed;
+        GameEvents.DroneExploded -= OnDroneDestroyed;
+    }
 
     private void Update()
     {
@@ -95,6 +104,15 @@ public class MissionController : MonoBehaviour
         else
         {
             Debug.Log("[Mission] Уничтожен не-целевой объект. В прогресс не идёт.");
+        }
+    }
+
+    private void OnDroneDestroyed(Vector3 pos, MonoBehaviour drone)
+    {
+        if (mission != null && mission.sceneName.Contains("PreparingDemo"))
+        {
+            SceneLoader.EnsureInstance();
+            SceneLoader.Instance.LoadAsync("PreparingDemo");
         }
     }
 

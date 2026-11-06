@@ -598,7 +598,15 @@ Data/MissionController.cs
 флаг autoComplete (public) — если false, MissionController не завершает миссию по своим условиям
 (им управляет внешний директор, например AmbushMissionDirector).
 
-Зависимости: DroneManager, GameEvents, ProgressService, GameStateMachine, MissionContext
+Зависимости: DroneManager, GameEvents, ProgressService, GameStateMachine, MissionContext, SceneLoader
+
+Респавн в тренировочной миссии: MissionController подписывается на GameEvents.DroneExploded
+(OnDroneDestroyed в OnEnable/OnDisable) и при уничтожении ЛЮБОГО дрона в PreparingDemo
+(mission.sceneName.Contains("PreparingDemo")) мгновенно перезагружает сцену через
+SceneLoader.EnsureInstance() + SceneLoader.Instance.LoadAsync("PreparingDemo") — бесконечный
+респавн, даже если в запасе остались другие дроны. Потеря всех дронов
+(LateUpdate, GetAliveDronesCount() <= 0) в остальных миссиях по-прежнему вызывает
+EndMission(MissionResult.Failed).
 
 Статус: подключён в PreparingDemo (объект MissionManager, ссылка droneManager → GameSystems/DroneManager) и в FirstMission(Forest) (объект MissionManager, ссылка droneManager → корневой объект DroneManager); в player.unity отсутствует
 
@@ -1038,7 +1046,8 @@ Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton) и камера-�
 В DroneManager (GameSystems) заполнен allDronesInScene: GimbalDrone Variant → MavicReconConfig
 (разведчик) и StrikeDrone 1 → SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению
 цели potujnojet, после чего DebriefController показывает результат, а кнопка возврата ведёт
-в Bunker(main).
+в Bunker(main). При уничтожении любого дрона (событие GameEvents.DroneExploded) вместо провала сцена
+перезагружается мгновенно (бесконечный респавн).
 
 Assets/Scenes/FirstMission(Forest).unity
 

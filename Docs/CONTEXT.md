@@ -309,6 +309,12 @@ Mission2 открывается после Mission1 (prerequisite = Mission1). �
 - Завершение миссии: Mission1 (objectiveType DestroyAllTargets, targetCount 1) завершается при
   уничтожении цели potujnojet; DebriefController показывает результат, а ReturnToMenu() возвращает
   игрока в Bunker(main).
+- Особенность тренировочной миссии: при уничтожении ЛЮБОГО дрона (событие GameEvents.DroneExploded,
+  подписка MissionController.OnDroneDestroyed в OnEnable/OnDisable) сцена PreparingDemo перезагружается
+  мгновенно через SceneLoader.EnsureInstance() и SceneLoader.Instance.LoadAsync("PreparingDemo") — работает
+  бесконечный респавн, даже если в запасе остались другие дроны. В остальных миссиях (например
+  FirstMission(Forest)) потеря всех дронов (droneManager.GetAliveDronesCount() <= 0 в LateUpdate)
+  по-прежнему ведёт к провалу EndMission(MissionResult.Failed).
 
 Сцена FirstMission(Forest) настроена так же, как PreparingDemo — на завершение миссии и показ дебрифинга:
 - Объект MissionManager (в корне сцены) несёт скрипты MissionController и DebriefController.
