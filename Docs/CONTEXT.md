@@ -339,6 +339,18 @@ DebriefPanel больше не открываются PausePanel и CrashPanel. 
 спавна. Кнопки PausePanel и CrashPanel стилизованы единообразно с кнопкой DebriefPanel/ReturnButton:
 серый фон (Image color 0.25/0.25/0.25) и белый текст.
 
+Скрытие HUD при открытии панелей (MissionUIManager.SetHudVisible): MissionUIManager получил статический
+флаг IsHudHidden и метод SetHudVisible(bool visible). uGUI-элемент инструкции Canvas/InstructionText
+(поле instructionText у MissionUIManager; у объекта выключен Raycast Target) скрывается через SetActive,
+а IMGUI-HUD дрона (ReconHUD, StrikeHUD, EWReceiver, IntersectorHUD) — через ранний return в начале
+OnGUI(), когда MissionUIManager.IsHudHidden == true. SetHudVisible(false) вызывается при открытии паузы
+(TogglePause), показе окна крушения (ShowCrashPanel) и переходе в Debrief (OnStateChanged);
+SetHudVisible(true) — в ResumeGame() и при закрытии паузы. В OnEnable() флаг сбрасывается в false,
+поэтому после рестарта миссии и возврата из бункера HUD снова видим. Дополнительно те же
+IMGUI-HUD-скрипты в начале OnGUI() делают ранний return, если SceneLoader.Instance != null и
+SceneLoader.Instance.IsLoading == true, поэтому во время экрана загрузки «LOADING...» прицелы и текст
+не рисуются поверх чёрного экрана.
+
 Сцена FirstMission(Forest) настроена так же, как PreparingDemo — на завершение миссии и показ дебрифинга:
 - Объект MissionManager (в корне сцены) несёт скрипты MissionController и DebriefController.
 - MissionController.droneManager ссылается на DroneManager (корневой объект DroneManager). В DroneManager

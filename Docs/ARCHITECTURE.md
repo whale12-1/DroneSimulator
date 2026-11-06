@@ -1024,6 +1024,17 @@ Bunker(main) через SceneLoader.Instance.LoadAsync — как и DebriefCont
 PreparingDemo стилизованы единообразно с DebriefPanel/ReturnButton: серый фон Image (0.25/0.25/0.25),
 белый текст.
 
+Скрытие HUD при открытии панелей: MissionUIManager содержит статический флаг IsHudHidden и метод
+SetHudVisible(bool). Поле instructionText (GameObject) ссылается на Canvas/InstructionText (uGUI,
+скрывается через SetActive; у объекта выключен Raycast Target). IMGUI-HUD дрона — ReconHUD, StrikeHUD,
+EWReceiver, IntersectorHUD — в начале OnGUI() делает ранний return, если MissionUIManager.IsHudHidden
+== true. SetHudVisible(false) вызывается при открытии паузы (TogglePause), показе CrashPanel
+(ShowCrashPanel) и переходе в Debrief (OnStateChanged); SetHudVisible(true) — в ResumeGame() и при
+закрытии паузы. В OnEnable() флаг сбрасывается в false, поэтому HUD видим при старте и рестарте сцены.
+Дополнительно те же IMGUI-HUD-скрипты в начале OnGUI() делают ранний return при
+SceneLoader.Instance != null && SceneLoader.Instance.IsLoading, поэтому во время загрузки сцены
+(чёрный экран «LOADING...») HUD не рисуется.
+
 BunkerStateRestorer.cs — висит на Player в сцене Bunker(main). Публичное свойство IsRestoring
 выставляется в true в Awake() при MissionContext.ReturnedFromMission == true и сбрасывается в
 false в конце восстановления. При ReturnedFromMission == true в Start() через корутину с задержкой

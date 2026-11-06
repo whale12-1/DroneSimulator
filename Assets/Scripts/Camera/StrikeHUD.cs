@@ -23,6 +23,10 @@ public class StrikeHUD : MonoBehaviour
 
     private void OnGUI()
     {
+        if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return;
+
+        if (MissionUIManager.IsHudHidden) return;
+
         // 1. Проверяем режим камеры и флаг отображения HUD
         CameraType camType = (config != null) ? config.cameraType : (cameraModule != null ? cameraModule.CurrentCameraType : CameraType.StrikeFixed);
         bool isEnabled = (config != null) ? config.showStrikeHUD : true;

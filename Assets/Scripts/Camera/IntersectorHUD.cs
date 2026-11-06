@@ -60,6 +60,10 @@ public class InterceptorHUD : MonoBehaviour
 
     private void OnGUI()
     {
+        if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return;
+
+        if (MissionUIManager.IsHudHidden) return;
+
         if (cam == null || droneRigidbody == null) return;
 
         GUI.color = hudColor;

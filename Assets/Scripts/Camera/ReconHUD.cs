@@ -27,6 +27,10 @@ public class ReconHUD : MonoBehaviour
 
     private void OnGUI()
     {
+        if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return;
+
+        if (MissionUIManager.IsHudHidden) return;
+
         // Проверяем тип камеры из конфига или модуля
         CameraType camType = (config != null) ? config.cameraType : (cameraModule != null ? cameraModule.CurrentCameraType : CameraType.StrikeFixed);
         if (camType != CameraType.ReconGimbal) return;

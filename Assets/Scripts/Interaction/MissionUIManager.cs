@@ -3,10 +3,18 @@ using UnityEngine.InputSystem;
 
 public class MissionUIManager : MonoBehaviour
 {
+    public static bool IsHudHidden { get; private set; }
+
+    [SerializeField] private GameObject instructionText;
     [SerializeField] private GameObject pausePanel;
     [SerializeField] private GameObject crashPanel;
 
-    private void OnEnable() => GameStateMachine.StateChanged += OnStateChanged;
+    private void OnEnable()
+    {
+        IsHudHidden = false;
+        GameStateMachine.StateChanged += OnStateChanged;
+    }
+
     private void OnDisable() => GameStateMachine.StateChanged -= OnStateChanged;
 
     private void OnStateChanged(GameState prev, GameState next)
@@ -14,6 +22,7 @@ public class MissionUIManager : MonoBehaviour
         if (next == GameState.Debrief)
         {
             Time.timeScale = 1f;
+            SetHudVisible(false);
             if (pausePanel != null) pausePanel.SetActive(false);
             if (crashPanel != null) crashPanel.SetActive(false);
         }
@@ -41,6 +50,8 @@ public class MissionUIManager : MonoBehaviour
         if (GameStateMachine.Current == GameState.Debrief)
             return;
 
+        SetHudVisible(false);
+
         if (crashPanel != null)
             crashPanel.SetActive(true);
 
@@ -54,6 +65,8 @@ public class MissionUIManager : MonoBehaviour
 
     public void ResumeGame()
     {
+        SetHudVisible(true);
+
         if (pausePanel != null)
             pausePanel.SetActive(false);
 
@@ -91,15 +104,23 @@ public class MissionUIManager : MonoBehaviour
 
         if (open)
         {
+            SetHudVisible(false);
             Time.timeScale = 0f;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
         else
         {
+            SetHudVisible(true);
             Time.timeScale = 1f;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
+    }
+
+    private void SetHudVisible(bool visible)
+    {
+        IsHudHidden = !visible;
+        if (instructionText != null) instructionText.SetActive(visible);
     }
 }

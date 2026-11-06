@@ -95,6 +95,8 @@ public class EWReceiver : MonoBehaviour
 
     private void OnGUI()
     {
+        if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return;
+        if (MissionUIManager.IsHudHidden) return;
         float noiseThreshold = config != null ? config.ewNoiseThreshold : 0.05f;
         if (jamIntensity < noiseThreshold) return;
 
