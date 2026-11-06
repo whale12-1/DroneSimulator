@@ -256,10 +256,12 @@ DebriefController
 
 Текущий фактический статус:
 
-Mission1 указывает SampleScene;
-Mission2 и Mission3 не имеют sceneName;
+Mission1 («Тренировочная миссия», id = training_mission) указывает PreparingDemo;
+Mission2 («Первая миссия», id = mission_1) указывает FirstMission(Forest);
+Mission3 исключена из реестра MissionRegistry.allMissions (осталась в папке Missions, не используется);
 player.unity отсутствует в Build Settings;
 сцена базы Bunker(main) добавлена в Build Settings;
+сцены PreparingDemo и FirstMission(Forest) добавлены в Build Settings;
 кнопка «Играть» в MainMenu загружает Bunker(main) (ReturnedFromMission = false, игрок стоит на спавне);
 выбор миссии — только через компьютер в бункере (MissionMenuController);
 debrief UI — базовая панель DebriefController; возврат с миссии ведёт в Bunker(main);
@@ -584,7 +586,7 @@ Data/MissionController.cs
 
 Зависимости: DroneManager, GameEvents, ProgressService
 
-Статус: не подключён к player.unity
+Статус: подключён в PreparingDemo (объект MissionManager, ссылка droneManager → GameSystems/DroneManager); в player.unity отсутствует
 
 Data/MissionDefinition.cs
 
@@ -616,7 +618,9 @@ Data/DebriefController.cs
 
 Статус: по кнопке дебрифинга переводит состояние Debrief → Loading → Gameplay
 и загружает сцену Bunker(main); перед загрузкой ставит MissionContext.ReturnedFromMission = true;
-метод ReturnToMenu() защищён от повторного вызова флагом isReturning
+метод ReturnToMenu() защищён от повторного вызова флагом isReturning. Подключён в PreparingDemo:
+объект MissionManager, ссылки panel/titleText/statsText/returnToMenuButton/debriefCamera назначены
+на UI дебрифинга и камеру-заглушку DebriefCamera
 
 5.5 DroneTypes
 DroneTypes/DroneConfig.cs
@@ -987,9 +991,33 @@ Assets/Scenes/MainMenu.unity
 
 Assets/Scenes/SampleScene.unity
 
-Назначение: тестовая миссия
+Назначение: старая тестовая миссия
 
-Статус: используется Mission1
+Статус: не используется миссиями (заменена на PreparingDemo)
+
+Assets/Scenes/PreparingDemo.unity
+
+Назначение: тренировочная миссия
+
+Статус: Mission1 («Тренировочная миссия», id = training_mission); в Build Settings.
+Настроены контроллеры: объект MissionManager (MissionController + DebriefController), UI дебрифинга
+Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton) и камера-заглушка DebriefCamera.
+В DroneManager (GameSystems) заполнен allDronesInScene: GimbalDrone Variant → MavicReconConfig
+(разведчик) и StrikeDrone 1 → SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению
+цели potujnojet, после чего DebriefController показывает результат, а кнопка возврата ведёт
+в Bunker(main).
+
+Assets/Scenes/FirstMission(Forest).unity
+
+Назначение: первая миссия
+
+Статус: Mission2 («Первая миссия», id = mission_1); в Build Settings
+
+Assets/Scenes/FirstMission(SpizjenyiVarik).unity
+
+Назначение: альтернативная карта первой миссии
+
+Статус: не привязана к миссии (заготовка)
 
 Assets/Scenes/player.unity
 
@@ -1043,6 +1071,10 @@ Assets/Scenes/SampleScene.unity
 Assets/Scenes/TerrainDemoScene.unity
 
 Assets/Scenes/Bunker(main).unity
+
+Assets/Scenes/PreparingDemo.unity
+
+Assets/Scenes/FirstMission(Forest).unity
 
 Не включены:
 
@@ -1185,17 +1217,17 @@ player.unity не входит в Build Settings
 
 Приоритет: Высокий
 
-Mission2 не имеет sceneName
+Mission2 не имеет sceneName — ИСПРАВЛЕНО: Mission2 указывает FirstMission(Forest).
 
 Где: Assets/Resources/Missions/Mission2.asset
 
-Приоритет: Высокий
+Приоритет: Высокий (решено)
 
-Mission3 не имеет sceneName и defaultDrone
+Mission3 не имеет sceneName и defaultDrone — Mission3 исключена из MissionRegistry.allMissions.
 
 Где: Assets/Resources/Missions/Mission3.asset
 
-Приоритет: Высокий
+Приоритет: Низкий (ассет остался в папке, но не используется)
 
 База не соединена с миссионным flow
 
@@ -1240,9 +1272,9 @@ SettingsService не защищает чтение JSON от исключени�
 
 Где: SettingsService.cs
 
-Часть миссий содержит пустые идентификаторы
+Идентификаторы миссий приведены к уникальным значениям
 
-Где: Mission2/Mission3 assets
+Где: Mission1 (training_mission), Mission2 (mission_1)
 
 Низкие
 Recovery-дубликаты сцен — Assets/_Recovery.

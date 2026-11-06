@@ -291,6 +291,25 @@ ScriptableObject-описаний миссий;
 
 настроек громкости, качества и fullscreen.
 
+Текущая конфигурация миссий
+Ассеты миссий: Assets/Resources/Missions/ (Mission1, Mission2); реестр: Assets/Resources/MissionRegistry.asset.
+- Mission1 — «Тренировочная миссия» (id: training_mission) → сцена Assets/Scenes/PreparingDemo.unity, Default Drone: SmallFpvHeatConfig.
+- Mission2 — «Первая миссия» (id: mission_1) → сцена Assets/Scenes/FirstMission(Forest).unity, Default Drone: SmallFpvHeatConfig.
+Mission2 открывается после Mission1 (prerequisite = Mission1). Обе сцены добавлены в Build Settings.
+Сцена Assets/Scenes/FirstMission(SpizjenyiVarik).unity есть в проекте, но пока не привязана к миссии.
+
+Сцена PreparingDemo настроена на завершение миссии и показ дебрифинга:
+- Объект MissionManager (в корне сцены) несёт скрипты MissionController и DebriefController.
+- MissionController.droneManager ссылается на DroneManager (объект GameSystems). В DroneManager заполнен
+  пул allDronesInScene: GimbalDrone Variant → MavicReconConfig (разведчик) и StrikeDrone 1 →
+  SmallFpvHeatConfig (ударный FPV).
+- DebriefController ссылается на UI дебрифинга: панель Canvas/DebriefPanel, заголовок DebriefTitle,
+  статистику DebriefStats, кнопку возврата ReturnButton и камеру-заглушку DebriefCamera
+  (по умолчанию выключена, включается на экране результатов).
+- Завершение миссии: Mission1 (objectiveType DestroyAllTargets, targetCount 1) завершается при
+  уничтожении цели potujnojet; DebriefController показывает результат, а ReturnToMenu() возвращает
+  игрока в Bunker(main).
+
 Возврат на базу после миссии
 Завершение миссии доводит игрока до дебрифинга, после которого он возвращается не в
 MainMenu, а на базу — в сцену Assets/Scenes/Bunker(main).unity. Логика находится в

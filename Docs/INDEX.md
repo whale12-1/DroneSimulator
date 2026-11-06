@@ -65,6 +65,10 @@ HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
 Миссии и сохранения
 Описания миссий → Assets/Resources/Missions/
 
+Тренировочная миссия → Assets/Resources/Missions/Mission1.asset (id: training_mission, сцена PreparingDemo)
+
+Первая миссия → Assets/Resources/Missions/Mission2.asset (id: mission_1, сцена FirstMission(Forest))
+
 Реестр миссий → Assets/Resources/MissionRegistry.asset
 
 Класс описания миссии → Assets/Scripts/Data/MissionDefinition.cs → MissionDefinition
@@ -74,6 +78,14 @@ HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
 Контекст выбранной миссии → Assets/Scripts/Data/MissionContext.cs
 
 Сохранение прогресса → Assets/Scripts/Data/ProgressService.cs
+
+Контроллер дебрифинга → Assets/Scripts/Data/DebriefController.cs
+
+Объект MissionManager (MissionController + DebriefController) → Assets/Scenes/PreparingDemo.unity → MissionManager
+
+UI дебрифинга → Assets/Scenes/PreparingDemo.unity → Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton)
+
+Камера-заглушка дебрифинга → Assets/Scenes/PreparingDemo.unity → DebriefCamera
 
 Дроны
 Профили дронов → Assets/Settings/DroneConfigs/
@@ -180,7 +192,13 @@ Boot-сцена → Assets/Scenes/Boot.unity
 
 Main Menu-сцена → Assets/Scenes/MainMenu.unity
 
-Тестовая миссионная сцена → Assets/Scenes/SampleScene.unity
+Старая тестовая миссионная сцена → Assets/Scenes/SampleScene.unity
+
+Тренировочная миссия (сцена) → Assets/Scenes/PreparingDemo.unity (MissionManager: MissionController + DebriefController; DroneManager на GameSystems с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel)
+
+Первая миссия (сцена) → Assets/Scenes/FirstMission(Forest).unity
+
+Альтернативная карта первой миссии (не привязана) → Assets/Scenes/FirstMission(SpizjenyiVarik).unity
 
 Drone/Terrain demo → Assets/Scenes/TerrainDemoScene.unity
 
