@@ -30,6 +30,7 @@ UI взаимодействия (магазин/карта) → Assets/Scripts/I
 Интерактивный объект «Карта миссий» → Assets/Scripts/Interaction/MissionBoardInteractable.cs
 Интерактивный объект «Стул» (сесть за компьютер по E, встать по Пробелу, публичный StandUp) → Assets/Scripts/Interaction/ChairInteractable.cs
 Восстановление состояния бункера после миссии → Assets/Scripts/Interaction/BunkerStateRestorer.cs
+Меню паузы и окно крушения в миссиях → Assets/Scripts/Interaction/MissionUIManager.cs (объект UIManager в сценах PreparingDemo и FirstMission(Forest))
 
 Заготовка Input-взаимодействия → Assets/Input/InputSystem_Actions.inputactions → Player/Interact
 
@@ -196,9 +197,9 @@ Main Menu-сцена → Assets/Scenes/MainMenu.unity
 
 Старая тестовая миссионная сцена → Assets/Scenes/SampleScene.unity
 
-Тренировочная миссия (сцена) → Assets/Scenes/PreparingDemo.unity (MissionManager: MissionController + DebriefController; DroneManager на GameSystems с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel)
+Тренировочная миссия (сцена) → Assets/Scenes/PreparingDemo.unity (MissionManager: MissionController + DebriefController; DroneManager на GameSystems с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel; UIManager: меню паузы и окно крушения)
 
-Первая миссия (сцена) → Assets/Scenes/FirstMission(Forest).unity (MissionManager: MissionController + DebriefController; DroneManager на корневом объекте DroneManager с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel; DebriefCamera; EventSystem)
+Первая миссия (сцена) → Assets/Scenes/FirstMission(Forest).unity (MissionManager: MissionController + DebriefController; DroneManager на корневом объекте DroneManager с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel; DebriefCamera; EventSystem; UIManager: меню паузы)
 
 Альтернативная карта первой миссии (не привязана) → Assets/Scenes/FirstMission(SpizjenyiVarik).unity
 

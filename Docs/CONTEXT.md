@@ -310,11 +310,34 @@ Mission2 открывается после Mission1 (prerequisite = Mission1). �
   уничтожении цели potujnojet; DebriefController показывает результат, а ReturnToMenu() возвращает
   игрока в Bunker(main).
 - Особенность тренировочной миссии: при уничтожении ЛЮБОГО дрона (событие GameEvents.DroneExploded,
-  подписка MissionController.OnDroneDestroyed в OnEnable/OnDisable) сцена PreparingDemo перезагружается
-  мгновенно через SceneLoader.EnsureInstance() и SceneLoader.Instance.LoadAsync("PreparingDemo") — работает
-  бесконечный респавн, даже если в запасе остались другие дроны. В остальных миссиях (например
-  FirstMission(Forest)) потеря всех дронов (droneManager.GetAliveDronesCount() <= 0 в LateUpdate)
-  по-прежнему ведёт к провалу EndMission(MissionResult.Failed).
+  подписка MissionController.OnDroneDestroyed в OnEnable/OnDisable) вместо мгновенной перезагрузки
+  сцены показывается окно «Вы разбились» (CrashPanel): OnDroneDestroyed запускает корутину
+  DelayedCrashPanel, которая через 0.5 с реального времени (WaitForSecondsRealtime, не зависит от
+  Time.timeScale) проверяет isEnded и, если миссия уже завершена, не показывает окно; иначе находит
+  MissionUIManager через FindAnyObjectByType<MissionUIManager>() и вызывает ShowCrashPanel(). Кнопка «Перезапустить»
+  (RestartMission) перезагружает PreparingDemo через SceneLoader.Instance.LoadAsync("PreparingDemo"),
+  кнопка «Выйти в бункер» (ReturnToBunker) загружает Bunker(main). Работает бесконечный респавн, даже
+  если в запасе остались другие дроны. В остальных миссиях (например FirstMission(Forest)) потеря всех
+  дронов (droneManager.GetAliveDronesCount() <= 0 в LateUpdate) по-прежнему ведёт к провалу
+  EndMission(MissionResult.Failed).
+
+Меню паузы и окно крушения (MissionUIManager): в сценах PreparingDemo и FirstMission(Forest) добавлен
+объект UIManager со скриптом MissionUIManager (Assets/Scripts/Interaction/MissionUIManager.cs). По Esc
+(Keyboard.current.escapeKey.wasPressedThisFrame), пока окно крушения не активно и игра не в состоянии
+Debrief, переключается PausePanel (кнопки «Продолжить», «Выйти в бункер»): при открытии Time.timeScale = 0
+и курсор разблокируется, при закрытии Time.timeScale = 1 и курсор блокируется. CrashPanel («Вы разбились»,
+кнопки «Перезапустить», «Выйти в бункер») показывается по событию крушения дрона в тренировочной миссии
+(ShowCrashPanel). Панели паузы и крушения строго взаимоисключающие с дебрифингом: Update() и
+ShowCrashPanel() делают ранний return, если GameStateMachine.Current == GameState.Debrief, поэтому поверх
+DebriefPanel больше не открываются PausePanel и CrashPanel. Дополнительно MissionUIManager в OnEnable/OnDisable
+подписывается на GameStateMachine.StateChanged, и метод OnStateChanged при переходе в GameState.Debrief
+принудительно сбрасывает Time.timeScale = 1 и выключает pausePanel и crashPanel — даже если CrashPanel
+успел включиться в момент, когда крушение дрона совпало с выполнением цели, он скрывается и не
+накладывается на DebriefPanel. Кнопка «Выйти в бункер» (ReturnToBunker) перед
+загрузкой Bunker(main) ставит MissionContext.ReturnedFromMission = true, из-за чего игрок возвращается в
+бункер сидя за компьютером (BunkerStateRestorer), как и при возврате из дебрифинга, а не стоя на точке
+спавна. Кнопки PausePanel и CrashPanel стилизованы единообразно с кнопкой DebriefPanel/ReturnButton:
+серый фон (Image color 0.25/0.25/0.25) и белый текст.
 
 Сцена FirstMission(Forest) настроена так же, как PreparingDemo — на завершение миссии и показ дебрифинга:
 - Объект MissionManager (в корне сцены) несёт скрипты MissionController и DebriefController.

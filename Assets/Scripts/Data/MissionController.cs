@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class MissionController : MonoBehaviour
@@ -109,11 +110,21 @@ public class MissionController : MonoBehaviour
 
     private void OnDroneDestroyed(Vector3 pos, MonoBehaviour drone)
     {
+        if (isEnded) return; // Если миссия уже завершена, крушение игнорируем
         if (mission != null && mission.sceneName.Contains("PreparingDemo"))
         {
-            SceneLoader.EnsureInstance();
-            SceneLoader.Instance.LoadAsync("PreparingDemo");
+            StartCoroutine(DelayedCrashPanel());
         }
+    }
+
+    private IEnumerator DelayedCrashPanel()
+    {
+        yield return new WaitForSecondsRealtime(0.5f);
+
+        if (isEnded) yield break;
+
+        MissionUIManager ui = FindAnyObjectByType<MissionUIManager>();
+        if (ui != null) ui.ShowCrashPanel();
     }
 
     private void LateUpdate()
