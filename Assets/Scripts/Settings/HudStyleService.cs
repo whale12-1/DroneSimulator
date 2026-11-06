@@ -55,6 +55,20 @@ public static class HudStyleService
         return Mathf.Max(1f, service.Data.gameplay.crosshairSize);
     }
 
+    public static float LineThickness(float fallback)
+    {
+        SettingsService service = Service;
+        if (service == null) return Mathf.Max(0.5f, fallback);
+        return Mathf.Clamp(service.Data.gameplay.hudLineThickness, 1f, 6f);
+    }
+
+    public static bool TargetFrameVisible(bool fallback)
+    {
+        SettingsService service = Service;
+        if (service == null) return fallback;
+        return service.Data.gameplay.showTargetFrame;
+    }
+
     public static Matrix4x4 Begin()
     {
         Matrix4x4 previous = GUI.matrix;

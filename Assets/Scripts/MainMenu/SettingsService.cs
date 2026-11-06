@@ -8,7 +8,7 @@ public class SettingsService : MonoBehaviour
 {
     public static SettingsService Instance { get; private set; }
 
-    private const int SchemaVersion = 2;
+    private const int SchemaVersion = 3;
     private const float SaveDebounceSeconds = 0.5f;
 
     public SettingsData Data { get; private set; }
@@ -29,6 +29,9 @@ public class SettingsService : MonoBehaviour
 
         savePath = Path.Combine(Application.persistentDataPath, "settings.json");
         Data = Load();
+        AudioBus.Reset();
+        SettingsApplier.ResetScreenCache();
+        SettingsScope.Refresh();
         ApplyAll();
 
         SceneManager.sceneLoaded += OnSceneLoaded;
@@ -59,6 +62,7 @@ public class SettingsService : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        SettingsScope.Refresh();
         ApplyAll();
     }
 
@@ -78,6 +82,10 @@ public class SettingsService : MonoBehaviour
             {
                 // Старый файл настроек: поля, добавленные в новой схеме, остаются дефолтными.
                 Debug.Log($"[SettingsService] Миграция settings.json: версия {loaded.version} → {SchemaVersion}.");
+
+                if (loaded.version < 3 && loaded.graphics != null)
+                    loaded.graphics.windowMode = loaded.graphics.fullscreen ? 0 : 2;
+
                 loaded.version = SchemaVersion;
             }
             else if (loaded.version > SchemaVersion)
@@ -120,6 +128,16 @@ public class SettingsService : MonoBehaviour
         SettingsApplier.Apply(Data);
     }
 
+    public void ApplyInstant()
+    {
+        SettingsApplier.ApplyInstant(Data);
+    }
+
+    public void ApplyHeavy()
+    {
+        SettingsApplier.ApplyHeavy(Data);
+    }
+
     public void ResetAll()
     {
         Data = new SettingsData();
@@ -131,7 +149,7 @@ public class SettingsService : MonoBehaviour
     {
         v = Mathf.Clamp01(v);
         Data.masterVolume = v;
-        AudioListener.volume = v;
+        AudioApplier.Apply(Data.audio);
         MarkDirty();
     }
 
@@ -139,6 +157,7 @@ public class SettingsService : MonoBehaviour
     {
         v = Mathf.Clamp01(v);
         Data.sfxVolume = v;
+        AudioApplier.Apply(Data.audio);
         MarkDirty();
     }
 

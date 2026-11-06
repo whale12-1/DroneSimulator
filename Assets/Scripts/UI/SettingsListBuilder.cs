@@ -6,7 +6,8 @@ using UnityEngine.UI;
 public enum SettingType
 {
     Slider,
-    Toggle
+    Toggle,
+    Dropdown
 }
 
 public class SettingDescriptor
@@ -18,6 +19,10 @@ public class SettingDescriptor
     public float MaxValue;
     public bool WholeNumbers;
     public string ValueFormat;
+    public bool RequiresRelease;
+    public string[] Options;
+    public System.Func<int> GetIndex;
+    public System.Action<int> SetIndex;
     public System.Func<float> GetFloat;
     public System.Action<float> SetFloat;
     public System.Func<bool> GetBool;
@@ -43,6 +48,9 @@ public class SettingsListBuilder : MonoBehaviour
 
     private Font labelFont;
 
+    private string expandedId;
+    private List<SettingDescriptor> lastDescriptors;
+
     private float EffectiveRowHeight => Mathf.Max(24f, rowHeight);
     private float EffectiveSliderHeight => sliderHeight > 0f ? sliderHeight : 24f;
 
@@ -51,11 +59,20 @@ public class SettingsListBuilder : MonoBehaviour
         Clear();
         if (content == null || descriptors == null) return;
 
+        lastDescriptors = descriptors;
+
+        if (!string.IsNullOrEmpty(expandedId) && !HasDescriptor(descriptors, expandedId))
+            expandedId = null;
+
         foreach (SettingDescriptor d in descriptors)
         {
             if (d == null) continue;
 
-            GameObject row = d.Type == SettingType.Toggle ? CreateToggleRow(d) : CreateSliderRow(d);
+            GameObject row;
+            if (d.Type == SettingType.Toggle) row = CreateToggleRow(d);
+            else if (d.Type == SettingType.Dropdown) row = CreateDropdownRow(d);
+            else row = CreateSliderRow(d);
+
             RectTransform rt = (RectTransform)row.transform;
             rt.SetParent(content, false);
 
@@ -68,6 +85,8 @@ public class SettingsListBuilder : MonoBehaviour
             if (le == null) le = row.AddComponent<LayoutElement>();
             le.preferredHeight = EffectiveRowHeight;
             le.flexibleWidth = 1f;
+
+            if (d.Type == SettingType.Dropdown && d.Id == expandedId) AddOptionRows(d);
         }
     }
 
@@ -147,7 +166,7 @@ public class SettingsListBuilder : MonoBehaviour
         toggle.onValueChanged.AddListener(v =>
         {
             if (d.SetBool != null) d.SetBool(v);
-            OnChanged();
+            OnChanged(d, true);
         });
 
         LayoutElement toggleLE = toggleGO.AddComponent<LayoutElement>();
@@ -156,6 +175,130 @@ public class SettingsListBuilder : MonoBehaviour
         toggleLE.minWidth = 28f;
 
         return row;
+    }
+
+    private GameObject CreateDropdownRow(SettingDescriptor d)
+    {
+        GameObject row = new GameObject(d.Id + "_Row", typeof(RectTransform));
+        ConfigureRowLayout(row);
+
+        Text label = CreateLabel(row.transform, d.Title);
+        SetHeight((RectTransform)label.transform, EffectiveRowHeight);
+        LayoutElement labelLE = label.gameObject.AddComponent<LayoutElement>();
+        labelLE.flexibleWidth = 1f;
+        labelLE.minWidth = 180f;
+
+        GameObject buttonObject = new GameObject(d.Id + "_Button", typeof(RectTransform));
+        buttonObject.transform.SetParent(row.transform, false);
+
+        Image image = buttonObject.AddComponent<Image>();
+        image.color = trackColor;
+
+        Button button = buttonObject.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform));
+        textObject.transform.SetParent(buttonObject.transform, false);
+        Stretch((RectTransform)textObject.transform);
+
+        Text value = textObject.AddComponent<Text>();
+        value.font = GetLabelFont();
+        value.text = GetOptionLabel(d);
+        value.fontSize = 16;
+        value.alignment = TextAnchor.MiddleCenter;
+        value.color = labelColor;
+        value.raycastTarget = false;
+
+        LayoutElement buttonLE = buttonObject.AddComponent<LayoutElement>();
+        buttonLE.preferredWidth = sliderWidth;
+        buttonLE.preferredHeight = EffectiveRowHeight;
+
+        string id = d.Id;
+        button.onClick.AddListener(() => ToggleDropdown(id));
+
+        return row;
+    }
+
+    private void AddOptionRows(SettingDescriptor d)
+    {
+        if (d.Options == null || d.Options.Length == 0) return;
+
+        int current = d.GetIndex != null ? Mathf.Clamp(d.GetIndex(), 0, d.Options.Length - 1) : -1;
+
+        for (int i = 0; i < d.Options.Length; i++)
+        {
+            int index = i;
+
+            GameObject row = new GameObject(d.Id + "_Option" + i, typeof(RectTransform));
+            ConfigureRowLayout(row);
+
+            RectTransform rowRT = (RectTransform)row.transform;
+            rowRT.SetParent(content, false);
+            SetHeight(rowRT, EffectiveRowHeight);
+
+            LayoutElement rowLE = row.AddComponent<LayoutElement>();
+            rowLE.preferredHeight = EffectiveRowHeight;
+            rowLE.flexibleWidth = 1f;
+
+            GameObject buttonObject = new GameObject("Option", typeof(RectTransform));
+            buttonObject.transform.SetParent(row.transform, false);
+
+            Image image = buttonObject.AddComponent<Image>();
+            image.color = i == current ? fillColor : trackColor;
+
+            Button button = buttonObject.AddComponent<Button>();
+            button.targetGraphic = image;
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(buttonObject.transform, false);
+            Stretch((RectTransform)textObject.transform);
+
+            Text optionText = textObject.AddComponent<Text>();
+            optionText.font = GetLabelFont();
+            optionText.text = "   " + d.Options[i];
+            optionText.fontSize = 16;
+            optionText.alignment = TextAnchor.MiddleLeft;
+            optionText.color = labelColor;
+            optionText.raycastTarget = false;
+
+            LayoutElement buttonLE = buttonObject.AddComponent<LayoutElement>();
+            buttonLE.flexibleWidth = 1f;
+            buttonLE.preferredHeight = EffectiveRowHeight;
+
+            SettingDescriptor descriptor = d;
+            button.onClick.AddListener(() =>
+            {
+                if (descriptor.SetIndex != null) descriptor.SetIndex(index);
+                expandedId = null;
+                OnChanged(descriptor, true);
+                Build(lastDescriptors);
+            });
+        }
+    }
+
+    private void ToggleDropdown(string id)
+    {
+        expandedId = expandedId == id ? null : id;
+
+        if (lastDescriptors != null) Build(lastDescriptors);
+    }
+
+    private static bool HasDescriptor(List<SettingDescriptor> descriptors, string id)
+    {
+        for (int i = 0; i < descriptors.Count; i++)
+        {
+            if (descriptors[i] != null && descriptors[i].Id == id) return true;
+        }
+
+        return false;
+    }
+
+    private static string GetOptionLabel(SettingDescriptor d)
+    {
+        if (d.Options == null || d.Options.Length == 0) return "—";
+
+        int index = d.GetIndex != null ? Mathf.Clamp(d.GetIndex(), 0, d.Options.Length - 1) : 0;
+        return d.Options[index] + "  ▾";
     }
 
     private GameObject CreateSliderControl(Transform parent, SettingDescriptor d, Text label)
@@ -231,8 +374,11 @@ public class SettingsListBuilder : MonoBehaviour
         {
             if (d.SetFloat != null) d.SetFloat(v);
             label.text = BuildLabel(d, v);
-            OnChanged();
+            OnChanged(d, false);
         });
+
+        SliderReleaseNotifier notifier = root.AddComponent<SliderReleaseNotifier>();
+        notifier.OnRelease = () => OnChanged(d, true);
 
         return root;
     }
@@ -263,13 +409,17 @@ public class SettingsListBuilder : MonoBehaviour
         return t;
     }
 
-    private void OnChanged()
+    private void OnChanged(SettingDescriptor descriptor, bool released)
     {
-        if (SettingsService.Instance != null)
-        {
-            SettingsService.Instance.ApplyAll();
-            SettingsService.Instance.MarkDirty();
-        }
+        SettingsService service = SettingsService.Instance;
+        if (service == null) return;
+
+        service.ApplyInstant();
+
+        if (descriptor == null || !descriptor.RequiresRelease || released)
+            service.ApplyHeavy();
+
+        service.MarkDirty();
     }
 
     private string BuildLabel(SettingDescriptor d, float value)

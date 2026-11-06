@@ -114,13 +114,23 @@ public class SettingsPanel : UIScreen
     {
         switch (tab)
         {
-            case 0: return GraphicsDescriptors();
+            case 0: return ApplyOnRelease(GraphicsDescriptors());
             case 1: return ControlDescriptors();
             case 2: return AudioDescriptors();
             case 3: return GameplayDescriptors();
         }
 
         return new List<SettingDescriptor>();
+    }
+
+    private static List<SettingDescriptor> ApplyOnRelease(List<SettingDescriptor> descriptors)
+    {
+        for (int i = 0; i < descriptors.Count; i++)
+        {
+            if (descriptors[i].Type == SettingType.Slider) descriptors[i].RequiresRelease = true;
+        }
+
+        return descriptors;
     }
 
     private List<SettingDescriptor> GraphicsDescriptors()
@@ -131,12 +141,12 @@ public class SettingsPanel : UIScreen
 
         return new List<SettingDescriptor>
         {
-            MakeToggle("fullscreen", "Полный экран", () => g.fullscreen, v => g.fullscreen = v),
+            MakeDropdown("windowMode", "Режим окна", SettingsApplier.WindowModeLabels, () => Mathf.Clamp(g.windowMode, 0, 2), v => { g.windowMode = v; g.fullscreen = v != 2; }),
+            MakeDropdown("resolution", "Разрешение экрана", SettingsApplier.GetResolutionOptions(), () => Mathf.Max(0, g.resolutionIndex + 1), v => g.resolutionIndex = v - 1),
             MakeToggle("vsync", "Вертикальная синхронизация", () => g.vSync, v => g.vSync = v),
             MakeSlider("renderScale", "Масштаб рендера", 0.5f, 1f, false, "F2", () => g.renderScale, v => g.renderScale = v),
             MakeSlider("fpsLimit", "Ограничение FPS (0 = без)", 0f, 240f, true, "F0", () => g.fpsLimit, v => g.fpsLimit = (int)v),
             MakeSlider("quality", "Уровень качества", 0f, Mathf.Max(0, QualitySettings.names.Length - 1), true, "F0", () => g.qualityLevel, v => g.qualityLevel = (int)v),
-            MakeToggle("separateMission", "Отдельные настройки для миссии", () => g.separateMissionSettings, v => g.separateMissionSettings = v),
             MakeSlider("droneFov", "FOV дрона", 70f, 110f, true, "F0", () => g.droneFov, v => g.droneFov = v),
             MakeSlider("droneFarClip", "Дальность прорисовки (дрон)", 500f, 3000f, true, "F0", () => g.droneFarClip, v => g.droneFarClip = v),
             MakeSlider("droneShadowDistance", "Тени дрона (дистанция)", 0f, 300f, true, "F0", () => g.droneShadowDistance, v => g.droneShadowDistance = v),
@@ -160,7 +170,6 @@ public class SettingsPanel : UIScreen
         return new List<SettingDescriptor>
         {
             MakeSlider("fpsSens", "Чувствительность мыши (FPS)", 0.1f, 3f, false, "F2", () => c.fpsMouseSensitivity, v => c.fpsMouseSensitivity = v),
-            MakeSlider("droneSens", "Чувствительность мыши (дрон)", 0.1f, 3f, false, "F2", () => c.droneMouseSensitivity, v => c.droneMouseSensitivity = v),
             MakeToggle("fpsInvertY", "Инверсия Y (FPS)", () => c.fpsInvertY, v => c.fpsInvertY = v),
             MakeToggle("droneInvertY", "Инверсия Y (дрон)", () => c.droneInvertY, v => c.droneInvertY = v),
             MakeToggle("gimbalInvertY", "Инверсия Y (гимбал)", () => c.gimbalInvertY, v => c.gimbalInvertY = v),
@@ -189,7 +198,6 @@ public class SettingsPanel : UIScreen
             MakeSlider("ui", "Интерфейс", 0f, 1f, false, "P0", () => a.uiVolume, v => a.uiVolume = v),
             MakeSlider("voice", "Голос инструктора", 0f, 1f, false, "P0", () => a.voiceVolume, v => a.voiceVolume = v),
             MakeToggle("duck", "Приглушать при меню", () => a.duckOnMenus, v => a.duckOnMenus = v),
-            MakeToggle("mono", "Моно-режим", () => a.monoMode, v => a.monoMode = v),
         };
     }
 
@@ -242,6 +250,19 @@ public class SettingsPanel : UIScreen
             Title = title,
             GetBool = get,
             SetBool = set
+        };
+    }
+
+    private SettingDescriptor MakeDropdown(string id, string title, string[] options, System.Func<int> get, System.Action<int> set)
+    {
+        return new SettingDescriptor
+        {
+            Id = id,
+            Type = SettingType.Dropdown,
+            Title = title,
+            Options = options,
+            GetIndex = get,
+            SetIndex = set
         };
     }
 }

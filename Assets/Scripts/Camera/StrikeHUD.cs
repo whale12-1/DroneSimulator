@@ -39,7 +39,7 @@ public class StrikeHUD : MonoBehaviour
         Color activeHudColor = (config != null) ? config.hudColor : new Color(0.1f, 1.0f, 0.2f, 0.85f);
         float crosshairSize = HudStyleService.CrosshairSize((config != null) ? config.crosshairSize : HudStyleService.DefaultCrosshairSize);
         Vector2 boxSize = (config != null) ? config.targetBoxSize : new Vector2(160f, 110f);
-        float lineWidth = (config != null) ? config.hudLineWidth : 2f;
+        float lineWidth = HudStyleService.LineThickness((config != null) ? config.hudLineWidth : 2f);
 
         GUI.color = HudStyleService.ApplyAlpha(activeHudColor);
         Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
@@ -50,7 +50,7 @@ public class StrikeHUD : MonoBehaviour
 
         // 4. Прямоугольник захвата цели (Target Box)
         Rect targetRect = new Rect(center.x - boxSize.x / 2f, center.y - boxSize.y / 2f, boxSize.x, boxSize.y);
-        DrawBoxOutline(targetRect, lineWidth);
+        if (HudStyleService.TargetFrameVisible(true)) DrawBoxOutline(targetRect, lineWidth);
 
         // 5. Системные надписи OSD
         GUIStyle textStyle = new GUIStyle

@@ -7,16 +7,17 @@ public class FPVZoom : MonoBehaviour
 
     private Camera cam;
     private int currentZoomIndex = 0;
+    private float currentFov;
+    private float fovOffset;
+
+    private static readonly float[] FallbackLevels = new float[] { 100f, 50f, 25f, 10f };
 
     private void Awake()
     {
         cam = GetComponent<Camera>();
+        currentFov = GetZoomLevel(0);
 
-        if (cam != null)
-        {
-            float defaultFOV = GetZoomLevel(0);
-            cam.fieldOfView = defaultFOV;
-        }
+        if (cam != null) cam.fieldOfView = currentFov;
     }
 
     private void Update()
@@ -27,39 +28,57 @@ public class FPVZoom : MonoBehaviour
         if (config != null && !config.allowZoom)
         {
             float baseFOV = GetZoomLevel(0);
-            cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, baseFOV, Time.deltaTime * GetZoomSpeed());
-            return;
+            currentFov = Mathf.Lerp(currentFov, baseFOV, Time.deltaTime * GetZoomSpeed());
         }
-
-        KeyCode zoomInKey = (config != null) ? config.zoomInKey : KeyCode.Z;
-        KeyCode zoomOutKey = (config != null) ? config.zoomOutKey : KeyCode.X;
-
-        int maxIndex = GetZoomLevelsCount() - 1;
-
-        // Увеличение кратности (уменьшение FOV)
-        if (Input.GetKeyDown(zoomInKey))
+        else
         {
-            if (currentZoomIndex < maxIndex)
+            KeyCode zoomInKey = (config != null) ? config.zoomInKey : KeyCode.Z;
+            KeyCode zoomOutKey = (config != null) ? config.zoomOutKey : KeyCode.X;
+
+            int maxIndex = GetZoomLevelsCount() - 1;
+
+            // Увеличение кратности (уменьшение FOV)
+            if (Input.GetKeyDown(zoomInKey))
             {
-                currentZoomIndex++;
+                if (currentZoomIndex < maxIndex)
+                {
+                    currentZoomIndex++;
+                }
             }
+
+            // Уменьшение кратности (увеличение FOV)
+            if (Input.GetKeyDown(zoomOutKey))
+            {
+                if (currentZoomIndex > 0)
+                {
+                    currentZoomIndex--;
+                }
+            }
+
+            // Плавный переход к целевому FOV
+            float targetFOV = GetZoomLevel(currentZoomIndex);
+            currentFov = Mathf.Lerp(currentFov, targetFOV, Time.deltaTime * GetZoomSpeed());
         }
 
-        // Уменьшение кратности (увеличение FOV)
-        if (Input.GetKeyDown(zoomOutKey))
-        {
-            if (currentZoomIndex > 0)
-            {
-                currentZoomIndex--;
-            }
-        }
+        cam.fieldOfView = Mathf.Max(1f, currentFov + fovOffset);
+    }
 
-        // Плавный переход к целевому FOV
-        float targetFOV = GetZoomLevel(currentZoomIndex);
-        cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, targetFOV, Time.deltaTime * GetZoomSpeed());
+    public void SetFovOffset(float offset)
+    {
+        fovOffset = offset;
     }
 
     private float GetZoomLevel(int index)
+    {
+        float reference = GetStoredZoomLevel(0);
+        float stored = GetStoredZoomLevel(index);
+
+        if (reference <= 0.001f) return stored;
+
+        return stored * (GetBaseFov() / reference);
+    }
+
+    private float GetStoredZoomLevel(int index)
     {
         if (config != null && config.zoomLevels != null && config.zoomLevels.Length > 0)
         {
@@ -67,9 +86,16 @@ public class FPVZoom : MonoBehaviour
             return config.zoomLevels[clampedIndex];
         }
 
-        // Дефолтные значения при отсутствии конфига
-        float[] fallbackLevels = new float[] { 100f, 50f, 25f, 10f };
-        return fallbackLevels[Mathf.Clamp(index, 0, fallbackLevels.Length - 1)];
+        return FallbackLevels[Mathf.Clamp(index, 0, FallbackLevels.Length - 1)];
+    }
+
+    private float GetBaseFov()
+    {
+        SettingsService service = SettingsService.Instance;
+        if (service != null && service.Data != null && service.Data.graphics != null)
+            return Mathf.Clamp(service.Data.graphics.droneFov, 30f, 140f);
+
+        return GetStoredZoomLevel(0);
     }
 
     private int GetZoomLevelsCount()

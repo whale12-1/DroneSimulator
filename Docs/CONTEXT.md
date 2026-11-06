@@ -1,6 +1,6 @@
 Контекст проекта DroneSimulator
 Этот файл — часть документации проекта DroneSimulator.
-Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md.
+Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md, SETTINGS_DESIGN.md.
 
 1. О проекте
 DroneSimulator — первый игровой проект заказчика и учебный прототип симулятора военного оператора дронов. Проект создаётся самостоятельно для изучения Unity, MCP, DSH и разработки игрового прототипа.
@@ -294,7 +294,7 @@ ScriptableObject-описаний миссий;
 
 экрана загрузки «LOADING...» при переключении сцен;
 
-настроек громкости, качества и fullscreen.
+настроек (см. раздел 7: SettingsService, SettingsPanel, апплеры, звук, URP, РЭБ, управление дроном).
 
 Текущая конфигурация миссий
 Ассеты миссий: Assets/Resources/Missions/ (Mission1, Mission2); реестр: Assets/Resources/MissionRegistry.asset.
@@ -540,8 +540,99 @@ Assets/Scripts/Interaction/DesktopIcon.cs). По клику мышью пове�
 
 изменения вносить только после явного запроса.
 
-7. Назначение этих документов
-Эти три документа предназначены для передачи контекста в будущие сессии DSH.
+7. Система настроек (реализовано)
+Настройки хранятся одним JSON и применяются к игре набором апплеров. Панель открывается в главном
+меню и в меню паузы бункера (SettingsPanel — дочерний объект PausePanel в Bunker(main)); в миссии
+настроек пока нет (кнопка в PausePanel требует модального стека — следующий этап).
+
+7.1 Хранение и сервис
+Assets/Scripts/Data/SettingsData.cs — модель: graphics, audio, controls, gameplay, version.
+Assets/Scripts/MainMenu/SettingsService.cs — singleton (DontDestroyOnLoad), файл
+Application.persistentDataPath/settings.json, атомарная запись (tmp + File.Replace + .bak),
+debounce 0.5 с, миграция схемы. Текущая версия схемы — 3; при миграции с версии 2 и ниже
+windowMode наследуется из старого fullscreen (у кого было окно — остаётся окном).
+Публичный API: EnsureInstance(), ApplyAll(), ApplyInstant(), ApplyHeavy(), ResetAll(), MarkDirty().
+Сервис создаёт Bootstrapper (Boot.unity) либо лениво SettingsPanel.Start().
+
+7.2 Панель и HUD
+Assets/Scripts/UI/SettingsPanel.cs — 4 вкладки (Графика, Управление, Звук, Интерфейс), строки
+собираются из SettingDescriptor; кнопка «Сброс» → ResetSettings() → SettingsService.ResetAll().
+Assets/Scripts/UI/SettingsListBuilder.cs — строки Slider / Toggle / Dropdown. «Тяжёлые» настройки
+графики (все слайдеры вкладки «Графика») применяются не на каждый пиксель, а по отпусканию слайдера.
+Assets/Scripts/UI/SliderReleaseNotifier.cs — ловит OnEndDrag / PointerUp слайдера.
+Assets/Scripts/UI/FpsCounterHud.cs — счётчик FPS в правом верхнем углу (OnGUI), сам создаёт себя
+через RuntimeInitializeOnLoadMethod + DontDestroyOnLoad; рисуется только в состоянии Gameplay,
+уважает прозрачность/масштаб HUD.
+Assets/Scripts/Settings/HudStyleService.cs — резолвер стиля HUD: масштаб, прозрачность, размер
+прицела, толщина линий, показ рамки захвата; Begin()/End() для GUI.matrix.
+
+7.3 Звук
+Assets/Scripts/Settings/AudioBus.cs — загружает Resources/Audio/MainMixer, раздаёт группы
+Master / Music / SFX / DroneMotors / EW / UI, переводит линейную громкость в дБ (0 → −80 дБ).
+Assets/Scripts/Settings/AudioApplier.cs — применяет 7 ползунков; если микшера нет, работает fallback
+через AudioListener.volume и пишет один warning в консоль.
+Assets/Scripts/Core/EffectService.cs — пул из 16 AudioSource (DontDestroyOnLoad «EffectAudioPool»)
+с outputAudioMixerGroup = SFX; PlayClipAtPoint больше не используется.
+Assets/Scripts/Audio/DroneMotorAudio.cs — гул моторов (процедурный луп, если клип не назначен),
+громкость и питч от DroneMotors.CurrentThrust01 и isMotorStarted.
+Assets/Scripts/Audio/EWAudio.cs — треск помех, громкость от EWReceiver.jamIntensity.
+
+7.4 Графика (URP)
+Assets/Scripts/Settings/GraphicsApplier.cs — на старте создаёт рантайм-клон активного URP-ассета
+(оригинальный ассет не правится) и применяет renderScale, shadowDistance (20 м бункер / 300 м миссия),
+shadowCascadeCount, msaaSampleCount, мягкие тени, mainLightShadowmapResolution. Клон назначается в
+QualitySettings.renderPipeline текущего уровня и возвращается назад по Application.quitting.
+Мягкие тени в этой версии URP не имеют публичного сеттера, поэтому пишутся рефлексией в
+m_SoftShadowsSupported.
+Assets/Scripts/Settings/CameraApplier.cs — FPS-камера бункера: farClipPlane + renderPostProcessing.
+Камеры дронов: farClipPlane, renderShadows (по «Тени дрона»), antialiasing. Переприменяется на
+sceneLoaded и на GameEvents.DroneSwitched.
+Assets/Scripts/Settings/SettingsScope.cs — IsMission (в сцене есть DroneManager); от него зависит
+выбор дистанции теней.
+
+7.5 Постобработка и РЭБ
+Assets/Scripts/Settings/PostFxRouter.cs — [DefaultExecutionOrder(-100)], единственный владелец Volume.
+Создаёт DontDestroyOnLoad-объект PostFxRouter с тремя глобальными Volume и рантайм-профилями:
+PostFX_EW (priority 10: ChromaticAberration + Vignette + FilmGrain), PostFX_NV (20: ColorAdjustments),
+PostFX_Settings (30: MotionBlur). Раздаёт компоненты через Bind(EWReceiver)/Bind(NightVisionController).
+Assets/Scripts/EW/EWReceiver.cs — больше не ищет Volume (авто-поиск удалён). Публично: jamIntensity,
+VisualScale, SetVisualScale(0..1), SetEffects(...). Настройка «Искажения РЭБ» (ewVisualDistortion)
+масштабирует CA/Vignette/Grain и IMGUI-«снег»; при 0 остаются только увод управления и предупреждение
+[HUD: EW JAMMING]. Дрожание FOV стало аддитивным: EWReceiver вызывает FPVZoom.SetFovOffset(), а не
+переписывает fieldOfView. reduceDangerousEffects отключает «снег» и полосы разрыва.
+Assets/Scripts/Camera/NIghtVisionController.cs — цвет ПНВ из graphics.nightVisionColor
+(0 зелёный / 1 белый / 2 янтарный), яркость = DroneConfig.nvPostExposure × nightVisionGain.
+Assets/Scripts/Camera/FPVZoom.cs — единственный владелец Camera.fieldOfView дрона; лестница зума
+масштабируется от базового FOV из настроек (droneFov), внешнее дрожание добавляется как fovOffset.
+
+7.6 Управление дроном
+Assets/Scripts/Physics/DroneFlightController.cs — ввод читается через RefreshInputSettings():
+droneStickSpeed, droneCenteringSpeed, throttleSpeed, throttleMode (0 — самовозврат газа к 0.5,
+1 — фиксация) и droneInvertY. Настройки применяются на входе, до дрейфа РЭБ и до PID. Физика, PID,
+аэродинамика и ApplyDroneProfile() не меняются.
+Assets/Scripts/Camera/DroneCameraModule.cs — gimbalSpeed и gimbalInvertY из настроек
+(при отсутствии настроек — DroneConfig.tiltSpeed).
+Assets/Scripts/Camera/FPVCameraShake.cs — амплитуды тряски умножаются на gameplay.cameraShakeIntensity;
+при 0 камера возвращается в исходную позу.
+
+7.7 Что нужно сделать руками в редакторе (однократно)
+1) Аудиомикшер: Assets/Resources/Audio/MainMixer.mixer с группами Master → { Music, SFX →
+{ DroneMotors, EW }, UI }. Обязательно Expose параметры Volume и переименовать их в
+MasterVolume, MusicVolume, SfxVolume, MotorsVolume, EwVolume, UiVolume (опционально VoiceVolume).
+Пока микшера нет, игра работает: общая громкость идёт через AudioListener.volume, категорийные
+ползунки молчат, в консоли один warning [AudioBus].
+2) Префабы дронов: на корень — Audio Source + Drone Motor Audio; на камеру дрона (где EWReceiver) —
+Audio Source (2D) + EW Audio.
+3) URP-клон в редакторе создавать не нужно: он делается в рантайме.
+
+7.8 Что пока не подключено
+droneFog (туман миссии), droneLensDistortion (нужен целевой параметр), duckOnMenus (приглушение в меню),
+trainingHints, osdLevel, showSubtitlesOnPause, gimbalAutoCenter, ewMotionComfort, ewPostFxQuality
+(используется только как «0 = выключить пост-эффекты»), nightVisionColor (работает, но без строки в UI).
+Моно-режим и «Чувствительность мыши (дрон)» удалены из UI (поля в SettingsData остались).
+
+8. Назначение этих документов
+Эти документы предназначены для передачи контекста в будущие сессии DSH.
 
 Использование:
 
@@ -551,6 +642,9 @@ ARCHITECTURE.md — понять структуру, системы, связи 
 
 INDEX.md — быстро найти нужный файл, сцену, скрипт или префаб.
 
+SETTINGS_DESIGN.md — дизайн и обоснование системы настроек (первичный документ; фактические
+детали реализации см. раздел 7 этого файла и раздел 5.12 ARCHITECTURE.md).
+
 Перед технической задачей сначала определить нужную систему по INDEX.md, затем свериться с соответствующим разделом ARCHITECTURE.md.
 
-См. также: ARCHITECTURE.md, INDEX.md.
+См. также: ARCHITECTURE.md, INDEX.md, SETTINGS_DESIGN.md.

@@ -38,7 +38,7 @@ public class ReconHUD : MonoBehaviour
         Matrix4x4 previousMatrix = HudStyleService.Begin();
 
         Color hudColor = (config != null) ? config.reconColor : new Color(1f, 0.85f, 0.2f, 0.9f);
-        float lineWidth = (config != null) ? config.hudLineWidth : 2f;
+        float lineWidth = HudStyleService.LineThickness((config != null) ? config.hudLineWidth : 2f);
         float minBoxSize = (config != null) ? config.minBoxSize : 20f;
         float crosshairSize = HudStyleService.CrosshairSize((config != null) ? config.crosshairSize : HudStyleService.DefaultCrosshairSize);
         LayerMask lrfMask = (config != null) ? config.lrfMask : (LayerMask)(~0);
@@ -114,7 +114,7 @@ public class ReconHUD : MonoBehaviour
 
                     Rect targetRect = new Rect(centerX - width * 0.5f, centerY - height * 0.5f, width, height);
 
-                    DrawBoxOutline(targetRect, lineWidth);
+                    if (HudStyleService.TargetFrameVisible(true)) DrawBoxOutline(targetRect, lineWidth);
 
                     GUI.Label(new Rect(targetRect.x, targetRect.y - 18f, 200f, 20f), $"LOCKED: {target.targetName.ToUpper()}", style);
                     GUI.Label(new Rect(targetRect.x, targetRect.yMax + 2f, 200f, 20f), $"DIST: {Vector3.Distance(transform.position, target.TargetPosition):F0}m", style);

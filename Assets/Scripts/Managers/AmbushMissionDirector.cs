@@ -158,7 +158,14 @@ public class AmbushMissionDirector : MonoBehaviour
         }
 
         if (subtitlePanel != null) subtitlePanel.SetActive(true);
-        if (subtitleText != null) subtitleText.text = text;
+
+        if (subtitleText != null)
+        {
+            if (service != null && service.Data != null && service.Data.gameplay != null)
+                subtitleText.fontSize = Mathf.Clamp(service.Data.gameplay.subtitleFontSize, 8, 72);
+
+            subtitleText.text = text;
+        }
 
         if (duration > 0 && !missionEnded)
             Invoke(nameof(HideSubtitle), duration);

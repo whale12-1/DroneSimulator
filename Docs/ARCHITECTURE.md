@@ -5,7 +5,7 @@
 # Архитектура и карта проекта DroneSimulator
 
 Этот файл — часть документации проекта DroneSimulator.  
-Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md.
+Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md, SETTINGS_DESIGN.md.
 
 ## 1. Общая структура папок
 
@@ -130,6 +130,38 @@ AI техники;
 миссионный контроллер.
 Она используется преимущественно в отдельных прототипных сценах и префабах.
 
+2.3 Настройки (Settings pipeline)
+Единый конвейер: UI → SettingsData → SettingsService → апплеры → игровые системы.
+
+SettingsPanel (4 вкладки) собирает строки SettingDescriptor (Slider / Toggle / Dropdown).
+Любое изменение: поле SettingsData обновлено → SettingsService.ApplyInstant() (звук) →
+(если настройка не «тяжёлая» либо слайдер отпущен) SettingsService.ApplyHeavy() → MarkDirty()
+(запись settings.json через 0.5 с).
+
+ApplyHeavy по порядку:
+  1) SettingsApplier.ApplyScreen      — windowMode / resolutionIndex → Screen (с кэшем «уже применено»)
+  2) SettingsApplier.ApplyQualityState — QualitySettings: уровень → VSync ПОСЛЕ уровня → лимит FPS → LOD → mipmap
+  3) GraphicsApplier.Apply            — рантайм-клон URP-ассета: renderScale, shadowDistance, каскады,
+                                        MSAA, мягкие тени, shadowmap resolution
+  4) PostFxRouter.ApplyMotionBlur     — Motion Blur через глобальный «Настройки»-Volume
+  5) CameraApplier.Refresh            — камеры бункера и дронов (far clip, тени, AA, постобработка)
+
+SettingsService.Awake(): AudioBus.Reset(), SettingsApplier.ResetScreenCache(), SettingsScope.Refresh(),
+ApplyAll(). Кэши сбрасываются, потому что статика переживает сессию при отключённом domain reload.
+SettingsService.OnSceneLoaded(): SettingsScope.Refresh() → ApplyAll().
+
+Кто читает настройки напрямую (pull-модель, без апплеров):
+  PlayerController        — fpsMouseSensitivity, fpsInvertY
+  DroneFlightController   — droneStickSpeed, droneCenteringSpeed, throttleSpeed, throttleMode, droneInvertY
+  DroneCameraModule       — gimbalSpeed, gimbalInvertY
+  FPVZoom                 — droneFov (масштабирует лестницу зума)
+  EWReceiver              — ewVisualDistortion, ewPostFxQuality, ewNoiseResolution, reduceDangerousEffects
+  NightVisionController   — nightVisionColor, nightVisionGain
+  FPVCameraShake          — cameraShakeIntensity
+  HudStyleService / ReconHUD / StrikeHUD / FpsCounterHud — HUD-стиль и счётчик FPS
+  AmbushMissionDirector   — subtitlesEnabled, subtitleFontSize
+  InteractionUIController — showInteractionHints
+
 3. Глобальные сервисы и данные
 GameEvents
 Файл:
@@ -186,6 +218,50 @@ Assets/Scripts/Data/ProgressService.cs
 Файл сохранения:
 
 Application.persistentDataPath/progress.json
+
+SettingsService
+
+Файл:
+
+Assets/Scripts/MainMenu/SettingsService.cs
+
+Назначение: singleton настроек. Загрузка/сохранение settings.json (SchemaVersion = 3, миграция:
+windowMode наследуется из старого fullscreen), EnsureInstance(), ApplyAll(), ApplyInstant(),
+ApplyHeavy(), ResetAll(), MarkDirty(). Запись атомарная (tmp + File.Replace + .bak), debounce 0.5 с.
+Файл сохранения: Application.persistentDataPath/settings.json.
+Создаётся Bootstrapper (Boot.unity) или лениво SettingsPanel.Start().
+
+PostFxRouter
+
+Файл:
+
+Assets/Scripts/Settings/PostFxRouter.cs
+
+Назначение: единственный владелец Volume для эффектов. [DefaultExecutionOrder(-100)].
+Создаёт DontDestroyOnLoad-объект PostFxRouter с тремя глобальными Volume и рантайм-профилями:
+PostFX_EW (priority 10: ChromaticAberration + Vignette + FilmGrain), PostFX_NV (20: ColorAdjustments),
+PostFX_Settings (30: MotionBlur). Раздаёт ссылки через Bind(EWReceiver) и Bind(NightVisionController),
+переключает Motion Blur через ApplyMotionBlur(bool). Авто-поиск Volume у потребителей удалён.
+
+AudioBus
+
+Файл:
+
+Assets/Scripts/Settings/AudioBus.cs
+
+Назначение: загрузка Assets/Resources/Audio/MainMixer.mixer (Resources.Load("Audio/MainMixer")),
+раздача групп Master/Music/SFX/DroneMotors/EW/UI, SetVolume(parameter, linear) в дБ (0 → −80 дБ).
+Если микшера нет, Ready == false и AudioApplier работает через AudioListener.volume.
+
+SettingsScope
+
+Файл:
+
+Assets/Scripts/Settings/SettingsScope.cs
+
+Назначение: IsMission (в сцене есть DroneManager). Обновляется на sceneLoaded; от него зависит
+дистанция теней (бункер/миссия) в GraphicsApplier.
+
 4. Схемы связей
 4.1 Mission flow
 
@@ -371,6 +447,41 @@ DeploySmokeScreen
         ↓
 smokeGrenadePrefab
 
+4.5 Settings flow
+
+SettingsPanel.SelectTab(index)
+        ↓
+SettingDescriptor (Slider / Toggle / Dropdown)
+        ↓ изменение
+SettingsData.<поле> = value
+        ↓
+SettingsService.ApplyInstant() → AudioApplier.Apply(audio) → AudioBus.SetVolume(...)
+        ↓ (не «тяжёлая» или слайдер отпущен)
+SettingsService.ApplyHeavy()
+        ├── SettingsApplier.ApplyScreen       (Screen.fullScreenMode / Screen.SetResolution)
+        ├── SettingsApplier.ApplyQualityState (уровень → VSync → targetFrameRate → LOD → mipmap)
+        ├── GraphicsApplier.Apply             (клон URP: renderScale / shadowDistance / каскады / MSAA / мягкие тени)
+        ├── PostFxRouter.ApplyMotionBlur      (override MotionBlur)
+        └── CameraApplier.Refresh             (FPS-камера бункера и камеры дронов)
+        ↓
+SettingsService.MarkDirty() → settings.json (debounce 0.5 с, атомарная запись)
+
+Отдельно: SettingsService.OnSceneLoaded → SettingsScope.Refresh() → ApplyAll() (всё применяется заново).
+
+4.6 Post FX flow (РЭБ и ПНВ)
+
+PostFxRouter.Awake (первый Ensure)
+        ↓
+CreateInstance<VolumeProfile> × 3 → Volume (global, DontDestroyOnLoad)
+        ↓
+EWReceiver.Awake  → PostFxRouter.Ensure().Bind(this)   → SetEffects(CA, Vignette, Grain)
+NightVisionController.Awake → PostFxRouter.Ensure().Bind(this) → SetColorAdjustments(ColorAdjustments)
+        ↓
+EWReceiver.Update: jamIntensity → VisualScale (ewVisualDistortion × SetVisualScale)
+        → CA/Vignette/Grain intensity (active = false, когда помех или искажений нет)
+        → ApplyFrameJitter → cam.rect + FPVZoom.SetFovOffset(offset) (аддитивно, не сброс FOV)
+NightVisionController.Update: nightVisionColor + nvPostExposure × nightVisionGain → ColorAdjustments
+
 5. Скрипты по категориям
 5.1 Player
 Assets/Scripts/Player/PlayerController.cs
@@ -387,6 +498,10 @@ Assets/Scripts/Player/PlayerController.cs
 блокируются движение и гравитация; вращение камеры мышью остаётся доступным)
 
 Методы: Start, Update, SetSitting, SetTyping, ForceSitIdle (сбрасывает Animator в SitIdle)
+
+Настройки: LookSensitivity и InvertLookY читают controls.fpsMouseSensitivity и controls.fpsInvertY
+из SettingsService (без сервиса работает старое mouseSensitivity × 1/60). Клампы вертикали пока
+зашиты (−70…90), поля controls.verticalClampMin/Max не используются.
 
 5.2 Camera / HUD
 Camera/DroneCameraModule.cs
@@ -415,19 +530,22 @@ Camera/FPVCameraShake.cs
 
 Назначение: тряска FPV-камеры
 
-Зависимости: старый Input.GetAxis, DroneConfig
+Зависимости: старый Input.GetAxis, DroneConfig, SettingsService (cameraShakeIntensity)
 
-Статус: дроновый прототип
+Статус: дроновый прототип; амплитуды умножаются на gameplay.cameraShakeIntensity, при 0 камера
+возвращается в исходную позу (даже если DroneConfig.enableCameraShake == true).
 
 Camera/FPVZoom.cs
 
 Класс: FPVZoom
 
-Назначение: переключение FOV
+Назначение: переключение FOV; единственный владелец Camera.fieldOfView дрона
 
-Зависимости: старый Input.GetKeyDown, DroneConfig
+Зависимости: старый Input.GetKeyDown, DroneConfig, SettingsService (droneFov), EWReceiver (SetFovOffset)
 
-Статус: дроновый прототип
+Статус: дроновый прототип; лестница зума масштабируется от базового FOV из настроек
+(zoomLevels[i] × droneFov / zoomLevels[0]), собственный currentFov сглаживается, а внешнее дрожание
+РЭБ добавляется как fovOffset — зум больше не «сбрасывается» при помехах.
 
 Camera/IntersectorHUD.cs
 
@@ -445,9 +563,11 @@ Camera/NIghtVisionController.cs
 
 Назначение: ПНВ, IR Light, ColorAdjustments
 
-Зависимости: старый Input.GetKeyDown, URP Volume
+Зависимости: PostFxRouter (Bind), DroneConfig, SettingsService
 
-Статус: дроновый прототип
+Статус: дроновый прототип; Volume больше не ищется. Цвет из graphics.nightVisionColor
+(0 зелёный / 1 белый / 2 янтарный), яркость = DroneConfig.nvPostExposure × nightVisionGain,
+«активность» компонента ColorAdjustments живёт в рантайм-профиле PostFX_NV.
 
 Camera/ReconHUD.cs
 
@@ -455,9 +575,11 @@ Camera/ReconHUD.cs
 
 Назначение: LRF, рамка цели, разведывательный HUD
 
-Зависимости: TargetLockManager, TargetObject
+Зависимости: TargetLockManager, TargetObject, HudStyleService
 
-Статус: дроновый прототип
+Статус: дроновый прототип; цвет/прозрачность/масштаб (GUI.matrix), толщина линий, размер перекрестия
+и показ рамки захвата берутся из HudStyleService (gameplay.hudTransparency, hudScale, hudLineThickness,
+crosshairSize, showTargetFrame).
 
 Camera/StrikeHUD.cs
 
@@ -465,9 +587,10 @@ Camera/StrikeHUD.cs
 
 Назначение: ударный HUD и предупреждение РЭБ
 
-Зависимости: DroneCameraModule, EWReceiver
+Зависимости: DroneCameraModule, EWReceiver, HudStyleService
 
-Статус: дроновый прототип
+Статус: дроновый прототип; прицел/толщина линий/рамка захвата и прозрачность — из HudStyleService.
+Предупреждение [WARNING: EW JAMMING] показывается всегда (геймплейная информация).
 
 Camera/TargetDetector.cs
 
@@ -516,9 +639,10 @@ Core/EffectService.cs
 
 Назначение: spawn VFX и звуки
 
-Зависимости: Unity Instantiate/AudioSource
+Зависимости: Unity Instantiate, AudioBus (группа SFX), пул AudioSource
 
-Статус: используется
+Статус: используется; PlaySound работает через пул «EffectAudioPool» (DontDestroyOnLoad, 16 источников,
+outputAudioMixerGroup = AudioBus.Sfx) вместо PlayClipAtPoint, поэтому попадает под ползунок «Эффекты».
 
 Core/EWService.cs
 
@@ -624,7 +748,8 @@ Managers/AmbushMissionDirector.cs
 прогресс и переход в Debrief выполнил MissionController. Показывает титры (subtitlePanel/subtitleText).
 
 Зависимости: MissionController, DroneFlightController, VehicleHealth, VehiclePatrol, VehicleSmartAI,
-HimarsStrike, GameStateMachine/MissionContext (fallback)
+HimarsStrike, GameStateMachine/MissionContext (fallback), SettingsService (subtitlesEnabled,
+subtitleFontSize — гейт стоит только на видимость и размер шрифта, тайминги сценария не меняются)
 
 Статус: подключён в FirstMission(Forest) (объект AmbushMissionDirector)
 
@@ -724,9 +849,15 @@ EW/EWReceiver.cs
 
 Назначение: расчёт и визуализация помех
 
-Зависимости: URP Volume, DroneConfig
+Зависимости: PostFxRouter (Bind), FPVZoom (SetFovOffset), DroneConfig, SettingsService
 
-Статус: дроновые сцены
+Статус: дроновые сцены. Авто-поиск Volume удалён, компоненты выдаёт PostFxRouter.
+Публичный API: jamIntensity (читают DroneFlightController, StrikeHUD, EWAudio), VisualScale,
+SetVisualScale(0..1), SetEffects(ChromaticAberration, Vignette, FilmGrain).
+CA/Vignette/Grain масштабируются произведением ewVisualDistortion и SetVisualScale; компоненты
+выключаются (active = false), когда помех или искажений нет. Дрожание кадра — cam.rect (сбрасывается)
+и FPVZoom.SetFovOffset (аддитивно). reduceDangerousEffects отключает IMGUI-«снег» и полосы разрыва.
+Разрешение шума берётся из ewNoiseResolution (иначе DroneConfig.noiseTextureResolution).
 
 5.7 MainMenu / UI
 MainMenu/GameSession.cs
@@ -827,9 +958,17 @@ Physics/DroneFlightController.cs
 
 Назначение: физический полёт квадрокоптера
 
-Зависимости: старый Input.GetKey, DroneMotors, EWReceiver, PID
+Зависимости: старый Input.GetKey, DroneMotors, EWReceiver, PID, SettingsService (controls.*)
 
-Статус: дроны
+Статус: дроны.
+Ввод читается в ReadInput(), в начале кадра вызывается RefreshInputSettings():
+  droneStickSpeed     — скорость отклонения стика (было const 4.0f),
+  droneCenteringSpeed — скорость возврата стика в центр (было const 8.0f),
+  throttleSpeed       — скорость изменения газа (было поле throttleSpeed = 1.8f),
+  throttleMode        — 0: самовозврат газа к 0.5 при отпущенных W/S, 1: фиксация (поведение по умолчанию),
+  droneInvertY        — инверсия pitch (стрелки ↑/↓).
+Настройки применяются на входе, до дрейфа РЭБ и до PID. Физика, PID-коэффициенты, аэродинамика,
+maxPitchRate/maxRollRate и ApplyDroneProfile() настройками не затрагиваются.
 
 Physics/DroneMotors.cs
 
@@ -839,7 +978,8 @@ Physics/DroneMotors.cs
 
 Зависимости: Rigidbody
 
-Статус: дроны
+Статус: дроны; публикует CurrentThrust01 (максимум из четырёх clamped-значений тяги) —
+его читает DroneMotorAudio для громкости и питча гула. Физика тяги не изменена.
 
 Physics/DropDroneMechanism.cs
 
@@ -964,6 +1104,8 @@ GetComponentInParent<IInteractable>. Требует назначенное по�
 
 InteractionUIController.cs — окна «Магазин» (Shop) и «Карта миссий» (MissionBoard) через
 CanvasGroup + подсказка; разблокировка курсора, timeScale = 0 при открытии, закрытие по E/Esc.
+ShowHint уважает gameplay.showInteractionHints: при выключенных подсказках текст «…[E]» не
+показывается вовсе; подсказка «Встать [Пробел]» (ShowSittingHint) намеренно не гейтится.
 
 HangarInteractable.cs — IInteractable, открывает магазин, промпт «Магазин [E]».
 
@@ -1046,6 +1188,54 @@ ChairInteractable.Interact() (посадка на стул), ComputerUIControlle
 сбрасывает флаг ReturnedFromMission = false. SceneLoader ждёт IsRestoring == false, чтобы не
 снять экран «LOADING...» раньше времени.
 
+5.12 Settings / Audio / HUD
+Каталог: Assets/Scripts/Settings/ (подсистема настроек) и Assets/Scripts/Audio/ (процедурный звук).
+
+Settings/SettingsScope.cs — IsMission (в сцене есть DroneManager). Обновляется на sceneLoaded;
+используется для выбора дистанции теней.
+
+Settings/GraphicsApplier.cs — рантайм-клон активного URP-ассета (Object.Instantiate, суффикс
+«(Runtime)»), назначается в QualitySettings.renderPipeline текущего уровня и возвращается назад по
+Application.quitting. Применяет renderScale, shadowDistance (SettingsScope.IsMission ?
+droneShadowDistance : bunkerShadowDistance), shadowCascadeCount (bunkerShadowQuality, 1..4),
+msaaSampleCount (bunkerMsaa), mainLightShadowmapResolution и мягкие тени (рефлексия в
+m_SoftShadowsSupported — публичного сеттера в URP нет). Оригинальный PC_RPAsset.asset не правится,
+GraphicsSettings.defaultRenderPipeline не переключается.
+
+Settings/CameraApplier.cs — Refresh() перебирает все камеры: если в родителях CharacterController —
+FPS-камера (bunkerFarClip, bunkerPostProcessing), иначе если есть FPVZoom/DroneCameraModule — камера
+дрона (droneFarClip, renderShadows по droneShadowDistance > 0, antialiasing по droneAntiAliasing).
+Переприменяется на sceneLoaded и на GameEvents.DroneSwitched.
+
+Settings/AudioBus.cs — AudioMixer из Resources/Audio/MainMixer, группы Master/Music/SFX/DroneMotors/EW/UI,
+SetVolume(parameter, linear) в дБ.
+
+Settings/AudioApplier.cs — 7 ползунков в AudioMixer; без микшера — fallback на AudioListener.volume.
+
+Audio/DroneMotorAudio.cs — гул моторов: процедурный бесшовный луп (96 Гц + гармоники), громкость и питч
+от DroneMotors.CurrentThrust01 и DroneFlightController.isMotorStarted. Вешается на корень префаба дрона.
+
+Audio/EWAudio.cs — треск помех: отфильтрованный шум, громкость от EWReceiver.jamIntensity.
+Вешается на камеру дрона.
+
+Settings/PostFxRouter.cs — см. разделы 3 и 4.6.
+
+UI/SettingsPanel.cs — панель настроек (4 вкладки), кнопка «Сброс» → ResetSettings() → ResetAll().
+
+UI/SettingsListBuilder.cs — конструктор строк Slider / Toggle / Dropdown (раскрывается списком внутри
+ScrollRect); для «тяжёлых» строк выставляет RequiresRelease.
+
+UI/SliderReleaseNotifier.cs — OnEndDrag / PointerUp → ApplyHeavy().
+
+UI/FpsCounterHud.cs — IMGUI-счётчик FPS; объект «FpsCounterHUD» создаётся автоматически
+(RuntimeInitializeOnLoadMethod + DontDestroyOnLoad), рисуется только в состоянии Gameplay.
+
+Settings/HudStyleService.cs — стиль HUD: Scale, Transparency, ApplyAlpha, Opaque, CrosshairSize,
+LineThickness, TargetFrameVisible, Begin()/End() (GUI.matrix вокруг центра экрана).
+
+Data/SettingsApplier.cs — точка входа применения: Apply / ApplyInstant / ApplyHeavy / ApplyScreen,
+GetResolutionOptions(), GetUniqueResolutions(), WindowModeLabels, ResetScreenCache().
+
 6. Сцены
 Всего найдено 15 сцен.
 
@@ -1122,7 +1312,9 @@ Assets/Scenes/Bunker(main).unity
 Назначение: новая FPS-локация (военный бункер Bunker07Anim)
 
 Статус: в настройке — физика, коллайдеры, интерактивный терминал; в Build Settings;
-сюда возвращает DebriefController после завершения миссии
+сюда возвращает DebriefController после завершения миссии.
+InteractionCanvas/PausePanel/settings — инстанс префаба SettingsPanel (единственная точка входа
+в настройки вне главного меню), кнопка «Сброс» в шапке. Кнопки «Настройки» в паузе миссии нет.
 
 Assets/Scenes/FunctionalUI-Demo.unity
 
@@ -1181,6 +1373,11 @@ Assets/Prefabs/Drones/ReconDrone.prefab
 Assets/Prefabs/Drones/StrikeDrone.prefab
 
 Содержат различные комбинации: Rigidbody, DroneFlightController, DroneMotors, DroneCollision, DroneCameraModule, EWReceiver, FPVZoom, HUD, Target Detector/Lock, Drop Mechanism, Interceptor Collision.
+
+Звук на префабах (добавлено вместе с настройками): на корне дрона — Audio Source + DroneMotorAudio
+(гул моторов), на камере дрона — Audio Source (Spatial Blend = 0) + EWAudio (треск помех).
+outputAudioMixerGroup назначается кодом (SFX/DroneMotors/EW), в инспекторе выставлять не нужно.
+Если компоненты не добавлены, звука моторов и помех нет, но игра работает и настройки не падают.
 
 Техника
 Assets/Prefabs/Vehicles/Btr.prefab
@@ -1301,6 +1498,25 @@ queriesHitTriggers: true;
 
 autoSyncTransforms: false.
 
+Графика (URP) и QualitySettings
+Файлы: ProjectSettings/QualitySettings.asset, Assets/Settings/PC_RPAsset.asset, Assets/Settings/Mobile_RPAsset.asset.
+
+6 уровней качества; собственный URP-ассет назначен только уровню Ultra, остальные уровни идут через
+GraphicsSettings.defaultRenderPipeline = PC_RPAsset. Поэтому смена уровня качества в URP почти не меняет
+картинку — реальные рычаги (renderScale, тени, MSAA) применяет GraphicsApplier через рантайм-клон.
+
+Настройки графики в рантайме
+Активный URP-ассет подменяется рантайм-клоном через QualitySettings.renderPipeline (см. 5.12), поэтому
+renderScale/тени/MSAA не портят Assets/Settings/PC_RPAsset.asset. При выходе из Play Mode ссылка
+восстанавливается (Application.quitting). Если в консоли появилось «[GraphicsApplier] URP-ассет не
+найден» — проверь Project Settings → Graphics и Quality.
+
+Звук (обязательный ручной ассет)
+Assets/Resources/Audio/MainMixer.mixer в репозитории отсутствует и создаётся вручную: группы
+Master → { Music, SFX → { DroneMotors, EW }, UI }, exposed-параметры MasterVolume, MusicVolume,
+SfxVolume, MotorsVolume, EwVolume, UiVolume (опционально VoiceVolume). Без микшера AudioBus.Ready == false,
+и работает только общий уровень через AudioListener.volume (один warning в консоли).
+
 10. Известные проблемы
 Критичные
 player.unity не входит в Build Settings
@@ -1360,9 +1576,17 @@ unlockedMissionIds не заполняется
 
 Где: Packages, Settings, сторонние каталоги
 
-SettingsService не защищает чтение JSON от исключения
+SettingsService не защищает чтение JSON от исключения — ИСПРАВЛЕНО: try/catch, дефолты, версия схемы,
+атомарная запись (tmp + File.Replace + .bak), debounce 0.5 с.
 
 Где: SettingsService.cs
+
+Настройки были «пустышками» (сохранялись, но не применялись) — ИСПРАВЛЕНО поэтапно: HUD/FPS/тряска/субтитры,
+звук (AudioMixer + пул AudioSource), графика URP (рантайм-клон), постобработка и РЭБ (PostFxRouter),
+управление дроном (стики/газ/режим газа/гимбал), UI (режим окна и разрешение, удаление пустышек).
+Что осталось не подключённым — см. CONTEXT.md, раздел 7.8.
+
+Где: SettingsApplier.cs, Settings/*, Camera/EWReceiver.cs, Physics/DroneFlightController.cs
 
 Идентификаторы миссий приведены к уникальным значениям
 
