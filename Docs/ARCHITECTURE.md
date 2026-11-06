@@ -1095,6 +1095,9 @@ Assets/Scenes/FirstMission(Forest).unity
 Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton), камера-заглушка DebriefCamera,
 EventSystem, объект AmbushMissionDirector (сторонний сценарный директор миссии) и объект UIManager
 (MissionUIManager: меню паузы PausePanel по Esc).
+Меню паузы: панель Canvas/PausePanel (по умолчанию выключена) с кнопками continue (ResumeGame) и
+exit (ReturnToBunker); поля Fallback Camera и Crash Panel у MissionUIManager пустые (в этой миссии
+потеря всех дронов ведёт к обычному провалу, без окна крушения).
 В DroneManager (корневой объект DroneManager) заполнен allDronesInScene:
 GimbalDrone Variant → MavicReconConfig (разведчик) и StrikeDrone 1 / (1) / (2) / (3) →
 SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению двух враждебных целей

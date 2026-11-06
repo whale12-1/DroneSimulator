@@ -373,6 +373,9 @@ SceneLoader.Instance.IsLoading == true, поэтому во время экра�
   РСЗО» и по завершении вызывает MissionController.CompleteMission(result, targets), который фиксирует
   результат, пишет прогресс (ProgressService.CompleteMission) и переводит FSM в Debrief. В Start() директор
   отключает автозавершение MissionController (autoComplete = false), чтобы тот не дублировал условия победы.
+- Добавлено меню паузы (PausePanel по Esc): объект UIManager со скриптом MissionUIManager и панель
+  Canvas/PausePanel с кнопками continue (ResumeGame) и exit (ReturnToBunker). Поля Fallback Camera и
+  Crash Panel оставлены пустыми — в первой миссии потеря дронов ведёт к обычному провалу.
 
 Возврат на базу после миссии
 Завершение миссии доводит игрока до дебрифинга, после которого он возвращается не в
