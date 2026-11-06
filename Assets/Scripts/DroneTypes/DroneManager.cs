@@ -42,8 +42,10 @@ public class DroneManager : MonoBehaviour
         GameEvents.DroneExploded -= OnDroneDestroyed;
     }
 
-    private void Start()
+    private void Awake()
     {
+        // Строим пул активных дронов как можно раньше (до Start у MissionController),
+        // чтобы MissionController мог выбрать дефолтный дрон через SelectByConfig.
         InitializeDrones();
     }
 
@@ -67,15 +69,15 @@ public class DroneManager : MonoBehaviour
                 if (allowedConfig == null) continue;
 
                 // Ищем в пуле сцены подходящий по конфигу
-                var match = System.Array.Find(allDronesInScene, d => d.config == allowedConfig);
+                var match = System.Array.Find(allDronesInScene, d => d.config == allowedConfig && !activeSlots.Exists(slot => slot.droneObject == d.droneObject));
 
-                if (match != null && !activeSlots.Contains(match))
+                if (match != null)
                 {
                     activeSlots.Add(match);
                 }
                 else
                 {
-                    Debug.LogWarning($"[DroneManager] В сцене нет дрона с конфигом '{allowedConfig.name}'");
+                    Debug.LogWarning($"[DroneManager] В сцене нет свободного дрона с конфигом '{allowedConfig.name}'");
                 }
             }
         }
@@ -85,8 +87,10 @@ public class DroneManager : MonoBehaviour
             activeSlots.AddRange(allDronesInScene);
         }
 
-        // 3. Если есть хотя бы один дрон - активируем первого
-        if (activeSlots.Count > 0)
+        // 3. НЕ включаем дрона автоматически, если миссия задана:
+        //    выбор делает MissionController через SelectByConfig(mission.defaultDrone).
+        //    Для тестового запуска без миссии включаем первый дрон из пула.
+        if ((mission == null || mission.defaultDrone == null) && activeSlots.Count > 0)
         {
             SelectDroneByIndex(0);
         }

@@ -294,7 +294,7 @@ ScriptableObject-описаний миссий;
 Текущая конфигурация миссий
 Ассеты миссий: Assets/Resources/Missions/ (Mission1, Mission2); реестр: Assets/Resources/MissionRegistry.asset.
 - Mission1 — «Тренировочная миссия» (id: training_mission) → сцена Assets/Scenes/PreparingDemo.unity, Default Drone: SmallFpvHeatConfig.
-- Mission2 — «Первая миссия» (id: mission_1) → сцена Assets/Scenes/FirstMission(Forest).unity, Default Drone: SmallFpvHeatConfig.
+- Mission2 — «Первая миссия» (id: mission_1) → сцена Assets/Scenes/FirstMission(Forest).unity, Default Drone: MavicReconConfig (разведчик).
 Mission2 открывается после Mission1 (prerequisite = Mission1). Обе сцены добавлены в Build Settings.
 Сцена Assets/Scenes/FirstMission(SpizjenyiVarik).unity есть в проекте, но пока не привязана к миссии.
 
@@ -319,9 +319,14 @@ Mission2 открывается после Mission1 (prerequisite = Mission1). �
   статистику DebriefStats, кнопку возврата ReturnButton и камеру-заглушку DebriefCamera
   (по умолчанию выключена, включается на экране результатов).
 - В сцене создан объект EventSystem (EventSystem + InputSystemUIInputModule) — обрабатывает клик по кнопке возврата.
-- Завершение миссии: Mission2 (objectiveType DestroyAllTargets, targetCount 3) завершается при уничтожении
-  трёх враждебных целей; DebriefController показывает результат, а ReturnToMenu() возвращает игрока
-  в Bunker(main).
+- Завершение миссии: Mission2 (objectiveType DestroyAllTargets, targetCount 2) завершается при уничтожении
+  двух враждебных целей (БТР прикрытия и РСЗО); DebriefController показывает результат, а ReturnToMenu()
+  возвращает игрока в Bunker(main).
+- Логикой этой миссии управляет сторонний скрипт AmbushMissionDirector (Assets/Scripts/Managers/AmbushMissionDirector.cs),
+  а не стандартный MissionController. Он ведёт сценарий «наблюдение → уничтожить БТР → погоня за отступающей
+  РСЗО» и по завершении вызывает MissionController.CompleteMission(result, targets), который фиксирует
+  результат, пишет прогресс (ProgressService.CompleteMission) и переводит FSM в Debrief. В Start() директор
+  отключает автозавершение MissionController (autoComplete = false), чтобы тот не дублировал условия победы.
 
 Возврат на базу после миссии
 Завершение миссии доводит игрока до дебрифинга, после которого он возвращается не в

@@ -228,9 +228,20 @@ MissionMenuController.StartMission(.)
 миссионная сцена
           ↓
 MissionController.Awake()
+  ├── Loading → Gameplay (если сцена загружена через меню)
+  └── читает MissionContext.Current
+          ↓
+MissionController.Start()
   └── DroneManager.SelectByConfig(mission.defaultDrone)
           ↓
+FirstMission(Forest): AmbushMissionDirector
+  ├── отключает MissionController.autoComplete = false
+  ├── ведёт сценарий «наблюдение → БТР → погоня за РСЗО»
+  └── MissionController.CompleteMission(result, targets)
+          ↓
 MissionController.EndMission(.)
+  ├── MissionContext.MarkResult(.)
+  ├── ProgressService.CompleteMission(.) — при успехе
   └── GameStateMachine → Debrief
           ↓
 DebriefController
@@ -582,11 +593,29 @@ Data/MissionController.cs
 
 Класс: MissionController
 
-Назначение: цели, таймер, Complete/Fail
+Назначение: выбор дефолтного дрона (SelectByConfig в Start), цели, таймер, завершение миссии.
+Публичный API: CompleteMission(result, targetsDestroyed) — единая точка завершения миссии;
+флаг autoComplete (public) — если false, MissionController не завершает миссию по своим условиям
+(им управляет внешний директор, например AmbushMissionDirector).
 
-Зависимости: DroneManager, GameEvents, ProgressService
+Зависимости: DroneManager, GameEvents, ProgressService, GameStateMachine, MissionContext
 
 Статус: подключён в PreparingDemo (объект MissionManager, ссылка droneManager → GameSystems/DroneManager) и в FirstMission(Forest) (объект MissionManager, ссылка droneManager → корневой объект DroneManager); в player.unity отсутствует
+
+Managers/AmbushMissionDirector.cs
+
+Класс: AmbushMissionDirector
+
+Назначение: сценарный директор первой миссии (FirstMission(Forest)). Ведёт корутину
+«наблюдение → уничтожить БТР → погоня за отступающей РСЗО»; в Start() находит MissionController
+(FindFirstObjectByType при пустой ссылке), выставляет missionController.autoComplete = false и по
+завершении сценария вызывает missionController.CompleteMission(result, targetsDestroyed), чтобы
+прогресс и переход в Debrief выполнил MissionController. Показывает титры (subtitlePanel/subtitleText).
+
+Зависимости: MissionController, DroneFlightController, VehicleHealth, VehiclePatrol, VehicleSmartAI,
+HimarsStrike, GameStateMachine/MissionContext (fallback)
+
+Статус: подключён в FirstMission(Forest) (объект AmbushMissionDirector)
 
 Data/MissionDefinition.cs
 
@@ -657,9 +686,13 @@ DroneTypes/DroneManager.cs
 
 Класс: DroneManager
 
-Назначение: переключение пяти слотов дронов
+Назначение: управление пулом дронов сцены. InitializeDrones() вызывается в Awake() и строит
+activeSlots из mission.availableDrones (или из всего пула при тестовом запуске без миссии).
+Дрон НЕ включается автоматически, если задана миссия с defaultDrone — выбор делает MissionController
+через SelectByConfig(mission.defaultDrone) в Start(). Автовыбор первого слота остаётся только для
+тестового запуска без миссии (MissionContext.Current == null).
 
-Зависимости: старый Input.GetKeyDown, DroneConfig
+Зависимости: старый Input.GetKeyDown, DroneConfig, MissionContext, GameEvents
 
 Статус: дроновые сцены
 
@@ -1013,11 +1046,14 @@ Assets/Scenes/FirstMission(Forest).unity
 
 Статус: Mission2 («Первая миссия», id = mission_1); в Build Settings.
 Настроены контроллеры: объект MissionManager (MissionController + DebriefController), UI дебрифинга
-Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton), камера-заглушка DebriefCamera и
-EventSystem. В DroneManager (корневой объект DroneManager) заполнен allDronesInScene:
+Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton), камера-заглушка DebriefCamera,
+EventSystem и объект AmbushMissionDirector (сторонний сценарный директор миссии).
+В DroneManager (корневой объект DroneManager) заполнен allDronesInScene:
 GimbalDrone Variant → MavicReconConfig (разведчик) и StrikeDrone 1 / (1) / (2) / (3) →
-SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению трёх враждебных целей,
-после чего DebriefController показывает результат, а кнопка возврата ведёт в Bunker(main).
+SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению двух враждебных целей
+(БТР и РСЗО): AmbushMissionDirector ведёт сценарий и по завершении вызывает
+MissionController.CompleteMission(), который переводит FSM в Debrief, после чего DebriefController
+показывает результат, а кнопка возврата ведёт в Bunker(main).
 
 Assets/Scenes/FirstMission(SpizjenyiVarik).unity
 
@@ -1258,7 +1294,7 @@ Mission3 не имеет sceneName и defaultDrone — Mission3 исключен
 
 Где: PlayerController, drone scripts, InputManager
 
-MissionController.startTime не инициализируется
+MissionController.startTime не инициализируется — ИСПРАВЛЕНО: startTime = Time.time задаётся в Awake()
 
 Где: MissionController.cs
 

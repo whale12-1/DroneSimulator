@@ -7,6 +7,10 @@ public class MissionController : MonoBehaviour
     [SerializeField] private Transform reachPointTarget; // Для миссии ReachPoint
     [SerializeField] private float reachRadius = 10f;
 
+    [Header("Управление завершением")]
+    [Tooltip("Если true, MissionController сам завершает миссию по условиям. Внешний директор (например AmbushMissionDirector) выставляет false и завершает миссию через CompleteMission().")]
+    public bool autoComplete = true;
+
     private MissionDefinition mission;
     private int destroyedTargets;
     private float startTime;
@@ -20,13 +24,15 @@ public class MissionController : MonoBehaviour
         }
 
         mission = MissionContext.Current;
-        if (mission == null) return;
-
-        if (mission.defaultDrone != null && droneManager != null)
-            droneManager.SelectByConfig(mission.defaultDrone);
-
         startTime = Time.time;
         isEnded = false;
+    }
+
+    private void Start()
+    {
+        // Выбор дрона выполняем в Start, когда DroneManager уже построил пул activeSlots в Awake.
+        if (mission != null && mission.defaultDrone != null && droneManager != null)
+            droneManager.SelectByConfig(mission.defaultDrone);
     }
 
     private void OnEnable() => GameEvents.VehicleDestroyed += OnVehicleDestroyed;
@@ -35,6 +41,9 @@ public class MissionController : MonoBehaviour
     private void Update()
     {
         if (mission == null || isEnded) return;
+
+        // Внешний директор (AmbushMissionDirector) ведёт миссию сам — не завершаем её здесь.
+        if (!autoComplete) return;
 
         if (mission.timeLimit > 0 && mission.objectiveType != MissionObjectiveType.SurviveTime)
         {
@@ -100,15 +109,30 @@ public class MissionController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Публичный способ завершить миссию извне (например, из AmbushMissionDirector).
+    /// Выполняет общий путь: фиксирует результат, пишет прогресс и переводит FSM в Debrief.
+    /// </summary>
+    public void CompleteMission(MissionResult result, int targetsDestroyed)
+    {
+        if (isEnded) return;
+        EndMission(result, targetsDestroyed);
+    }
+
     private void EndMission(MissionResult result)
+    {
+        EndMission(result, destroyedTargets);
+    }
+
+    private void EndMission(MissionResult result, int targetsDestroyed)
     {
         if (isEnded) return;
         isEnded = true;
 
         float timeElapsed = Time.time - startTime;
-        MissionContext.MarkResult(result, destroyedTargets, timeElapsed);
+        MissionContext.MarkResult(result, targetsDestroyed, timeElapsed);
 
-        if (result == MissionResult.Success)
+        if (result == MissionResult.Success && mission != null)
             ProgressService.CompleteMission(mission, mission.rewardPoints);
 
         GameStateMachine.TransitionTo(GameState.Debrief);
