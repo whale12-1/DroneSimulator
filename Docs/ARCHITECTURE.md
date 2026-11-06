@@ -1006,17 +1006,19 @@ ComputerOS (рабочий стол не выключается); CloseMissionMe
 SceneLoader.LoadAsync(). Старый MissionBoardWindow удалён.
 
 MissionUIManager.cs — висит на объекте UIManager в миссионных сценах PreparingDemo и
-FirstMission(Forest). Поля pausePanel (GameObject) и crashPanel (GameObject). Update() по Esc
+FirstMission(Forest). Поля pausePanel (GameObject), crashPanel (GameObject) и fallbackCamera
+(GameObject, заглушка чёрного фона). Update() по Esc
 (Keyboard.current.escapeKey.wasPressedThisFrame), пока crashPanel не активен И игра не в состоянии
 Debrief, переключает pausePanel: при открытии Time.timeScale = 0 и курсор разблокируется, при закрытии
 Time.timeScale = 1 и курсор блокируется. ShowCrashPanel() также делает ранний return, если
 GameStateMachine.Current == GameState.Debrief, иначе включает crashPanel, выключает pausePanel,
-Time.timeScale = 0, курсор разблокируется. Тем самым PausePanel и CrashPanel взаимоисключающие с
-DebriefPanel. Дополнительно скрипт в OnEnable/OnDisable подписывается на GameStateMachine.StateChanged;
+включает fallbackCamera (заглушка чёрного фона, чтобы не было надписи «No cameras rendering» после
+уничтожения камеры дрона), Time.timeScale = 0, курсор разблокируется. Тем самым PausePanel и
+CrashPanel взаимоисключающие с DebriefPanel. Дополнительно скрипт в OnEnable/OnDisable подписывается на GameStateMachine.StateChanged;
 метод OnStateChanged(GameState prev, GameState next) при переходе в GameState.Debrief принудительно
 сбрасывает Time.timeScale = 1 и выключает pausePanel и crashPanel, поэтому CrashPanel не накладывается
-на DebriefPanel, даже если крушение дрона произошло одновременно с выполнением цели. ResumeGame() закрывает pausePanel (Time.timeScale = 1,
-курсор блокируется).
+на DebriefPanel, даже если крушение дрона произошло одновременно с выполнением цели. ResumeGame()
+закрывает pausePanel, выключает fallbackCamera (Time.timeScale = 1, курсор блокируется).
 RestartMission() (Time.timeScale = 1) перезагружает PreparingDemo. ReturnToBunker() (Time.timeScale = 1)
 ставит MissionContext.ReturnedFromMission = true, при возможности переводит FSM в Loading и загружает
 Bunker(main) через SceneLoader.Instance.LoadAsync — как и DebriefController.ReturnToMenu(), поэтому игрок

@@ -142,8 +142,13 @@ Culling Mask = Nothing, Depth = -100) — рисует чёрный фон по�
 не было ни одной камеры. В сцене TerrainDemoScene добавлен объект DebriefCamera (Camera:
 Clear Flags = Solid Color, чёрный фон, Culling Mask = Nothing), по умолчанию выключен; его
 включает DebriefController при показе экрана результатов (Debrief) и выключает при возврате
-на базу, когда камера дрона отключается. Эти камеры-заглушки убирают надпись «No cameras rendering»
-в окне Game в обеих ситуациях.
+на базу, когда камера дрона отключается. В сцене PreparingDemo при крушении дрона (окно
+«Вы разбились» CrashPanel) тоже не остаётся активной камеры: камера дрона уничтожается вместе с
+дроном, и Unity выводил надпись «No cameras rendering», которая перекрывала кнопки CrashPanel.
+Для этого в MissionUIManager добавлено поле fallbackCamera (Fallback Camera), которое при
+ShowCrashPanel() включает объект-заглушку DebriefCamera (Camera: Clear Flags = Solid Color, чёрный
+фон, Culling Mask = Nothing), а при ResumeGame() выключает её. Эти камеры-заглушки убирают надпись
+«No cameras rendering» в окне Game во всех ситуациях.
 
 Кнопка «Играть» в MainMenu (MainMenuController.OnOpenMissions) больше НЕ открывает
 меню выбора миссий: она ставит MissionContext.ReturnedFromMission = false и загружает

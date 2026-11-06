@@ -8,6 +8,7 @@ public class MissionUIManager : MonoBehaviour
     [SerializeField] private GameObject instructionText;
     [SerializeField] private GameObject pausePanel;
     [SerializeField] private GameObject crashPanel;
+    [SerializeField] private GameObject fallbackCamera;
 
     private void OnEnable()
     {
@@ -58,6 +59,8 @@ public class MissionUIManager : MonoBehaviour
         if (pausePanel != null)
             pausePanel.SetActive(false);
 
+        if (fallbackCamera != null) fallbackCamera.SetActive(true);
+
         Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -69,6 +72,8 @@ public class MissionUIManager : MonoBehaviour
 
         if (pausePanel != null)
             pausePanel.SetActive(false);
+
+        if (fallbackCamera != null) fallbackCamera.SetActive(false);
 
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
