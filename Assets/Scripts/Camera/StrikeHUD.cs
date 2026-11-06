@@ -33,13 +33,15 @@ public class StrikeHUD : MonoBehaviour
 
         if (camType == CameraType.ReconGimbal || !isEnabled) return;
 
+        Matrix4x4 previousMatrix = HudStyleService.Begin();
+
         // 2. Считываем визуальные параметры из конфига
         Color activeHudColor = (config != null) ? config.hudColor : new Color(0.1f, 1.0f, 0.2f, 0.85f);
-        float crosshairSize = (config != null) ? config.crosshairSize : 14f;
+        float crosshairSize = HudStyleService.CrosshairSize((config != null) ? config.crosshairSize : HudStyleService.DefaultCrosshairSize);
         Vector2 boxSize = (config != null) ? config.targetBoxSize : new Vector2(160f, 110f);
         float lineWidth = (config != null) ? config.hudLineWidth : 2f;
 
-        GUI.color = activeHudColor;
+        GUI.color = HudStyleService.ApplyAlpha(activeHudColor);
         Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
         // 3. Центральное перекрестие (+)
@@ -56,7 +58,7 @@ public class StrikeHUD : MonoBehaviour
             fontSize = 13,
             fontStyle = FontStyle.Bold
         };
-        textStyle.normal.textColor = activeHudColor;
+        textStyle.normal.textColor = HudStyleService.Opaque(activeHudColor);
 
         string droneLabel = (config != null && !string.IsNullOrEmpty(config.droneName)) ? $"[{config.droneName.ToUpper()}]" : "[STRIKE FPV]";
         string warheadLabel = (config != null) ? $"ARMED / {config.warheadType}" : "ARMED / PG-7V";
@@ -71,6 +73,8 @@ public class StrikeHUD : MonoBehaviour
             warningStyle.normal.textColor = Color.red;
             GUI.Label(new Rect(targetRect.x, targetRect.y - 38f, 280f, 20f), $"[WARNING: EW JAMMING {(ewReceiver.jamIntensity * 100f):F0}%]", warningStyle);
         }
+
+        HudStyleService.End(previousMatrix);
     }
 
     private void DrawBoxOutline(Rect rect, float width)

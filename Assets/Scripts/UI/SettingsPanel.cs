@@ -8,6 +8,7 @@ public class SettingsPanel : UIScreen
     [SerializeField] private Button[] tabButtons;
     [SerializeField] private SettingsListBuilder listBuilder;
     [SerializeField] private Button closeButton;
+    [SerializeField] private Button resetButton;
     [SerializeField] private bool hideOnStart = true;
     [SerializeField] private Color selectedTabColor = new Color(0.3f, 0.5f, 0.8f, 1f);
     [SerializeField] private Color normalTabColor = new Color(0.16f, 0.17f, 0.19f, 1f);
@@ -30,6 +31,8 @@ public class SettingsPanel : UIScreen
         SettingsService.EnsureInstance();
 
         if (closeButton != null) closeButton.onClick.AddListener(Hide);
+
+        if (resetButton != null) resetButton.onClick.AddListener(ResetSettings);
 
         if (tabButtons != null)
         {
@@ -61,6 +64,16 @@ public class SettingsPanel : UIScreen
     {
         IsOpen = false;
         base.Hide();
+    }
+
+    public void ResetSettings()
+    {
+        SettingsService service = SettingsService.Instance;
+        if (service == null) return;
+
+        service.ResetAll();
+
+        if (listBuilder != null) listBuilder.Build(GetDescriptors(currentTab));
     }
 
     private void NormalizeZ()

@@ -150,6 +150,13 @@ public class AmbushMissionDirector : MonoBehaviour
 
     private void ShowSubtitle(string text, float duration)
     {
+        SettingsService service = SettingsService.Instance;
+        if (service != null && service.Data != null && service.Data.gameplay != null && !service.Data.gameplay.subtitlesEnabled)
+        {
+            HideSubtitle();
+            return;
+        }
+
         if (subtitlePanel != null) subtitlePanel.SetActive(true);
         if (subtitleText != null) subtitleText.text = text;
 

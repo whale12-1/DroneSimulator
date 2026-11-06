@@ -31,6 +31,7 @@ public static class SettingsPanelPrefabBuilder
 
         GameObject header = BuildHeader(root.transform);
         Button closeButton = BuildCloseButton(header.transform);
+        Button resetButton = BuildResetButton(header.transform);
         Button[] tabButtons = BuildTabs(root.transform);
         SettingsListBuilder listBuilder = BuildScrollView(root.transform);
 
@@ -42,6 +43,7 @@ public static class SettingsPanelPrefabBuilder
 
         panelSO.FindProperty("listBuilder").objectReferenceValue = listBuilder;
         panelSO.FindProperty("closeButton").objectReferenceValue = closeButton;
+        panelSO.FindProperty("resetButton").objectReferenceValue = resetButton;
         panelSO.FindProperty("hideOnStart").boolValue = true;
         panelSO.FindProperty("group").objectReferenceValue = canvasGroup;
         panelSO.ApplyModifiedPropertiesWithoutUndo();
@@ -80,7 +82,7 @@ public static class SettingsPanelPrefabBuilder
         titleRT.anchorMin = Vector2.zero;
         titleRT.anchorMax = Vector2.one;
         titleRT.offsetMin = new Vector2(24f, 0f);
-        titleRT.offsetMax = new Vector2(-80f, 0f);
+        titleRT.offsetMax = new Vector2(-270f, 0f);
         AddText(title, "НАСТРОЙКИ", 30, TextAnchor.MiddleLeft, Color.white);
 
         return header;
@@ -105,6 +107,29 @@ public static class SettingsPanelPrefabBuilder
         GameObject label = CreateRect("Text", go.transform);
         Stretch((RectTransform)label.transform);
         AddText(label, "X", 24, TextAnchor.MiddleCenter, Color.white);
+
+        return button;
+    }
+
+    private static Button BuildResetButton(Transform parent)
+    {
+        GameObject go = CreateRect("ResetButton", parent);
+        RectTransform rt = (RectTransform)go.transform;
+        rt.anchorMin = new Vector2(1f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(1f, 1f);
+        rt.sizeDelta = new Vector2(168f, 40f);
+        rt.anchoredPosition = new Vector2(-88f, -16f);
+
+        Image image = go.AddComponent<Image>();
+        ApplySprite(image, new Color(0.30f, 0.32f, 0.36f, 1f));
+
+        Button button = go.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        GameObject label = CreateRect("Text", go.transform);
+        Stretch((RectTransform)label.transform);
+        AddText(label, "Сброс", 18, TextAnchor.MiddleCenter, Color.white);
 
         return button;
     }
