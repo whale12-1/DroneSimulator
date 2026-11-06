@@ -81,11 +81,13 @@ HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
 
 Контроллер дебрифинга → Assets/Scripts/Data/DebriefController.cs
 
-Объект MissionManager (MissionController + DebriefController) → Assets/Scenes/PreparingDemo.unity → MissionManager
+Объект MissionManager (MissionController + DebriefController) → Assets/Scenes/PreparingDemo.unity → MissionManager и Assets/Scenes/FirstMission(Forest).unity → MissionManager
 
-UI дебрифинга → Assets/Scenes/PreparingDemo.unity → Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton)
+UI дебрифинга → Assets/Scenes/PreparingDemo.unity → Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton) и Assets/Scenes/FirstMission(Forest).unity → Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton)
 
-Камера-заглушка дебрифинга → Assets/Scenes/PreparingDemo.unity → DebriefCamera
+Камера-заглушка дебрифинга → Assets/Scenes/PreparingDemo.unity → DebriefCamera и Assets/Scenes/FirstMission(Forest).unity → DebriefCamera
+
+EventSystem (обработка кликов дебрифинга) → Assets/Scenes/FirstMission(Forest).unity → EventSystem
 
 Дроны
 Профили дронов → Assets/Settings/DroneConfigs/
@@ -196,7 +198,7 @@ Main Menu-сцена → Assets/Scenes/MainMenu.unity
 
 Тренировочная миссия (сцена) → Assets/Scenes/PreparingDemo.unity (MissionManager: MissionController + DebriefController; DroneManager на GameSystems с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel)
 
-Первая миссия (сцена) → Assets/Scenes/FirstMission(Forest).unity
+Первая миссия (сцена) → Assets/Scenes/FirstMission(Forest).unity (MissionManager: MissionController + DebriefController; DroneManager на корневом объекте DroneManager с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel; DebriefCamera; EventSystem)
 
 Альтернативная карта первой миссии (не привязана) → Assets/Scenes/FirstMission(SpizjenyiVarik).unity
 

@@ -586,7 +586,7 @@ Data/MissionController.cs
 
 Зависимости: DroneManager, GameEvents, ProgressService
 
-Статус: подключён в PreparingDemo (объект MissionManager, ссылка droneManager → GameSystems/DroneManager); в player.unity отсутствует
+Статус: подключён в PreparingDemo (объект MissionManager, ссылка droneManager → GameSystems/DroneManager) и в FirstMission(Forest) (объект MissionManager, ссылка droneManager → корневой объект DroneManager); в player.unity отсутствует
 
 Data/MissionDefinition.cs
 
@@ -618,9 +618,9 @@ Data/DebriefController.cs
 
 Статус: по кнопке дебрифинга переводит состояние Debrief → Loading → Gameplay
 и загружает сцену Bunker(main); перед загрузкой ставит MissionContext.ReturnedFromMission = true;
-метод ReturnToMenu() защищён от повторного вызова флагом isReturning. Подключён в PreparingDemo:
-объект MissionManager, ссылки panel/titleText/statsText/returnToMenuButton/debriefCamera назначены
-на UI дебрифинга и камеру-заглушку DebriefCamera
+метод ReturnToMenu() защищён от повторного вызова флагом isReturning. Подключён в PreparingDemo и
+FirstMission(Forest): объект MissionManager, ссылки panel/titleText/statsText/returnToMenuButton/
+debriefCamera назначены на UI дебрифинга и камеру-заглушку DebriefCamera
 
 5.5 DroneTypes
 DroneTypes/DroneConfig.cs
@@ -1011,7 +1011,13 @@ Assets/Scenes/FirstMission(Forest).unity
 
 Назначение: первая миссия
 
-Статус: Mission2 («Первая миссия», id = mission_1); в Build Settings
+Статус: Mission2 («Первая миссия», id = mission_1); в Build Settings.
+Настроены контроллеры: объект MissionManager (MissionController + DebriefController), UI дебрифинга
+Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton), камера-заглушка DebriefCamera и
+EventSystem. В DroneManager (корневой объект DroneManager) заполнен allDronesInScene:
+GimbalDrone Variant → MavicReconConfig (разведчик) и StrikeDrone 1 / (1) / (2) / (3) →
+SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению трёх враждебных целей,
+после чего DebriefController показывает результат, а кнопка возврата ведёт в Bunker(main).
 
 Assets/Scenes/FirstMission(SpizjenyiVarik).unity
 

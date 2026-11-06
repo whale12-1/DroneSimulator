@@ -310,6 +310,19 @@ Mission2 открывается после Mission1 (prerequisite = Mission1). �
   уничтожении цели potujnojet; DebriefController показывает результат, а ReturnToMenu() возвращает
   игрока в Bunker(main).
 
+Сцена FirstMission(Forest) настроена так же, как PreparingDemo — на завершение миссии и показ дебрифинга:
+- Объект MissionManager (в корне сцены) несёт скрипты MissionController и DebriefController.
+- MissionController.droneManager ссылается на DroneManager (корневой объект DroneManager). В DroneManager
+  заполнен пул allDronesInScene: GimbalDrone Variant → MavicReconConfig (разведчик) и четыре ударных дрона
+  StrikeDrone 1 / (1) / (2) / (3) → SmallFpvHeatConfig (ударный FPV).
+- DebriefController ссылается на UI дебрифинга: панель Canvas/DebriefPanel, заголовок DebriefTitle,
+  статистику DebriefStats, кнопку возврата ReturnButton и камеру-заглушку DebriefCamera
+  (по умолчанию выключена, включается на экране результатов).
+- В сцене создан объект EventSystem (EventSystem + InputSystemUIInputModule) — обрабатывает клик по кнопке возврата.
+- Завершение миссии: Mission2 (objectiveType DestroyAllTargets, targetCount 3) завершается при уничтожении
+  трёх враждебных целей; DebriefController показывает результат, а ReturnToMenu() возвращает игрока
+  в Bunker(main).
+
 Возврат на базу после миссии
 Завершение миссии доводит игрока до дебрифинга, после которого он возвращается не в
 MainMenu, а на базу — в сцену Assets/Scenes/Bunker(main).unity. Логика находится в
