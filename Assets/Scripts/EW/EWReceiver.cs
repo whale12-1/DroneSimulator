@@ -46,9 +46,15 @@ public class EWReceiver : MonoBehaviour
 
     private void CalculateJammingLevel()
     {
+        // 1. Считываем помехи от вышек РЭБ
         float rawJam = EWService.SampleJamAt(transform.position);
-        float resistance = config != null ? Mathf.Clamp01(config.ewResistance) : 0f;
-        jamIntensity = Mathf.Clamp01(rawJam * (1f - resistance));
+
+        // 2. Берем МАКСИМУМ из помех от вышек и помех от границ карты
+        float combinedJam = Mathf.Max(rawJam, EWService.BoundaryJamIntensity);
+
+        // 3. Применяем защиту дрона (из конфига)
+        float resistance = (config != null) ? Mathf.Clamp01(config.ewResistance) : 0f;
+        jamIntensity = Mathf.Clamp01(combinedJam * (1f - resistance));
     }
 
     private void ApplyPostProcessing()

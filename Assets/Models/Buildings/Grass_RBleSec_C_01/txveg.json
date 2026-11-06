@@ -1,0 +1,370 @@
+{
+ "format": "txveg",
+ "format_version": 1,
+ "spec": "https://3dtexel.com (txveg format 1)",
+ "created": "2026-10-19T12:29:07.885Z",
+ "license": "3D Texel License",
+ "license_file": "LICENSE_3DTexel.txt",
+ "generator": "3D Texel Foliage Maker 16",
+ "asset": {
+  "name": "Grass_RBleSec_C_01",
+  "type": "grass",
+  "mode": "grass",
+  "tags": [
+   "vegetation",
+   "grass",
+   "realistic"
+  ],
+  "atlases": [
+   "import:A69742.albedo"
+  ],
+  "key": "Grass_RBleSec_C_01",
+  "plant": "Grass_RBleSec",
+  "variant": "C",
+  "variant_label": "Sparse",
+  "style": "realistic",
+  "category": "Grass"
+ },
+ "files": {
+  "fbx": "SM_Grass_RBleSec_C_01.fbx",
+  "gltf": "SM_Grass_RBleSec_C_01.gltf",
+  "gltf_bin": "SM_Grass_RBleSec_C_01.bin",
+  "preview": "preview.jpg",
+  "readme": "README.txt"
+ },
+ "conventions": {
+  "fbx": {
+   "units": "cm",
+   "unit_scale_factor": 1.0,
+   "up": "+Y",
+   "front": "+Z",
+   "handedness": "right",
+   "pivot": "ground, centre of the clump (0,0,0)",
+   "textures_embedded": false,
+   "lod_hierarchy": "Model \"SM_Grass_RBleSec_C_01\" (LodGroup attribute) > children \"SM_Grass_RBleSec_C_01_LOD0\"..\"_LOD3\""
+  },
+  "gltf": {
+   "units": "m",
+   "up": "+Y",
+   "front": "+Z",
+   "lod_hierarchy": "node \"SM_Grass_RBleSec_C_01\" > children \"_LOD0\"..\"_LOD3\" (extras.screen_size)",
+   "COLOR_0": "brightness (grey) so that any viewer shows the right colours",
+   "_WIND": "wind masks RGBA (same as FBX vertex colour)",
+   "TEXCOORD_4_5": "wind masks again as (R, G) and (B, A) for engines that drop custom attributes (Godot: CUSTOM1 = RGBA)"
+  },
+  "normal_map": "OpenGL (+Y green). Unreal: Flip Green Channel = true (set by the 3D Texel Portal plugin).",
+  "uv_flip": "glTF TEXCOORD_n = (u, 1 - v) of FBX UV n, so every engine reads the same value after import"
+ },
+ "lods": [
+  {
+   "index": 0,
+   "node": "SM_Grass_RBleSec_C_01_LOD0",
+   "triangles": 488,
+   "vertices": 572,
+   "screen_size": 1.0,
+   "cards": 42,
+   "material_slot": "MI_Grass_RBleSec_C_01",
+   "impostor": false
+  },
+  {
+   "index": 1,
+   "node": "SM_Grass_RBleSec_C_01_LOD1",
+   "triangles": 202,
+   "vertices": 244,
+   "screen_size": 0.5,
+   "cards": 21,
+   "material_slot": "MI_Grass_RBleSec_C_01",
+   "impostor": false
+  },
+  {
+   "index": 2,
+   "node": "SM_Grass_RBleSec_C_01_LOD2",
+   "triangles": 90,
+   "vertices": 120,
+   "screen_size": 0.25,
+   "cards": 15,
+   "material_slot": "MI_Grass_RBleSec_C_01",
+   "impostor": false
+  },
+  {
+   "index": 3,
+   "node": "SM_Grass_RBleSec_C_01_LOD3",
+   "triangles": 32,
+   "vertices": 64,
+   "screen_size": 0.1,
+   "cards": null,
+   "material_slot": "MI_Grass_RBleSec_C_01_Impostor",
+   "impostor": true
+  }
+ ],
+ "bounds_cm": {
+  "min": [
+   -80.9,
+   -9.0,
+   -85.5
+  ],
+  "max": [
+   77.7,
+   91.0,
+   78.5
+  ],
+  "sphere_radius": 97.1,
+  "sphere_note": "radius of the LOD0 vertices around the box centre = Unreal bounds sphere"
+ },
+ "impostor": {
+  "lod": 3,
+  "kind": "clustered",
+  "clusters": 4,
+  "planes_per_cluster": 2,
+  "top": false,
+  "atlas_px": [
+   512,
+   256
+  ],
+  "geometry": "front + back faces (single-sided material)"
+ },
+ "materials": [
+  {
+   "slot": "MI_Grass_RBleSec_C_01",
+   "lods": [
+    0,
+    1,
+    2
+   ],
+   "blend": "masked",
+   "opacity_clip": 0.5,
+   "two_sided": true,
+   "shading": "two-sided foliage (subsurface colour = base colour x 0.6)",
+   "textures": {
+    "BaseColor": "Textures/T_Grass_RBleSec_C_01_D.png",
+    "Normal": "Textures/T_Grass_RBleSec_C_01_N.png",
+    "ORM": "Textures/T_Grass_RBleSec_C_01_ORM.png"
+   }
+  },
+  {
+   "slot": "MI_Grass_RBleSec_C_01_Impostor",
+   "lods": [
+    3
+   ],
+   "blend": "masked",
+   "opacity_clip": 0.5,
+   "two_sided": false,
+   "textures": {
+    "BaseColor": "Textures/T_Grass_RBleSec_C_01_Impostor_D.png",
+    "Normal": "Textures/T_Grass_RBleSec_C_01_Impostor_N.png",
+    "ORM": "Textures/T_Grass_RBleSec_C_01_Impostor_ORM.png"
+   }
+  }
+ ],
+ "textures": [
+  {
+   "file": "Textures/T_Grass_RBleSec_C_01_D.png",
+   "role": "D",
+   "size": [
+    2048,
+    2048
+   ],
+   "color_space": "sRGB",
+   "packing": "RGB base colour, A opacity (clip 0.5)",
+   "unreal": {
+    "srgb": true,
+    "compression": "TC_Default"
+   }
+  },
+  {
+   "file": "Textures/T_Grass_RBleSec_C_01_Impostor_D.png",
+   "role": "D",
+   "size": [
+    512,
+    256
+   ],
+   "color_space": "sRGB",
+   "packing": "RGB base colour, A opacity (clip 0.5)",
+   "unreal": {
+    "srgb": true,
+    "compression": "TC_Default"
+   }
+  },
+  {
+   "file": "Textures/T_Grass_RBleSec_C_01_Impostor_N.png",
+   "role": "N",
+   "size": [
+    512,
+    256
+   ],
+   "color_space": "linear",
+   "packing": "tangent normal, OpenGL (+Y)",
+   "unreal": {
+    "srgb": false,
+    "compression": "TC_Normalmap",
+    "flip_green": true
+   }
+  },
+  {
+   "file": "Textures/T_Grass_RBleSec_C_01_Impostor_ORM.png",
+   "role": "ORM",
+   "size": [
+    512,
+    256
+   ],
+   "color_space": "linear",
+   "packing": "R occlusion, G roughness, B metallic",
+   "unreal": {
+    "srgb": false,
+    "compression": "TC_Masks"
+   }
+  },
+  {
+   "file": "Textures/T_Grass_RBleSec_C_01_N.png",
+   "role": "N",
+   "size": [
+    2048,
+    2048
+   ],
+   "color_space": "linear",
+   "packing": "tangent normal, OpenGL (+Y)",
+   "unreal": {
+    "srgb": false,
+    "compression": "TC_Normalmap",
+    "flip_green": true
+   }
+  },
+  {
+   "file": "Textures/T_Grass_RBleSec_C_01_ORM.png",
+   "role": "ORM",
+   "size": [
+    2048,
+    2048
+   ],
+   "color_space": "linear",
+   "packing": "R occlusion, G roughness, B metallic",
+   "unreal": {
+    "srgb": false,
+    "compression": "TC_Masks"
+   }
+  }
+ ],
+ "wind": {
+  "defaults": {
+   "direction_deg": 35,
+   "strength": 1.84,
+   "gust_speed_m_s": 1.5,
+   "gust_size_m": 5.9,
+   "tremble": 0.2,
+   "turbulence": 1
+  },
+  "vertex_color": {
+   "R": "plant sway weight (0 ground -> 1 top)",
+   "G": "blade / branch bend",
+   "B": "tip tremble",
+   "A": "phase"
+  },
+  "uv": {
+   "UV0": "atlas",
+   "UV1": "Look: x = dry tint amount, y = 1 - brightness (FBX) / glTF stores (x, brightness)",
+   "UV2": "card pivot (x, z), in file units (FBX cm, glTF m)",
+   "UV3": "(pivot height, card length), in file units; absent on the impostor"
+  },
+  "reference": "Unreal: MPC_TX_Wind + MF_TX_Wind (3D Texel Portal plugin)"
+ },
+ "foliage_type": {
+  "density_per_1000uu": 8,
+  "radius_cm": 0,
+  "scale": [
+   0.85,
+   1.15
+  ],
+  "align_to_normal": true,
+  "align_max_angle": 30,
+  "random_yaw": true,
+  "random_pitch_deg": 0,
+  "ground_slope_deg": [
+   0,
+   45
+  ],
+  "cull_distance_cm": [
+   5000,
+   7000
+  ],
+  "cast_shadow": false,
+  "collision": "none"
+ },
+ "stats": {
+  "cards_lod0": 42,
+  "plants": 21,
+  "triangles": [
+   488,
+   202,
+   90,
+   32
+  ],
+  "vertices": [
+   572,
+   244,
+   120,
+   64
+  ],
+  "lod_count": 4,
+  "impostor": true,
+  "texture_size": 2048,
+  "size_cm": {
+   "width": 159,
+   "height": 100,
+   "depth": 164
+  },
+  "triangles_per_m2": 188,
+  "engines": [
+   "Unreal Engine 5.3+",
+   "Unity 2021+ (URP/HDRP/Built-in)",
+   "Blender 3.6+",
+   "Godot 4.3+"
+  ]
+ },
+ "settings": {
+  "preset": "meadowClump",
+  "variant": "C",
+  "plants": 21,
+  "seed": 88,
+  "radius_m": 1,
+  "scale": 2.25,
+  "cross": 2,
+  "clumping": 0.41,
+  "tilt": 12,
+  "curvature": 0.21,
+  "bend": 0.22,
+  "sink": 0.01
+ },
+ "unreal": {
+  "content_path": "/Game/3DTexel/Vegetation/Grass/Grass_RBleSec_C_01",
+  "masters": "/Game/3DTexel/_Masters/Vegetation",
+  "assets": {
+   "static_mesh": "SM_Grass_RBleSec_C_01",
+   "material_instances": [
+    "MI_Grass_RBleSec_C_01",
+    "MI_Grass_RBleSec_C_01_Impostor"
+   ],
+   "foliage_type": "FT_Grass_RBleSec_C_01",
+   "textures": [
+    "T_Grass_RBleSec_C_01_D",
+    "T_Grass_RBleSec_C_01_Impostor_D",
+    "T_Grass_RBleSec_C_01_Impostor_N",
+    "T_Grass_RBleSec_C_01_Impostor_ORM",
+    "T_Grass_RBleSec_C_01_N",
+    "T_Grass_RBleSec_C_01_ORM"
+   ]
+  },
+  "fbx_import": {
+   "import_mesh_lods": true,
+   "combine_meshes": false,
+   "vertex_color": "replace",
+   "normals": "import",
+   "materials": false,
+   "textures": false,
+   "nanite": false,
+   "collision": false,
+   "lightmap_uvs": false,
+   "full_precision_uvs": true,
+   "auto_compute_lod_screen_size": false
+  }
+ }
+}

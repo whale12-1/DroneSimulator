@@ -111,6 +111,16 @@ public class VehicleHealth : MonoBehaviour, IDamageable
             Instantiate(explosionVFX, spawnPos, Quaternion.identity);
         }
 
+        EWEmitter emitter = GetComponent<EWEmitter>();
+        if (emitter == null) emitter = GetComponentInChildren<EWEmitter>();
+
+        if (emitter != null)
+        {
+            emitter.isActive = false;  // Отключаем логику излучения
+            emitter.enabled = false;   // Полностью отключаем компонент (вызовет OnDisable)
+            Debug.Log("<color=cyan>[РЭБ] Передатчик помех уничтожен вместе с техникой!</color>");
+        }
+
         if (overallBurntMaterial != null)
         {
             foreach (Renderer rend in GetComponentsInChildren<Renderer>())

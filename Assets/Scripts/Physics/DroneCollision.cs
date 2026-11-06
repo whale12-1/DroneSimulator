@@ -16,6 +16,7 @@ public class DroneCollision : MonoBehaviour
     public float SplashRadius => config != null ? config.splashRadius : 1.5f;
     public float SplashDamage => config != null ? config.splashDamage : 40f;
 
+
     private void Awake()
     {
         flightController = GetComponent<DroneFlightController>();
@@ -37,6 +38,15 @@ public class DroneCollision : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
+        if (flightController != null)
+        {
+            // Если мотор не заведен, вообще игнорируем столкновения
+            if (!flightController.isMotorStarted) return;
+
+            // Если мотор заведен, но таймер неуязвимости еще идет, тоже игнорируем
+            if (flightController.currentInvulnTimer > 0f) return;
+        }
+
         if (isExploded) return;
 
         float impactVelocity = collision.relativeVelocity.magnitude;

@@ -28,25 +28,18 @@ public class DroneFlightController : MonoBehaviour
     public PIDController yawPID = new PIDController(2.0f, 0.0f, 0.3f);
 
     [Header("Скорость Вращения (Deg/Sec)")]
-    [Tooltip("Для клавиатуры 180-250 оптимально. Мышь/геймпад — 400+.")]
     [SerializeField] private float maxPitchRate = 200f;
     [SerializeField] private float maxRollRate = 200f;
     [SerializeField] private float maxYawRate = 140f;
 
     [Header("Аэродинамика")]
-    [Tooltip("Сопротивление вдоль носа. Низкое — дрон обтекаемый.")]
     [SerializeField] private float forwardDrag = 0.35f;
-    [Tooltip("Боковое сопротивление. Высокое — дрон тормозит, когда летит боком.")]
     [SerializeField] private float lateralDrag = 1.5f;
-    [Tooltip("Вертикальное сопротивление (подъём/падение).")]
     [SerializeField] private float verticalDrag = 0.5f;
-    [Tooltip("Общий множитель — крутилка 'вязкость воздуха'.")]
     [SerializeField] private float dragMultiplier = 1f;
-    [Tooltip("Жёсткий лимит скорости м/с. 0 = без лимита.")]
     [SerializeField] private float maxSpeed = 55f;
 
     [Header("Газ")]
-    [Tooltip("Скорость изменения газа при удержании клавиши.")]
     [SerializeField] private float throttleSpeed = 1.8f;
 
     [Header("Влияние РЭБ")]
@@ -55,12 +48,15 @@ public class DroneFlightController : MonoBehaviour
     [Header("Состояние")]
     public bool isInputLocked = false;
 
-    // Состояние стиков
     private float targetPitchInput;
     private float targetRollInput;
     private float targetYawInput;
     private float throttleInput;
 
+    [Header("Арминг (Заведение мотора)")]
+    public bool isMotorStarted = false;
+    public float invulnerabilityTime = 4f; // 4 секунды неуязвимости
+    [HideInInspector] public float currentInvulnTimer = 0f;
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -79,23 +75,19 @@ public class DroneFlightController : MonoBehaviour
             angleMode = true;
             hoverMode = true;
             maxAngle = 50f;
-
             maxPitchRate = 150f;
             maxRollRate  = 150f;
             maxYawRate   = 120f;
-
             throttleInput = 0.5f;
         }
         else // StrikeFPV
         {
             angleMode = false;
             hoverMode = false;
-
             maxPitchRate = 220f;
             maxRollRate  = 220f;
             maxYawRate   = 140f;
-
-            throttleInput = 0f;
+            throttleInput = 0f; // Стартуем с нуля, дрон падает
         }
     }
 
@@ -110,12 +102,24 @@ public class DroneFlightController : MonoBehaviour
         ApplyThrustAndRotation();
     }
 
-    // ================================================================
-    //  ВВОД
-    // ================================================================
-
     private void ReadInput()
     {
+        if (!isMotorStarted)
+        {
+            // Заводим мотор по нажатию Пробела (или можешь поменять на W)
+            if (Input.GetKeyDown(KeyCode.W))
+            {
+                isMotorStarted = true;
+                currentInvulnTimer = invulnerabilityTime; // Запускаем таймер на 4 секунды
+                Debug.Log("[ДРОН] Мотор заведен! Неуязвимость на 4 секунды.");
+            }
+            else
+            {
+                // Пока мотор не заведен, дрон не слушается стиков и висит на месте
+                return;
+            }
+        }
+
         if (isInputLocked)
         {
             targetPitchInput = Mathf.MoveTowards(targetPitchInput, 0f, Time.deltaTime * 8f);
@@ -154,16 +158,14 @@ public class DroneFlightController : MonoBehaviour
                 throttleInput = Mathf.MoveTowards(throttleInput, 1f, Time.deltaTime * throttleSpeed);
             else if (Input.GetKey(KeyCode.S))
                 throttleInput = Mathf.MoveTowards(throttleInput, 0f, Time.deltaTime * throttleSpeed);
-            else
-                // ВАЖНО: Если клавиши отпущены, газ плавно возвращается к 0.5 (зависание)
-                throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleSpeed);
+
+            // УБРАН БЛОК ELSE! Теперь газ остается там, где ты его оставил.
         }
 
         float jam = (enableEWImpact && ewReceiver != null) ? ewReceiver.jamIntensity : 0f;
         if (jam > 0f)
         {
             float noiseTime = Time.time * 2.5f;
-
             float driftPitch = (Mathf.PerlinNoise(noiseTime, 0f) - 0.5f) * 0.6f * jam;
             float driftRoll = (Mathf.PerlinNoise(0f, noiseTime) - 0.5f) * 0.6f * jam;
             float driftYaw = (Mathf.PerlinNoise(noiseTime, noiseTime) - 0.5f) * 0.8f * jam;
@@ -188,10 +190,6 @@ public class DroneFlightController : MonoBehaviour
             value = Mathf.MoveTowards(value, 0f, Time.deltaTime * centeringSpeed);
     }
 
-    // ================================================================
-    //  АЭРОДИНАМИКА
-    // ================================================================
-
     private void ApplyAerodynamics()
     {
         Vector3 worldVel = rb.linearVelocity;
@@ -209,12 +207,13 @@ public class DroneFlightController : MonoBehaviour
             rb.linearVelocity = worldVel.normalized * maxSpeed;
     }
 
-    // ================================================================
-    //  ТЯГА И УГЛОВОЕ УПРАВЛЕНИЕ
-    // ================================================================
-
     private void ApplyThrustAndRotation()
     {
+        if (currentInvulnTimer > 0f)
+        {
+            currentInvulnTimer -= Time.fixedDeltaTime;
+        }
+
         float jam = (enableEWImpact && ewReceiver != null) ? ewReceiver.jamIntensity : 0f;
 
         float totalGravityForce = rb.mass * Mathf.Abs(Physics.gravity.y);
@@ -253,7 +252,6 @@ public class DroneFlightController : MonoBehaviour
 
         if (angleMode)
         {
-            // Angle-режим: цель — угол, не скорость вращения
             float currentPitch = NormalizeAngle(transform.localEulerAngles.x);
             float currentRoll = NormalizeAngle(transform.localEulerAngles.z);
 
@@ -266,7 +264,6 @@ public class DroneFlightController : MonoBehaviour
         }
         else
         {
-            // Чистый Acro: цель — скорость вращения, угол дрон не возвращает сам
             targetPitchRate = targetPitchInput * maxPitchRate;
             targetRollRate  = targetRollInput  * maxRollRate;
         }
@@ -278,6 +275,14 @@ public class DroneFlightController : MonoBehaviour
         float pitchCorr = Mathf.Clamp(pitchPID.Update(pitchError, Time.fixedDeltaTime), -0.9f, 0.9f);
         float rollCorr = Mathf.Clamp(rollPID.Update(rollError, Time.fixedDeltaTime), -0.9f, 0.9f);
         float yawCorr = Mathf.Clamp(yawPID.Update(yawError, Time.fixedDeltaTime), -0.6f, 0.6f);
+
+        // --- НОВОЕ: Если газ на нуле, отключаем PID выравнивания ---
+        // Это заставит моторы ПОЛНОСТЬЮ остановиться и дрон упадет.
+        if (effectiveThrottle <= 0.01f)
+        {
+            pitchCorr = 0f;
+            rollCorr = 0f;
+        }
 
         rb.AddRelativeTorque(Vector3.up * yawCorr * 8f, ForceMode.Force);
 
