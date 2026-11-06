@@ -12,6 +12,7 @@ public class BunkerPauseController : MonoBehaviour
     [SerializeField] private InteractionUIController uiController;
     [SerializeField] private PlayerController playerController;
     [SerializeField] private GameObject settingsNotice;
+    [SerializeField] private SettingsPanel settingsPanel;
 
     public static bool IsPaused { get; private set; }
 
@@ -54,6 +55,12 @@ public class BunkerPauseController : MonoBehaviour
 
         if (IsOpen)
         {
+            if (settingsPanel != null && settingsPanel.IsOpen)
+            {
+                settingsPanel.Hide();
+                return;
+            }
+
             Resume();
             return;
         }
@@ -78,6 +85,8 @@ public class BunkerPauseController : MonoBehaviour
 
     public void Resume()
     {
+        if (settingsPanel != null) settingsPanel.Hide();
+
         if (pausePanel != null)
             pausePanel.SetActive(false);
 
@@ -98,6 +107,12 @@ public class BunkerPauseController : MonoBehaviour
 
     public void OpenSettings()
     {
+        if (settingsPanel != null)
+        {
+            settingsPanel.Show();
+            return;
+        }
+
         if (settingsNotice == null)
             return;
 
@@ -106,6 +121,8 @@ public class BunkerPauseController : MonoBehaviour
 
     public void ExitToMainMenu()
     {
+        if (settingsPanel != null) settingsPanel.Hide();
+
         if (pausePanel != null)
             pausePanel.SetActive(false);
 
@@ -124,6 +141,8 @@ public class BunkerPauseController : MonoBehaviour
 
     private void OpenPause()
     {
+        if (settingsPanel != null) settingsPanel.Hide();
+
         if (pausePanel != null)
             pausePanel.SetActive(true);
 
@@ -146,6 +165,8 @@ public class BunkerPauseController : MonoBehaviour
 
         if (next == GameState.Loading || next == GameState.MainMenu || next == GameState.MissionSelect || next == GameState.Debrief)
         {
+            if (settingsPanel != null) settingsPanel.Hide();
+
             if (pausePanel != null)
                 pausePanel.SetActive(false);
 
