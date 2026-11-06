@@ -19,7 +19,7 @@ public class MissionMenuController : MonoBehaviour
         if (registry == null) registry = Resources.Load<MissionRegistry>("MissionRegistry");
         if (missionSelect == null) missionSelect = GetComponent<MissionSelectScreen>();
         if (panelGroup == null) panelGroup = GetComponent<CanvasGroup>();
-        if (backButton == null) backButton = GetComponentInChildren<Button>(true);
+        if (backButton == null) backButton = FindBackButton();
 
         if (backButton != null)
         {
@@ -39,8 +39,28 @@ public class MissionMenuController : MonoBehaviour
         if (Time.unscaledTime - lastOpenTime < 0.2f) return;
 
         Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
-            CloseMissionMenu();
+        if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;
+
+        if (missionSelect != null && missionSelect.IsDetailsOpen)
+        {
+            missionSelect.CloseDetails();
+            return;
+        }
+
+        CloseMissionMenu();
+    }
+
+    private Button FindBackButton()
+    {
+        Button[] buttons = GetComponentsInChildren<Button>(true);
+
+        foreach (Button candidate in buttons)
+        {
+            if (candidate != null && candidate.name == "BackButton")
+                return candidate;
+        }
+
+        return buttons.Length > 0 ? buttons[0] : null;
     }
 
     public void OpenMissionMenu()
@@ -75,6 +95,9 @@ public class MissionMenuController : MonoBehaviour
     {
         IsOpen = false;
         LastClosedTime = Time.unscaledTime;
+
+        if (missionSelect != null) missionSelect.CloseDetails();
+
         HidePanel();
 
         if (GameStateMachine.CanTransitionTo(GameState.Gameplay))

@@ -161,8 +161,8 @@ public class MissionController : MonoBehaviour
         float timeElapsed = Time.time - startTime;
         MissionContext.MarkResult(result, targetsDestroyed, timeElapsed);
 
-        if (result == MissionResult.Success && mission != null)
-            ProgressService.CompleteMission(mission, mission.rewardPoints);
+        if (mission != null)
+            ProgressService.RecordResult(mission, result, timeElapsed, targetsDestroyed);
 
         GameStateMachine.TransitionTo(GameState.Debrief);
     }

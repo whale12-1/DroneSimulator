@@ -40,6 +40,12 @@ UI главного меню → Assets/Scenes/MainMenu.unity
 
 UI выбора миссии → Assets/Scripts/MainMenu/MissionSelectScreen.cs
 
+Панель деталей миссии (правая колонка, кнопка запуска) → Assets/Scripts/MainMenu/MissionDetailsPanel.cs
+
+Форматирование текстов миссий (цели, время, роль дрона) → Assets/Scripts/MainMenu/MissionText.cs
+
+Префаб панели выбора миссий (шапка, карточки, детали) → Assets/Prefabs/UI/MissionSelectPanel.prefab
+
 Карточка миссии → Assets/Prefabs/UI/MissionCard.prefab
 
 HUD дронов
@@ -83,6 +89,12 @@ HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
 Контекст выбранной миссии → Assets/Scripts/Data/MissionContext.cs
 
 Сохранение прогресса → Assets/Scripts/Data/ProgressService.cs
+
+Статистика прохождений (MissionRecord: время, счёт, прохождения) → Assets/Scripts/Data/ProgressService.cs
+
+Генератор префабов экрана миссий (Editor) → Assets/Scripts/Editor/MissionSelectPanelBuilder.cs
+
+Генератор контента миссий и дронов (Editor) → Assets/Scripts/Editor/MissionContentBuilder.cs
 
 Контроллер дебрифинга → Assets/Scripts/Data/DebriefController.cs
 

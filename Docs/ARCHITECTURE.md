@@ -290,11 +290,19 @@ DesktopIcon «Миссии» → MissionMenuController.OpenMissionMenu()
           ↓
 MissionSelectScreen.Populate(.)
           ↓
-ProgressService.IsUnlocked(.)
+ProgressService.IsUnlocked(.) / IsCompleted(.) / GetRecord(.)
           ↓
 MissionCardView.Bind(.)
           ↓
 клик по карточке
+          ↓
+MissionSelectScreen.OnMissionClicked(.)
+  ├── MissionCardView.SetSelected(true)
+  └── MissionDetailsPanel.Show(mission, unlocked, completed, record)
+          ↓
+кнопка «ЗАПУСТИТЬ МИССИЮ»
+          ↓
+MissionDetailsPanel.LaunchRequested → MissionSelectScreen.OnLaunchRequested(.)
           ↓
 MissionMenuController.StartMission(.)
   ├── MissionContext.Begin(.)
@@ -765,13 +773,26 @@ Data/MissionDefinition.cs
 
 Data/ProgressService.cs
 
-Классы: ProgressService, SaveData
+Классы: ProgressService, SaveData, MissionRecord
 
-Назначение: JSON-сохранение прогресса
+Назначение: JSON-сохранение прогресса и статистики прохождений
 
 Зависимости: JsonUtility, IO
 
-Статус: вызывается UI/миссиями
+Поля сохранения: completedMissionIds, unlockedMissionIds, totalScore, records
+
+MissionRecord: id, completed, bestTime, lastTime, bestScore, lastScore, completions, attempts, bestTargets
+
+API: IsUnlocked, IsCompleted, GetRecord(mission) / GetRecord(id), RecordResult(mission, result, seconds,
+targetsDestroyed), ComputeScore(mission, result, seconds, targetsDestroyed), CompleteMission, ResetProgress
+
+Счёт: при успехе rewardPoints + 25 за каждую уничтоженную цель + до 50 очков за скорость при наличии
+timeLimit; при провале 0. Формула живёт только в ComputeScore, поэтому дебрифинг и панель деталей
+показывают одинаковое значение.
+
+Статус: MissionController.EndMission вызывает RecordResult для любого исхода (успех и провал),
+DebriefController и MissionDetailsPanel читают счёт через ComputeScore. Старые progress.json без
+records читаются без миграции (Sanitize подставляет пустые списки).
 
 Data/DebriefController.cs
 
@@ -887,19 +908,68 @@ MainMenu/MissionCardView.cs
 
 Назначение: карточка миссии
 
-Зависимости: UI, TMP, MissionDefinition
+Поля: previewImage, nameLabel, metaText, lockedOverlay, completedBadge, selectedFrame, button
 
-Статус: Mission UI
+Методы: Bind(mission, unlocked, completed, onClick), SetSelected(bool), свойство Mission
+
+Зависимости: UI, TMP, MissionDefinition, MissionText
+
+Статус: Mission UI. Карточка больше не запускает миссию: клик передаёт миссию в MissionSelectScreen.
+Button.interactable всегда true (заблокированная карточка открывает детали с причиной блокировки).
+Файл пересохранён в UTF-8 (был в Windows-1251).
 
 MainMenu/MissionSelectScreen.cs
 
-Класс: MissionSelectScreen
+Класс: MissionSelectScreen (наследник UIScreen)
 
-Назначение: генерация карточек
+Назначение: генерация карточек и управление выбором миссии (master-detail)
 
-Зависимости: ProgressService, MissionRegistry
+Поля: cardPrefab, cardsContainer, detailsPanel, headerSubtitleLabel, totalScoreLabel, verboseLogging
+
+Методы: Populate(registry, onPlay), CloseDetails(), свойство IsDetailsOpen
+
+Поведение: Populate создаёт карточки и обновляет шапку (число операций и общий счёт); клик по карточке
+выделяет её и вызывает MissionDetailsPanel.Show; миссия запускается только по событию
+LaunchRequested панели деталей, которое пробрасывается в onPlay (MissionMenuController.StartMission).
+
+Зависимости: ProgressService, MissionRegistry, MissionDetailsPanel, MissionCardView
 
 Статус: Mission UI
+
+MainMenu/MissionDetailsPanel.cs
+
+Класс: MissionDetailsPanel
+
+Назначение: правая панель деталей миссии (баннер, статус, название, описание, статистика, цели,
+техника, подсказка/причина блокировки, кнопка запуска)
+
+Поля инспектора: group, emptyState, contentRoot, bannerImage, bannerCodeText, statusIcon, statusLabel,
+rewardLabel, titleLabel, descriptionLabel, timeValue, scoreValue, completionsValue, targetsValue,
+noteText, goalLines[3], goalMarkers[3], techLine, launchButton, launchLabel, completedColor,
+pendingColor, lockedColor, revealDuration
+
+Методы: Show(mission, unlocked, completed, record), ShowEmpty(), Hide(), событие LaunchRequested,
+свойство IsOpen
+
+Поведение: состояние «не пройдена» показывает прочерки, условия выполнения и награду; «пройдена» —
+лучшее время, счёт, число прохождений и целей из MissionRecord; «заблокирована» — причину по
+prerequisites и недоступную кнопку. Появление с fade на unscaled-времени (в меню Time.timeScale = 0).
+
+Зависимости: MissionDefinition, MissionRecord, ProgressService, MissionText, TMP, UI
+
+Статус: Mission UI, встроена в префаб MissionSelectPanel (дочерний объект MissionDetailsPanel)
+
+MainMenu/MissionText.cs
+
+Класс: MissionText (static)
+
+Назначение: форматирование текстов миссий
+
+Методы: Targets(count), Objective(mission), TimeLimit(seconds), Duration(seconds), DroneRole(config)
+
+Зависимости: MissionDefinition, DroneConfig, CameraType
+
+Статус: используется MissionCardView и MissionDetailsPanel
 
 MainMenu/SettingsScreen.cs
 
