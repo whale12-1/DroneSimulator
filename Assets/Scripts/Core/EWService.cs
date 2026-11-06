@@ -9,6 +9,7 @@ public static class EWService
 {
     private static readonly List<EWEmitter> emitters = new List<EWEmitter>();
 
+    public static float BoundaryJamIntensity = 0f;
     public static void Register(EWEmitter e)
     {
         if (e != null && !emitters.Contains(e)) emitters.Add(e);
