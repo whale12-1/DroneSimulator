@@ -14,6 +14,7 @@ public class DroneMotors : MonoBehaviour
 
     private Rigidbody rb;
     public float MaxTotalThrust => maxThrust * 4f;
+    public float CurrentThrust01 { get; private set; }
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -27,6 +28,8 @@ public class DroneMotors : MonoBehaviour
     /// </summary>
     public void ApplyMotorsThrust(float thrustFL, float thrustFR, float thrustBL, float thrustBR)
     {
+        CurrentThrust01 = Mathf.Clamp01(Mathf.Max(Mathf.Max(thrustFL, thrustFR), Mathf.Max(thrustBL, thrustBR)));
+
         ApplyForceToMotor(motorFL, thrustFL);
         ApplyForceToMotor(motorFR, thrustFR);
         ApplyForceToMotor(motorBL, thrustBL);

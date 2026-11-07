@@ -1,37 +1,26 @@
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 public class NightVisionController : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
     [SerializeField] private DroneConfig config;
-
-    [Header("Ссылки")]
-    [SerializeField] private Volume globalVolume;
     [SerializeField] private Light irSpotlight;
 
     public bool isNightVisionActive = false;
+
     private ColorAdjustments colorAdjustments;
+    private bool applyPending;
 
     private void Awake()
     {
-        // Авто-поиск Global Volume, если поле пустое
-        if (globalVolume == null)
-        {
-            globalVolume = FindFirstObjectByType<Volume>();
-        }
-
-        // Авто-создание ИК-фонаря, если он не назначен
         if (irSpotlight == null)
         {
-            GameObject lightObj = new GameObject("IR_Spotlight");
-            lightObj.transform.SetParent(transform, false);
-            irSpotlight = lightObj.AddComponent<Light>();
+            GameObject lightObject = new GameObject("IR_Spotlight");
+            lightObject.transform.SetParent(transform, false);
+            irSpotlight = lightObject.AddComponent<Light>();
             irSpotlight.type = LightType.Spot;
         }
 
-        // Применяем параметры ИК-подсветки из конфига
         if (irSpotlight != null && config != null)
         {
             irSpotlight.range = config.irRange;
@@ -39,21 +28,18 @@ public class NightVisionController : MonoBehaviour
             irSpotlight.intensity = config.irIntensity;
         }
 
-        // Получаем или создаем компонент ColorAdjustments в профиле
-        if (globalVolume != null && globalVolume.profile != null)
-        {
-            if (!globalVolume.profile.TryGet(out colorAdjustments))
-            {
-                colorAdjustments = globalVolume.profile.Add<ColorAdjustments>(true);
-            }
-        }
-
+        PostFxRouter.Ensure().Bind(this);
         SetNightVisionState(false);
+    }
+
+    public void SetColorAdjustments(ColorAdjustments adjustments)
+    {
+        colorAdjustments = adjustments;
+        applyPending = true;
     }
 
     private void Update()
     {
-        // Если ПНВ отключен в конфиге текущего дрона — выключаем и игнорируем ввод
         if (config != null && !config.hasNightVision)
         {
             if (isNightVisionActive) SetNightVisionState(false);
@@ -62,48 +48,70 @@ public class NightVisionController : MonoBehaviour
 
         KeyCode toggleKey = (config != null) ? config.nvToggleKey : KeyCode.N;
 
-        if (Input.GetKeyDown(toggleKey))
-        {
-            SetNightVisionState(!isNightVisionActive);
-        }
+        if (Input.GetKeyDown(toggleKey)) SetNightVisionState(!isNightVisionActive);
+
+        if (isNightVisionActive || applyPending) ApplyLook();
     }
 
     private void SetNightVisionState(bool active)
     {
         isNightVisionActive = active;
 
-        if (colorAdjustments != null)
-        {
-            colorAdjustments.active = active;
-            colorAdjustments.colorFilter.overrideState = active;
-            colorAdjustments.colorFilter.value = (config != null) ? config.nvColor : new Color(0.1f, 1.0f, 0.2f);
+        if (irSpotlight != null) irSpotlight.enabled = active;
 
-            colorAdjustments.postExposure.overrideState = active;
-            colorAdjustments.postExposure.value = (config != null) ? config.nvPostExposure : 1.8f;
-        }
-
-        if (irSpotlight != null)
-        {
-            irSpotlight.enabled = active;
-        }
+        ApplyLook();
     }
 
-    // --- НОВЫЙ КОД ---
+    private void ApplyLook()
+    {
+        applyPending = false;
+
+        if (colorAdjustments == null) return;
+
+        colorAdjustments.active = isNightVisionActive;
+        colorAdjustments.colorFilter.overrideState = isNightVisionActive;
+        colorAdjustments.colorFilter.value = ResolveColor();
+        colorAdjustments.postExposure.overrideState = isNightVisionActive;
+        colorAdjustments.postExposure.value = ResolveExposure();
+    }
+
+    private Color ResolveColor()
+    {
+        SettingsService service = SettingsService.Instance;
+        if (service != null && service.Data != null && service.Data.graphics != null)
+        {
+            switch (service.Data.graphics.nightVisionColor)
+            {
+                case 1:
+                    return new Color(0.92f, 0.95f, 1f);
+                case 2:
+                    return new Color(1f, 0.72f, 0.32f);
+                case 0:
+                    return new Color(0.1f, 1f, 0.2f);
+            }
+        }
+
+        return config != null ? config.nvColor : new Color(0.1f, 1f, 0.2f);
+    }
+
+    private float ResolveExposure()
+    {
+        float baseExposure = config != null ? config.nvPostExposure : 1.8f;
+
+        SettingsService service = SettingsService.Instance;
+        if (service == null || service.Data == null || service.Data.graphics == null) return baseExposure;
+
+        return baseExposure * Mathf.Clamp(service.Data.graphics.nightVisionGain, 0.1f, 5f);
+    }
+
     private void OnEnable()
     {
-        // При включении дрона (переключении на него) принудительно выключаем ПНВ
         SetNightVisionState(false);
     }
 
     private void OnDisable()
     {
-        // При выключении дрона (переключении на другого) сбрасываем глобальный эффект
-        if (isNightVisionActive)
-        {
-            SetNightVisionState(false);
-        }
+        if (isNightVisionActive) SetNightVisionState(false);
+        else ApplyLook();
     }
-    // -----------------
-
-
 }

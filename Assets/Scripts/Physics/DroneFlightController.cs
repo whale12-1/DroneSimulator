@@ -42,6 +42,12 @@ public class DroneFlightController : MonoBehaviour
     [Header("Газ")]
     [SerializeField] private float throttleSpeed = 1.8f;
 
+    private float stickSpeed = 4f;
+    private float centeringSpeed = 8f;
+    private float throttleRate = 1.8f;
+    private int throttleMode = 1;
+    private bool invertPitch;
+
     [Header("Влияние РЭБ")]
     [SerializeField] private bool enableEWImpact = true;
 
@@ -104,6 +110,8 @@ public class DroneFlightController : MonoBehaviour
 
     private void ReadInput()
     {
+        RefreshInputSettings();
+
         if (!isMotorStarted)
         {
             // Заводим мотор по нажатию Пробела (или можешь поменять на W)
@@ -131,7 +139,7 @@ public class DroneFlightController : MonoBehaviour
                 hoverMode = true;
                 angleMode = true;
             }
-            throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleSpeed);
+            throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleRate);
             return;
         }
 
@@ -147,7 +155,16 @@ public class DroneFlightController : MonoBehaviour
             if (!angleMode) hoverMode = false;
         }
 
-        UpdateStickRate(ref targetPitchInput, KeyCode.UpArrow, KeyCode.DownArrow);
+        KeyCode pitchUpKey = KeyCode.UpArrow;
+        KeyCode pitchDownKey = KeyCode.DownArrow;
+
+        if (invertPitch)
+        {
+            pitchUpKey = KeyCode.DownArrow;
+            pitchDownKey = KeyCode.UpArrow;
+        }
+
+        UpdateStickRate(ref targetPitchInput, pitchUpKey, pitchDownKey);
         UpdateStickRate(ref targetRollInput, KeyCode.RightArrow, KeyCode.LeftArrow);
         UpdateStickRate(ref targetYawInput, KeyCode.D, KeyCode.A);
 
@@ -155,9 +172,11 @@ public class DroneFlightController : MonoBehaviour
         if (!hoverMode)
         {
             if (Input.GetKey(KeyCode.W))
-                throttleInput = Mathf.MoveTowards(throttleInput, 1f, Time.deltaTime * throttleSpeed);
+                throttleInput = Mathf.MoveTowards(throttleInput, 1f, Time.deltaTime * throttleRate);
             else if (Input.GetKey(KeyCode.S))
-                throttleInput = Mathf.MoveTowards(throttleInput, 0f, Time.deltaTime * throttleSpeed);
+                throttleInput = Mathf.MoveTowards(throttleInput, 0f, Time.deltaTime * throttleRate);
+            else if (throttleMode == 0)
+                throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleRate);
 
             // УБРАН БЛОК ELSE! Теперь газ остается там, где ты его оставил.
         }
@@ -178,9 +197,6 @@ public class DroneFlightController : MonoBehaviour
 
     private void UpdateStickRate(ref float value, KeyCode positive, KeyCode negative)
     {
-        const float stickSpeed = 4.0f;
-        const float centeringSpeed = 8.0f;
-
         bool pos = Input.GetKey(positive);
         bool neg = Input.GetKey(negative);
 
@@ -188,6 +204,28 @@ public class DroneFlightController : MonoBehaviour
             value = Mathf.MoveTowards(value, pos ? 1f : -1f, Time.deltaTime * stickSpeed);
         else
             value = Mathf.MoveTowards(value, 0f, Time.deltaTime * centeringSpeed);
+    }
+
+    private void RefreshInputSettings()
+    {
+        SettingsService service = SettingsService.Instance;
+        if (service == null || service.Data == null || service.Data.controls == null)
+        {
+            stickSpeed = 4f;
+            centeringSpeed = 8f;
+            throttleRate = throttleSpeed;
+            throttleMode = 1;
+            invertPitch = false;
+            return;
+        }
+
+        DroneSimulator.Settings.ControlSettings controls = service.Data.controls;
+
+        stickSpeed = Mathf.Clamp(controls.droneStickSpeed, 0.5f, 20f);
+        centeringSpeed = Mathf.Clamp(controls.droneCenteringSpeed, 0.5f, 30f);
+        throttleRate = Mathf.Clamp(controls.throttleSpeed, 0.1f, 10f);
+        throttleMode = controls.throttleMode;
+        invertPitch = controls.droneInvertY;
     }
 
     private void ApplyAerodynamics()

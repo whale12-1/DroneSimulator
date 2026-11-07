@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class MainMenuController : MonoBehaviour
 {
@@ -8,7 +9,7 @@ public class MainMenuController : MonoBehaviour
     [Header("Панели (наследники UIScreen)")]
     [SerializeField] private UIScreen mainPanel;
     [SerializeField] private MissionSelectScreen missionSelect;
-    [SerializeField] private SettingsScreen settings;
+    [SerializeField] private SettingsPanel settings;
 
     [Header("Отладка")]
     [SerializeField] private bool verboseLogging = true;
@@ -33,6 +34,15 @@ public class MainMenuController : MonoBehaviour
         }
 
         ShowMainPanel();
+    }
+
+    private void Update()
+    {
+        if (settings == null || !settings.IsOpen) return;
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+            OnBackFromSettings();
     }
 
     // ------------------ Навигация по панелям ------------------

@@ -5,7 +5,7 @@
 # Архитектура и карта проекта DroneSimulator
 
 Этот файл — часть документации проекта DroneSimulator.  
-Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md.
+Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md, SETTINGS_DESIGN.md.
 
 ## 1. Общая структура папок
 
@@ -130,6 +130,38 @@ AI техники;
 миссионный контроллер.
 Она используется преимущественно в отдельных прототипных сценах и префабах.
 
+2.3 Настройки (Settings pipeline)
+Единый конвейер: UI → SettingsData → SettingsService → апплеры → игровые системы.
+
+SettingsPanel (4 вкладки) собирает строки SettingDescriptor (Slider / Toggle / Dropdown).
+Любое изменение: поле SettingsData обновлено → SettingsService.ApplyInstant() (звук) →
+(если настройка не «тяжёлая» либо слайдер отпущен) SettingsService.ApplyHeavy() → MarkDirty()
+(запись settings.json через 0.5 с).
+
+ApplyHeavy по порядку:
+  1) SettingsApplier.ApplyScreen      — windowMode / resolutionIndex → Screen (с кэшем «уже применено»)
+  2) SettingsApplier.ApplyQualityState — QualitySettings: уровень → VSync ПОСЛЕ уровня → лимит FPS → LOD → mipmap
+  3) GraphicsApplier.Apply            — рантайм-клон URP-ассета: renderScale, shadowDistance, каскады,
+                                        MSAA, мягкие тени, shadowmap resolution
+  4) PostFxRouter.ApplyMotionBlur     — Motion Blur через глобальный «Настройки»-Volume
+  5) CameraApplier.Refresh            — камеры бункера и дронов (far clip, тени, AA, постобработка)
+
+SettingsService.Awake(): AudioBus.Reset(), SettingsApplier.ResetScreenCache(), SettingsScope.Refresh(),
+ApplyAll(). Кэши сбрасываются, потому что статика переживает сессию при отключённом domain reload.
+SettingsService.OnSceneLoaded(): SettingsScope.Refresh() → ApplyAll().
+
+Кто читает настройки напрямую (pull-модель, без апплеров):
+  PlayerController        — fpsMouseSensitivity, fpsInvertY
+  DroneFlightController   — droneStickSpeed, droneCenteringSpeed, throttleSpeed, throttleMode, droneInvertY
+  DroneCameraModule       — gimbalSpeed, gimbalInvertY
+  FPVZoom                 — droneFov (масштабирует лестницу зума)
+  EWReceiver              — ewVisualDistortion, ewPostFxQuality, ewNoiseResolution, reduceDangerousEffects
+  NightVisionController   — nightVisionColor, nightVisionGain
+  FPVCameraShake          — cameraShakeIntensity
+  HudStyleService / ReconHUD / StrikeHUD / FpsCounterHud — HUD-стиль и счётчик FPS
+  AmbushMissionDirector   — subtitlesEnabled, subtitleFontSize
+  InteractionUIController — showInteractionHints
+
 3. Глобальные сервисы и данные
 GameEvents
 Файл:
@@ -186,6 +218,50 @@ Assets/Scripts/Data/ProgressService.cs
 Файл сохранения:
 
 Application.persistentDataPath/progress.json
+
+SettingsService
+
+Файл:
+
+Assets/Scripts/MainMenu/SettingsService.cs
+
+Назначение: singleton настроек. Загрузка/сохранение settings.json (SchemaVersion = 3, миграция:
+windowMode наследуется из старого fullscreen), EnsureInstance(), ApplyAll(), ApplyInstant(),
+ApplyHeavy(), ResetAll(), MarkDirty(). Запись атомарная (tmp + File.Replace + .bak), debounce 0.5 с.
+Файл сохранения: Application.persistentDataPath/settings.json.
+Создаётся Bootstrapper (Boot.unity) или лениво SettingsPanel.Start().
+
+PostFxRouter
+
+Файл:
+
+Assets/Scripts/Settings/PostFxRouter.cs
+
+Назначение: единственный владелец Volume для эффектов. [DefaultExecutionOrder(-100)].
+Создаёт DontDestroyOnLoad-объект PostFxRouter с тремя глобальными Volume и рантайм-профилями:
+PostFX_EW (priority 10: ChromaticAberration + Vignette + FilmGrain), PostFX_NV (20: ColorAdjustments),
+PostFX_Settings (30: MotionBlur). Раздаёт ссылки через Bind(EWReceiver) и Bind(NightVisionController),
+переключает Motion Blur через ApplyMotionBlur(bool). Авто-поиск Volume у потребителей удалён.
+
+AudioBus
+
+Файл:
+
+Assets/Scripts/Settings/AudioBus.cs
+
+Назначение: загрузка Assets/Resources/Audio/MainMixer.mixer (Resources.Load("Audio/MainMixer")),
+раздача групп Master/Music/SFX/DroneMotors/EW/UI, SetVolume(parameter, linear) в дБ (0 → −80 дБ).
+Если микшера нет, Ready == false и AudioApplier работает через AudioListener.volume.
+
+SettingsScope
+
+Файл:
+
+Assets/Scripts/Settings/SettingsScope.cs
+
+Назначение: IsMission (в сцене есть DroneManager). Обновляется на sceneLoaded; от него зависит
+дистанция теней (бункер/миссия) в GraphicsApplier.
+
 4. Схемы связей
 4.1 Mission flow
 
@@ -214,11 +290,19 @@ DesktopIcon «Миссии» → MissionMenuController.OpenMissionMenu()
           ↓
 MissionSelectScreen.Populate(.)
           ↓
-ProgressService.IsUnlocked(.)
+ProgressService.IsUnlocked(.) / IsCompleted(.) / GetRecord(.)
           ↓
 MissionCardView.Bind(.)
           ↓
 клик по карточке
+          ↓
+MissionSelectScreen.OnMissionClicked(.)
+  ├── MissionCardView.SetSelected(true)
+  └── MissionDetailsPanel.Show(mission, unlocked, completed, record)
+          ↓
+кнопка «ЗАПУСТИТЬ МИССИЮ»
+          ↓
+MissionDetailsPanel.LaunchRequested → MissionSelectScreen.OnLaunchRequested(.)
           ↓
 MissionMenuController.StartMission(.)
   ├── MissionContext.Begin(.)
@@ -228,9 +312,20 @@ MissionMenuController.StartMission(.)
 миссионная сцена
           ↓
 MissionController.Awake()
+  ├── Loading → Gameplay (если сцена загружена через меню)
+  └── читает MissionContext.Current
+          ↓
+MissionController.Start()
   └── DroneManager.SelectByConfig(mission.defaultDrone)
           ↓
+FirstMission(Forest): AmbushMissionDirector
+  ├── отключает MissionController.autoComplete = false
+  ├── ведёт сценарий «наблюдение → БТР → погоня за РСЗО»
+  └── MissionController.CompleteMission(result, targets)
+          ↓
 MissionController.EndMission(.)
+  ├── MissionContext.MarkResult(.)
+  ├── ProgressService.CompleteMission(.) — при успехе
   └── GameStateMachine → Debrief
           ↓
 DebriefController
@@ -256,10 +351,12 @@ DebriefController
 
 Текущий фактический статус:
 
-Mission1 указывает SampleScene;
-Mission2 и Mission3 не имеют sceneName;
+Mission1 («Тренировочная миссия», id = training_mission) указывает PreparingDemo;
+Mission2 («Первая миссия», id = mission_1) указывает FirstMission(Forest);
+Mission3 исключена из реестра MissionRegistry.allMissions (осталась в папке Missions, не используется);
 player.unity отсутствует в Build Settings;
 сцена базы Bunker(main) добавлена в Build Settings;
+сцены PreparingDemo и FirstMission(Forest) добавлены в Build Settings;
 кнопка «Играть» в MainMenu загружает Bunker(main) (ReturnedFromMission = false, игрок стоит на спавне);
 выбор миссии — только через компьютер в бункере (MissionMenuController);
 debrief UI — базовая панель DebriefController; возврат с миссии ведёт в Bunker(main);
@@ -358,6 +455,41 @@ DeploySmokeScreen
         ↓
 smokeGrenadePrefab
 
+4.5 Settings flow
+
+SettingsPanel.SelectTab(index)
+        ↓
+SettingDescriptor (Slider / Toggle / Dropdown)
+        ↓ изменение
+SettingsData.<поле> = value
+        ↓
+SettingsService.ApplyInstant() → AudioApplier.Apply(audio) → AudioBus.SetVolume(...)
+        ↓ (не «тяжёлая» или слайдер отпущен)
+SettingsService.ApplyHeavy()
+        ├── SettingsApplier.ApplyScreen       (Screen.fullScreenMode / Screen.SetResolution)
+        ├── SettingsApplier.ApplyQualityState (уровень → VSync → targetFrameRate → LOD → mipmap)
+        ├── GraphicsApplier.Apply             (клон URP: renderScale / shadowDistance / каскады / MSAA / мягкие тени)
+        ├── PostFxRouter.ApplyMotionBlur      (override MotionBlur)
+        └── CameraApplier.Refresh             (FPS-камера бункера и камеры дронов)
+        ↓
+SettingsService.MarkDirty() → settings.json (debounce 0.5 с, атомарная запись)
+
+Отдельно: SettingsService.OnSceneLoaded → SettingsScope.Refresh() → ApplyAll() (всё применяется заново).
+
+4.6 Post FX flow (РЭБ и ПНВ)
+
+PostFxRouter.Awake (первый Ensure)
+        ↓
+CreateInstance<VolumeProfile> × 3 → Volume (global, DontDestroyOnLoad)
+        ↓
+EWReceiver.Awake  → PostFxRouter.Ensure().Bind(this)   → SetEffects(CA, Vignette, Grain)
+NightVisionController.Awake → PostFxRouter.Ensure().Bind(this) → SetColorAdjustments(ColorAdjustments)
+        ↓
+EWReceiver.Update: jamIntensity → VisualScale (ewVisualDistortion × SetVisualScale)
+        → CA/Vignette/Grain intensity (active = false, когда помех или искажений нет)
+        → ApplyFrameJitter → cam.rect + FPVZoom.SetFovOffset(offset) (аддитивно, не сброс FOV)
+NightVisionController.Update: nightVisionColor + nvPostExposure × nightVisionGain → ColorAdjustments
+
 5. Скрипты по категориям
 5.1 Player
 Assets/Scripts/Player/PlayerController.cs
@@ -374,6 +506,10 @@ Assets/Scripts/Player/PlayerController.cs
 блокируются движение и гравитация; вращение камеры мышью остаётся доступным)
 
 Методы: Start, Update, SetSitting, SetTyping, ForceSitIdle (сбрасывает Animator в SitIdle)
+
+Настройки: LookSensitivity и InvertLookY читают controls.fpsMouseSensitivity и controls.fpsInvertY
+из SettingsService (без сервиса работает старое mouseSensitivity × 1/60). Клампы вертикали пока
+зашиты (−70…90), поля controls.verticalClampMin/Max не используются.
 
 5.2 Camera / HUD
 Camera/DroneCameraModule.cs
@@ -402,19 +538,22 @@ Camera/FPVCameraShake.cs
 
 Назначение: тряска FPV-камеры
 
-Зависимости: старый Input.GetAxis, DroneConfig
+Зависимости: старый Input.GetAxis, DroneConfig, SettingsService (cameraShakeIntensity)
 
-Статус: дроновый прототип
+Статус: дроновый прототип; амплитуды умножаются на gameplay.cameraShakeIntensity, при 0 камера
+возвращается в исходную позу (даже если DroneConfig.enableCameraShake == true).
 
 Camera/FPVZoom.cs
 
 Класс: FPVZoom
 
-Назначение: переключение FOV
+Назначение: переключение FOV; единственный владелец Camera.fieldOfView дрона
 
-Зависимости: старый Input.GetKeyDown, DroneConfig
+Зависимости: старый Input.GetKeyDown, DroneConfig, SettingsService (droneFov), EWReceiver (SetFovOffset)
 
-Статус: дроновый прототип
+Статус: дроновый прототип; лестница зума масштабируется от базового FOV из настроек
+(zoomLevels[i] × droneFov / zoomLevels[0]), собственный currentFov сглаживается, а внешнее дрожание
+РЭБ добавляется как fovOffset — зум больше не «сбрасывается» при помехах.
 
 Camera/IntersectorHUD.cs
 
@@ -432,9 +571,11 @@ Camera/NIghtVisionController.cs
 
 Назначение: ПНВ, IR Light, ColorAdjustments
 
-Зависимости: старый Input.GetKeyDown, URP Volume
+Зависимости: PostFxRouter (Bind), DroneConfig, SettingsService
 
-Статус: дроновый прототип
+Статус: дроновый прототип; Volume больше не ищется. Цвет из graphics.nightVisionColor
+(0 зелёный / 1 белый / 2 янтарный), яркость = DroneConfig.nvPostExposure × nightVisionGain,
+«активность» компонента ColorAdjustments живёт в рантайм-профиле PostFX_NV.
 
 Camera/ReconHUD.cs
 
@@ -442,9 +583,11 @@ Camera/ReconHUD.cs
 
 Назначение: LRF, рамка цели, разведывательный HUD
 
-Зависимости: TargetLockManager, TargetObject
+Зависимости: TargetLockManager, TargetObject, HudStyleService
 
-Статус: дроновый прототип
+Статус: дроновый прототип; цвет/прозрачность/масштаб (GUI.matrix), толщина линий, размер перекрестия
+и показ рамки захвата берутся из HudStyleService (gameplay.hudTransparency, hudScale, hudLineThickness,
+crosshairSize, showTargetFrame).
 
 Camera/StrikeHUD.cs
 
@@ -452,9 +595,10 @@ Camera/StrikeHUD.cs
 
 Назначение: ударный HUD и предупреждение РЭБ
 
-Зависимости: DroneCameraModule, EWReceiver
+Зависимости: DroneCameraModule, EWReceiver, HudStyleService
 
-Статус: дроновый прототип
+Статус: дроновый прототип; прицел/толщина линий/рамка захвата и прозрачность — из HudStyleService.
+Предупреждение [WARNING: EW JAMMING] показывается всегда (геймплейная информация).
 
 Camera/TargetDetector.cs
 
@@ -503,9 +647,10 @@ Core/EffectService.cs
 
 Назначение: spawn VFX и звуки
 
-Зависимости: Unity Instantiate/AudioSource
+Зависимости: Unity Instantiate, AudioBus (группа SFX), пул AudioSource
 
-Статус: используется
+Статус: используется; PlaySound работает через пул «EffectAudioPool» (DontDestroyOnLoad, 16 источников,
+outputAudioMixerGroup = AudioBus.Sfx) вместо PlayClipAtPoint, поэтому попадает под ползунок «Эффекты».
 
 Core/EWService.cs
 
@@ -580,11 +725,41 @@ Data/MissionController.cs
 
 Класс: MissionController
 
-Назначение: цели, таймер, Complete/Fail
+Назначение: выбор дефолтного дрона (SelectByConfig в Start), цели, таймер, завершение миссии.
+Публичный API: CompleteMission(result, targetsDestroyed) — единая точка завершения миссии;
+флаг autoComplete (public) — если false, MissionController не завершает миссию по своим условиям
+(им управляет внешний директор, например AmbushMissionDirector).
 
-Зависимости: DroneManager, GameEvents, ProgressService
+Зависимости: DroneManager, GameEvents, ProgressService, GameStateMachine, MissionContext, SceneLoader
 
-Статус: не подключён к player.unity
+Окно крушения в тренировочной миссии: MissionController подписывается на GameEvents.DroneExploded
+(OnDroneDestroyed в OnEnable/OnDisable) и при уничтожении ЛЮБОГО дрона в PreparingDemo
+(mission.sceneName.Contains("PreparingDemo")) запускает корутину DelayedCrashPanel, которая через 0.5 с
+реального времени (WaitForSecondsRealtime) проверяет isEnded и, если миссия уже завершена, не показывает
+окно; иначе находит MissionUIManager через FindAnyObjectByType<MissionUIManager>() и вызывает
+ShowCrashPanel() (окно «Вы разбились»). Кнопка
+«Перезапустить» (RestartMission) перезагружает PreparingDemo через SceneLoader.Instance.LoadAsync(...),
+кнопка «Выйти в бункер» (ReturnToBunker) загружает Bunker(main) — бесконечный респавн, даже если в
+запасе остались другие дроны. Потеря всех дронов (LateUpdate, GetAliveDronesCount() <= 0) в остальных
+миссиях по-прежнему вызывает EndMission(MissionResult.Failed).
+
+Статус: подключён в PreparingDemo (объект MissionManager, ссылка droneManager → GameSystems/DroneManager) и в FirstMission(Forest) (объект MissionManager, ссылка droneManager → корневой объект DroneManager); в player.unity отсутствует
+
+Managers/AmbushMissionDirector.cs
+
+Класс: AmbushMissionDirector
+
+Назначение: сценарный директор первой миссии (FirstMission(Forest)). Ведёт корутину
+«наблюдение → уничтожить БТР → погоня за отступающей РСЗО»; в Start() находит MissionController
+(FindFirstObjectByType при пустой ссылке), выставляет missionController.autoComplete = false и по
+завершении сценария вызывает missionController.CompleteMission(result, targetsDestroyed), чтобы
+прогресс и переход в Debrief выполнил MissionController. Показывает титры (subtitlePanel/subtitleText).
+
+Зависимости: MissionController, DroneFlightController, VehicleHealth, VehiclePatrol, VehicleSmartAI,
+HimarsStrike, GameStateMachine/MissionContext (fallback), SettingsService (subtitlesEnabled,
+subtitleFontSize — гейт стоит только на видимость и размер шрифта, тайминги сценария не меняются)
+
+Статус: подключён в FirstMission(Forest) (объект AmbushMissionDirector)
 
 Data/MissionDefinition.cs
 
@@ -598,13 +773,26 @@ Data/MissionDefinition.cs
 
 Data/ProgressService.cs
 
-Классы: ProgressService, SaveData
+Классы: ProgressService, SaveData, MissionRecord
 
-Назначение: JSON-сохранение прогресса
+Назначение: JSON-сохранение прогресса и статистики прохождений
 
 Зависимости: JsonUtility, IO
 
-Статус: вызывается UI/миссиями
+Поля сохранения: completedMissionIds, unlockedMissionIds, totalScore, records
+
+MissionRecord: id, completed, bestTime, lastTime, bestScore, lastScore, completions, attempts, bestTargets
+
+API: IsUnlocked, IsCompleted, GetRecord(mission) / GetRecord(id), RecordResult(mission, result, seconds,
+targetsDestroyed), ComputeScore(mission, result, seconds, targetsDestroyed), CompleteMission, ResetProgress
+
+Счёт: при успехе rewardPoints + 25 за каждую уничтоженную цель + до 50 очков за скорость при наличии
+timeLimit; при провале 0. Формула живёт только в ComputeScore, поэтому дебрифинг и панель деталей
+показывают одинаковое значение.
+
+Статус: MissionController.EndMission вызывает RecordResult для любого исхода (успех и провал),
+DebriefController и MissionDetailsPanel читают счёт через ComputeScore. Старые progress.json без
+records читаются без миграции (Sanitize подставляет пустые списки).
 
 Data/DebriefController.cs
 
@@ -616,7 +804,9 @@ Data/DebriefController.cs
 
 Статус: по кнопке дебрифинга переводит состояние Debrief → Loading → Gameplay
 и загружает сцену Bunker(main); перед загрузкой ставит MissionContext.ReturnedFromMission = true;
-метод ReturnToMenu() защищён от повторного вызова флагом isReturning
+метод ReturnToMenu() защищён от повторного вызова флагом isReturning. Подключён в PreparingDemo и
+FirstMission(Forest): объект MissionManager, ссылки panel/titleText/statsText/returnToMenuButton/
+debriefCamera назначены на UI дебрифинга и камеру-заглушку DebriefCamera
 
 5.5 DroneTypes
 DroneTypes/DroneConfig.cs
@@ -653,9 +843,13 @@ DroneTypes/DroneManager.cs
 
 Класс: DroneManager
 
-Назначение: переключение пяти слотов дронов
+Назначение: управление пулом дронов сцены. InitializeDrones() вызывается в Awake() и строит
+activeSlots из mission.availableDrones (или из всего пула при тестовом запуске без миссии).
+Дрон НЕ включается автоматически, если задана миссия с defaultDrone — выбор делает MissionController
+через SelectByConfig(mission.defaultDrone) в Start(). Автовыбор первого слота остаётся только для
+тестового запуска без миссии (MissionContext.Current == null).
 
-Зависимости: старый Input.GetKeyDown, DroneConfig
+Зависимости: старый Input.GetKeyDown, DroneConfig, MissionContext, GameEvents
 
 Статус: дроновые сцены
 
@@ -676,9 +870,15 @@ EW/EWReceiver.cs
 
 Назначение: расчёт и визуализация помех
 
-Зависимости: URP Volume, DroneConfig
+Зависимости: PostFxRouter (Bind), FPVZoom (SetFovOffset), DroneConfig, SettingsService
 
-Статус: дроновые сцены
+Статус: дроновые сцены. Авто-поиск Volume удалён, компоненты выдаёт PostFxRouter.
+Публичный API: jamIntensity (читают DroneFlightController, StrikeHUD, EWAudio), VisualScale,
+SetVisualScale(0..1), SetEffects(ChromaticAberration, Vignette, FilmGrain).
+CA/Vignette/Grain масштабируются произведением ewVisualDistortion и SetVisualScale; компоненты
+выключаются (active = false), когда помех или искажений нет. Дрожание кадра — cam.rect (сбрасывается)
+и FPVZoom.SetFovOffset (аддитивно). reduceDangerousEffects отключает IMGUI-«снег» и полосы разрыва.
+Разрешение шума берётся из ewNoiseResolution (иначе DroneConfig.noiseTextureResolution).
 
 5.7 MainMenu / UI
 MainMenu/GameSession.cs
@@ -708,19 +908,68 @@ MainMenu/MissionCardView.cs
 
 Назначение: карточка миссии
 
-Зависимости: UI, TMP, MissionDefinition
+Поля: previewImage, nameLabel, metaText, lockedOverlay, completedBadge, selectedFrame, button
 
-Статус: Mission UI
+Методы: Bind(mission, unlocked, completed, onClick), SetSelected(bool), свойство Mission
+
+Зависимости: UI, TMP, MissionDefinition, MissionText
+
+Статус: Mission UI. Карточка больше не запускает миссию: клик передаёт миссию в MissionSelectScreen.
+Button.interactable всегда true (заблокированная карточка открывает детали с причиной блокировки).
+Файл пересохранён в UTF-8 (был в Windows-1251).
 
 MainMenu/MissionSelectScreen.cs
 
-Класс: MissionSelectScreen
+Класс: MissionSelectScreen (наследник UIScreen)
 
-Назначение: генерация карточек
+Назначение: генерация карточек и управление выбором миссии (master-detail)
 
-Зависимости: ProgressService, MissionRegistry
+Поля: cardPrefab, cardsContainer, detailsPanel, headerSubtitleLabel, totalScoreLabel, verboseLogging
+
+Методы: Populate(registry, onPlay), CloseDetails(), свойство IsDetailsOpen
+
+Поведение: Populate создаёт карточки и обновляет шапку (число операций и общий счёт); клик по карточке
+выделяет её и вызывает MissionDetailsPanel.Show; миссия запускается только по событию
+LaunchRequested панели деталей, которое пробрасывается в onPlay (MissionMenuController.StartMission).
+
+Зависимости: ProgressService, MissionRegistry, MissionDetailsPanel, MissionCardView
 
 Статус: Mission UI
+
+MainMenu/MissionDetailsPanel.cs
+
+Класс: MissionDetailsPanel
+
+Назначение: правая панель деталей миссии (баннер, статус, название, описание, статистика, цели,
+техника, подсказка/причина блокировки, кнопка запуска)
+
+Поля инспектора: group, emptyState, contentRoot, bannerImage, bannerCodeText, statusIcon, statusLabel,
+rewardLabel, titleLabel, descriptionLabel, timeValue, scoreValue, completionsValue, targetsValue,
+noteText, goalLines[3], goalMarkers[3], techLine, launchButton, launchLabel, completedColor,
+pendingColor, lockedColor, revealDuration
+
+Методы: Show(mission, unlocked, completed, record), ShowEmpty(), Hide(), событие LaunchRequested,
+свойство IsOpen
+
+Поведение: состояние «не пройдена» показывает прочерки, условия выполнения и награду; «пройдена» —
+лучшее время, счёт, число прохождений и целей из MissionRecord; «заблокирована» — причину по
+prerequisites и недоступную кнопку. Появление с fade на unscaled-времени (в меню Time.timeScale = 0).
+
+Зависимости: MissionDefinition, MissionRecord, ProgressService, MissionText, TMP, UI
+
+Статус: Mission UI, встроена в префаб MissionSelectPanel (дочерний объект MissionDetailsPanel)
+
+MainMenu/MissionText.cs
+
+Класс: MissionText (static)
+
+Назначение: форматирование текстов миссий
+
+Методы: Targets(count), Objective(mission), TimeLimit(seconds), Duration(seconds), DroneRole(config)
+
+Зависимости: MissionDefinition, DroneConfig, CameraType
+
+Статус: используется MissionCardView и MissionDetailsPanel
 
 MainMenu/SettingsScreen.cs
 
@@ -779,9 +1028,17 @@ Physics/DroneFlightController.cs
 
 Назначение: физический полёт квадрокоптера
 
-Зависимости: старый Input.GetKey, DroneMotors, EWReceiver, PID
+Зависимости: старый Input.GetKey, DroneMotors, EWReceiver, PID, SettingsService (controls.*)
 
-Статус: дроны
+Статус: дроны.
+Ввод читается в ReadInput(), в начале кадра вызывается RefreshInputSettings():
+  droneStickSpeed     — скорость отклонения стика (было const 4.0f),
+  droneCenteringSpeed — скорость возврата стика в центр (было const 8.0f),
+  throttleSpeed       — скорость изменения газа (было поле throttleSpeed = 1.8f),
+  throttleMode        — 0: самовозврат газа к 0.5 при отпущенных W/S, 1: фиксация (поведение по умолчанию),
+  droneInvertY        — инверсия pitch (стрелки ↑/↓).
+Настройки применяются на входе, до дрейфа РЭБ и до PID. Физика, PID-коэффициенты, аэродинамика,
+maxPitchRate/maxRollRate и ApplyDroneProfile() настройками не затрагиваются.
 
 Physics/DroneMotors.cs
 
@@ -791,7 +1048,8 @@ Physics/DroneMotors.cs
 
 Зависимости: Rigidbody
 
-Статус: дроны
+Статус: дроны; публикует CurrentThrust01 (максимум из четырёх clamped-значений тяги) —
+его читает DroneMotorAudio для громкости и питча гула. Физика тяги не изменена.
 
 Physics/DropDroneMechanism.cs
 
@@ -916,6 +1174,8 @@ GetComponentInParent<IInteractable>. Требует назначенное по�
 
 InteractionUIController.cs — окна «Магазин» (Shop) и «Карта миссий» (MissionBoard) через
 CanvasGroup + подсказка; разблокировка курсора, timeScale = 0 при открытии, закрытие по E/Esc.
+ShowHint уважает gameplay.showInteractionHints: при выключенных подсказках текст «…[E]» не
+показывается вовсе; подсказка «Встать [Пробел]» (ShowSittingHint) намеренно не гейтится.
 
 HangarInteractable.cs — IInteractable, открывает магазин, промпт «Магазин [E]».
 
@@ -957,6 +1217,38 @@ ComputerOS (рабочий стол не выключается); CloseMissionMe
 рабочий стол остаётся на месте — и фиксирует LastClosedTime; StartMission() запускает миссию через MissionContext.Begin() и
 SceneLoader.LoadAsync(). Старый MissionBoardWindow удалён.
 
+MissionUIManager.cs — висит на объекте UIManager в миссионных сценах PreparingDemo и
+FirstMission(Forest). Поля pausePanel (GameObject), crashPanel (GameObject) и fallbackCamera
+(GameObject, заглушка чёрного фона). Update() по Esc
+(Keyboard.current.escapeKey.wasPressedThisFrame), пока crashPanel не активен И игра не в состоянии
+Debrief, переключает pausePanel: при открытии Time.timeScale = 0 и курсор разблокируется, при закрытии
+Time.timeScale = 1 и курсор блокируется. ShowCrashPanel() также делает ранний return, если
+GameStateMachine.Current == GameState.Debrief, иначе включает crashPanel, выключает pausePanel,
+включает fallbackCamera (заглушка чёрного фона, чтобы не было надписи «No cameras rendering» после
+уничтожения камеры дрона), Time.timeScale = 0, курсор разблокируется. Тем самым PausePanel и
+CrashPanel взаимоисключающие с DebriefPanel. Дополнительно скрипт в OnEnable/OnDisable подписывается на GameStateMachine.StateChanged;
+метод OnStateChanged(GameState prev, GameState next) при переходе в GameState.Debrief принудительно
+сбрасывает Time.timeScale = 1 и выключает pausePanel и crashPanel, поэтому CrashPanel не накладывается
+на DebriefPanel, даже если крушение дрона произошло одновременно с выполнением цели. ResumeGame()
+закрывает pausePanel, выключает fallbackCamera (Time.timeScale = 1, курсор блокируется).
+RestartMission() (Time.timeScale = 1) перезагружает PreparingDemo. ReturnToBunker() (Time.timeScale = 1)
+ставит MissionContext.ReturnedFromMission = true, при возможности переводит FSM в Loading и загружает
+Bunker(main) через SceneLoader.Instance.LoadAsync — как и DebriefController.ReturnToMenu(), поэтому игрок
+возвращается в бункер сидя за компьютером (BunkerStateRestorer). Кнопки PausePanel и CrashPanel в
+PreparingDemo стилизованы единообразно с DebriefPanel/ReturnButton: серый фон Image (0.25/0.25/0.25),
+белый текст.
+
+Скрытие HUD при открытии панелей: MissionUIManager содержит статический флаг IsHudHidden и метод
+SetHudVisible(bool). Поле instructionText (GameObject) ссылается на Canvas/InstructionText (uGUI,
+скрывается через SetActive; у объекта выключен Raycast Target). IMGUI-HUD дрона — ReconHUD, StrikeHUD,
+EWReceiver, IntersectorHUD — в начале OnGUI() делает ранний return, если MissionUIManager.IsHudHidden
+== true. SetHudVisible(false) вызывается при открытии паузы (TogglePause), показе CrashPanel
+(ShowCrashPanel) и переходе в Debrief (OnStateChanged); SetHudVisible(true) — в ResumeGame() и при
+закрытии паузы. В OnEnable() флаг сбрасывается в false, поэтому HUD видим при старте и рестарте сцены.
+Дополнительно те же IMGUI-HUD-скрипты в начале OnGUI() делают ранний return при
+SceneLoader.Instance != null && SceneLoader.Instance.IsLoading, поэтому во время загрузки сцены
+(чёрный экран «LOADING...») HUD не рисуется.
+
 BunkerStateRestorer.cs — висит на Player в сцене Bunker(main). Публичное свойство IsRestoring
 выставляется в true в Awake() при MissionContext.ReturnedFromMission == true и сбрасывается в
 false в конце восстановления. При ReturnedFromMission == true в Start() через корутину с задержкой
@@ -965,6 +1257,54 @@ ChairInteractable.Interact() (посадка на стул), ComputerUIControlle
 и MissionMenuController.OpenMissionMenu() (MissionSelectPanel с актуальным прогрессом), затем
 сбрасывает флаг ReturnedFromMission = false. SceneLoader ждёт IsRestoring == false, чтобы не
 снять экран «LOADING...» раньше времени.
+
+5.12 Settings / Audio / HUD
+Каталог: Assets/Scripts/Settings/ (подсистема настроек) и Assets/Scripts/Audio/ (процедурный звук).
+
+Settings/SettingsScope.cs — IsMission (в сцене есть DroneManager). Обновляется на sceneLoaded;
+используется для выбора дистанции теней.
+
+Settings/GraphicsApplier.cs — рантайм-клон активного URP-ассета (Object.Instantiate, суффикс
+«(Runtime)»), назначается в QualitySettings.renderPipeline текущего уровня и возвращается назад по
+Application.quitting. Применяет renderScale, shadowDistance (SettingsScope.IsMission ?
+droneShadowDistance : bunkerShadowDistance), shadowCascadeCount (bunkerShadowQuality, 1..4),
+msaaSampleCount (bunkerMsaa), mainLightShadowmapResolution и мягкие тени (рефлексия в
+m_SoftShadowsSupported — публичного сеттера в URP нет). Оригинальный PC_RPAsset.asset не правится,
+GraphicsSettings.defaultRenderPipeline не переключается.
+
+Settings/CameraApplier.cs — Refresh() перебирает все камеры: если в родителях CharacterController —
+FPS-камера (bunkerFarClip, bunkerPostProcessing), иначе если есть FPVZoom/DroneCameraModule — камера
+дрона (droneFarClip, renderShadows по droneShadowDistance > 0, antialiasing по droneAntiAliasing).
+Переприменяется на sceneLoaded и на GameEvents.DroneSwitched.
+
+Settings/AudioBus.cs — AudioMixer из Resources/Audio/MainMixer, группы Master/Music/SFX/DroneMotors/EW/UI,
+SetVolume(parameter, linear) в дБ.
+
+Settings/AudioApplier.cs — 7 ползунков в AudioMixer; без микшера — fallback на AudioListener.volume.
+
+Audio/DroneMotorAudio.cs — гул моторов: процедурный бесшовный луп (96 Гц + гармоники), громкость и питч
+от DroneMotors.CurrentThrust01 и DroneFlightController.isMotorStarted. Вешается на корень префаба дрона.
+
+Audio/EWAudio.cs — треск помех: отфильтрованный шум, громкость от EWReceiver.jamIntensity.
+Вешается на камеру дрона.
+
+Settings/PostFxRouter.cs — см. разделы 3 и 4.6.
+
+UI/SettingsPanel.cs — панель настроек (4 вкладки), кнопка «Сброс» → ResetSettings() → ResetAll().
+
+UI/SettingsListBuilder.cs — конструктор строк Slider / Toggle / Dropdown (раскрывается списком внутри
+ScrollRect); для «тяжёлых» строк выставляет RequiresRelease.
+
+UI/SliderReleaseNotifier.cs — OnEndDrag / PointerUp → ApplyHeavy().
+
+UI/FpsCounterHud.cs — IMGUI-счётчик FPS; объект «FpsCounterHUD» создаётся автоматически
+(RuntimeInitializeOnLoadMethod + DontDestroyOnLoad), рисуется только в состоянии Gameplay.
+
+Settings/HudStyleService.cs — стиль HUD: Scale, Transparency, ApplyAlpha, Opaque, CrosshairSize,
+LineThickness, TargetFrameVisible, Begin()/End() (GUI.matrix вокруг центра экрана).
+
+Data/SettingsApplier.cs — точка входа применения: Apply / ApplyInstant / ApplyHeavy / ApplyScreen,
+GetResolutionOptions(), GetUniqueResolutions(), WindowModeLabels, ResetScreenCache().
 
 6. Сцены
 Всего найдено 15 сцен.
@@ -987,9 +1327,49 @@ Assets/Scenes/MainMenu.unity
 
 Assets/Scenes/SampleScene.unity
 
-Назначение: тестовая миссия
+Назначение: старая тестовая миссия
 
-Статус: используется Mission1
+Статус: не используется миссиями (заменена на PreparingDemo)
+
+Assets/Scenes/PreparingDemo.unity
+
+Назначение: тренировочная миссия
+
+Статус: Mission1 («Тренировочная миссия», id = training_mission); в Build Settings.
+Настроены контроллеры: объект MissionManager (MissionController + DebriefController), UI дебрифинга
+Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton), камера-заглушка DebriefCamera и объект
+UIManager (MissionUIManager: меню паузы PausePanel по Esc и окно крушения CrashPanel).
+В DroneManager (GameSystems) заполнен allDronesInScene: GimbalDrone Variant → MavicReconConfig
+(разведчик) и StrikeDrone 1 → SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению
+цели potujnojet, после чего DebriefController показывает результат, а кнопка возврата ведёт
+в Bunker(main). При уничтожении любого дрона (событие GameEvents.DroneExploded) вместо провала
+показывается окно «Вы разбились» (CrashPanel): «Перезапустить» перезагружает сцену (бесконечный
+респавн), «Выйти в бункер» загружает Bunker(main).
+
+Assets/Scenes/FirstMission(Forest).unity
+
+Назначение: первая миссия
+
+Статус: Mission2 («Первая миссия», id = mission_1); в Build Settings.
+Настроены контроллеры: объект MissionManager (MissionController + DebriefController), UI дебрифинга
+Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton), камера-заглушка DebriefCamera,
+EventSystem, объект AmbushMissionDirector (сторонний сценарный директор миссии) и объект UIManager
+(MissionUIManager: меню паузы PausePanel по Esc).
+Меню паузы: панель Canvas/PausePanel (по умолчанию выключена) с кнопками continue (ResumeGame) и
+exit (ReturnToBunker); поля Fallback Camera и Crash Panel у MissionUIManager пустые (в этой миссии
+потеря всех дронов ведёт к обычному провалу, без окна крушения).
+В DroneManager (корневой объект DroneManager) заполнен allDronesInScene:
+GimbalDrone Variant → MavicReconConfig (разведчик) и StrikeDrone 1 / (1) / (2) / (3) →
+SmallFpvHeatConfig (ударный FPV). Миссия завершается по уничтожению двух враждебных целей
+(БТР и РСЗО): AmbushMissionDirector ведёт сценарий и по завершении вызывает
+MissionController.CompleteMission(), который переводит FSM в Debrief, после чего DebriefController
+показывает результат, а кнопка возврата ведёт в Bunker(main).
+
+Assets/Scenes/FirstMission(SpizjenyiVarik).unity
+
+Назначение: альтернативная карта первой миссии
+
+Статус: не привязана к миссии (заготовка)
 
 Assets/Scenes/player.unity
 
@@ -1002,7 +1382,9 @@ Assets/Scenes/Bunker(main).unity
 Назначение: новая FPS-локация (военный бункер Bunker07Anim)
 
 Статус: в настройке — физика, коллайдеры, интерактивный терминал; в Build Settings;
-сюда возвращает DebriefController после завершения миссии
+сюда возвращает DebriefController после завершения миссии.
+InteractionCanvas/PausePanel/settings — инстанс префаба SettingsPanel (единственная точка входа
+в настройки вне главного меню), кнопка «Сброс» в шапке. Кнопки «Настройки» в паузе миссии нет.
 
 Assets/Scenes/FunctionalUI-Demo.unity
 
@@ -1044,6 +1426,10 @@ Assets/Scenes/TerrainDemoScene.unity
 
 Assets/Scenes/Bunker(main).unity
 
+Assets/Scenes/PreparingDemo.unity
+
+Assets/Scenes/FirstMission(Forest).unity
+
 Не включены:
 
 Assets/Scenes/player.unity
@@ -1057,6 +1443,11 @@ Assets/Prefabs/Drones/ReconDrone.prefab
 Assets/Prefabs/Drones/StrikeDrone.prefab
 
 Содержат различные комбинации: Rigidbody, DroneFlightController, DroneMotors, DroneCollision, DroneCameraModule, EWReceiver, FPVZoom, HUD, Target Detector/Lock, Drop Mechanism, Interceptor Collision.
+
+Звук на префабах (добавлено вместе с настройками): на корне дрона — Audio Source + DroneMotorAudio
+(гул моторов), на камере дрона — Audio Source (Spatial Blend = 0) + EWAudio (треск помех).
+outputAudioMixerGroup назначается кодом (SFX/DroneMotors/EW), в инспекторе выставлять не нужно.
+Если компоненты не добавлены, звука моторов и помех нет, но игра работает и настройки не падают.
 
 Техника
 Assets/Prefabs/Vehicles/Btr.prefab
@@ -1177,6 +1568,25 @@ queriesHitTriggers: true;
 
 autoSyncTransforms: false.
 
+Графика (URP) и QualitySettings
+Файлы: ProjectSettings/QualitySettings.asset, Assets/Settings/PC_RPAsset.asset, Assets/Settings/Mobile_RPAsset.asset.
+
+6 уровней качества; собственный URP-ассет назначен только уровню Ultra, остальные уровни идут через
+GraphicsSettings.defaultRenderPipeline = PC_RPAsset. Поэтому смена уровня качества в URP почти не меняет
+картинку — реальные рычаги (renderScale, тени, MSAA) применяет GraphicsApplier через рантайм-клон.
+
+Настройки графики в рантайме
+Активный URP-ассет подменяется рантайм-клоном через QualitySettings.renderPipeline (см. 5.12), поэтому
+renderScale/тени/MSAA не портят Assets/Settings/PC_RPAsset.asset. При выходе из Play Mode ссылка
+восстанавливается (Application.quitting). Если в консоли появилось «[GraphicsApplier] URP-ассет не
+найден» — проверь Project Settings → Graphics и Quality.
+
+Звук (обязательный ручной ассет)
+Assets/Resources/Audio/MainMixer.mixer в репозитории отсутствует и создаётся вручную: группы
+Master → { Music, SFX → { DroneMotors, EW }, UI }, exposed-параметры MasterVolume, MusicVolume,
+SfxVolume, MotorsVolume, EwVolume, UiVolume (опционально VoiceVolume). Без микшера AudioBus.Ready == false,
+и работает только общий уровень через AudioListener.volume (один warning в консоли).
+
 10. Известные проблемы
 Критичные
 player.unity не входит в Build Settings
@@ -1185,17 +1595,17 @@ player.unity не входит в Build Settings
 
 Приоритет: Высокий
 
-Mission2 не имеет sceneName
+Mission2 не имеет sceneName — ИСПРАВЛЕНО: Mission2 указывает FirstMission(Forest).
 
 Где: Assets/Resources/Missions/Mission2.asset
 
-Приоритет: Высокий
+Приоритет: Высокий (решено)
 
-Mission3 не имеет sceneName и defaultDrone
+Mission3 не имеет sceneName и defaultDrone — Mission3 исключена из MissionRegistry.allMissions.
 
 Где: Assets/Resources/Missions/Mission3.asset
 
-Приоритет: Высокий
+Приоритет: Низкий (ассет остался в папке, но не используется)
 
 База не соединена с миссионным flow
 
@@ -1220,7 +1630,7 @@ Mission3 не имеет sceneName и defaultDrone
 
 Где: PlayerController, drone scripts, InputManager
 
-MissionController.startTime не инициализируется
+MissionController.startTime не инициализируется — ИСПРАВЛЕНО: startTime = Time.time задаётся в Awake()
 
 Где: MissionController.cs
 
@@ -1236,13 +1646,21 @@ unlockedMissionIds не заполняется
 
 Где: Packages, Settings, сторонние каталоги
 
-SettingsService не защищает чтение JSON от исключения
+SettingsService не защищает чтение JSON от исключения — ИСПРАВЛЕНО: try/catch, дефолты, версия схемы,
+атомарная запись (tmp + File.Replace + .bak), debounce 0.5 с.
 
 Где: SettingsService.cs
 
-Часть миссий содержит пустые идентификаторы
+Настройки были «пустышками» (сохранялись, но не применялись) — ИСПРАВЛЕНО поэтапно: HUD/FPS/тряска/субтитры,
+звук (AudioMixer + пул AudioSource), графика URP (рантайм-клон), постобработка и РЭБ (PostFxRouter),
+управление дроном (стики/газ/режим газа/гимбал), UI (режим окна и разрешение, удаление пустышек).
+Что осталось не подключённым — см. CONTEXT.md, раздел 7.8.
 
-Где: Mission2/Mission3 assets
+Где: SettingsApplier.cs, Settings/*, Camera/EWReceiver.cs, Physics/DroneFlightController.cs
+
+Идентификаторы миссий приведены к уникальным значениям
+
+Где: Mission1 (training_mission), Mission2 (mission_1)
 
 Низкие
 Recovery-дубликаты сцен — Assets/_Recovery.

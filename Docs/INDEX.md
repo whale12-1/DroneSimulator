@@ -1,6 +1,6 @@
 Индекс проекта DroneSimulator
 Этот файл — часть документации проекта DroneSimulator.
-Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md.
+Остальные файлы: CONTEXT.md, ARCHITECTURE.md, INDEX.md, SETTINGS_DESIGN.md.
 
 Быстрый поиск «где что искать»
 Персонаж и игрок
@@ -30,6 +30,7 @@ UI взаимодействия (магазин/карта) → Assets/Scripts/I
 Интерактивный объект «Карта миссий» → Assets/Scripts/Interaction/MissionBoardInteractable.cs
 Интерактивный объект «Стул» (сесть за компьютер по E, встать по Пробелу, публичный StandUp) → Assets/Scripts/Interaction/ChairInteractable.cs
 Восстановление состояния бункера после миссии → Assets/Scripts/Interaction/BunkerStateRestorer.cs
+Меню паузы и окно крушения в миссиях → Assets/Scripts/Interaction/MissionUIManager.cs (объект UIManager в сценах PreparingDemo и FirstMission(Forest))
 
 Заготовка Input-взаимодействия → Assets/Input/InputSystem_Actions.inputactions → Player/Interact
 
@@ -38,6 +39,12 @@ UI главного меню → Assets/Scenes/MainMenu.unity
 Контроллер главного меню → Assets/Scripts/MainMenu/MainMenuController.cs
 
 UI выбора миссии → Assets/Scripts/MainMenu/MissionSelectScreen.cs
+
+Панель деталей миссии (правая колонка, кнопка запуска) → Assets/Scripts/MainMenu/MissionDetailsPanel.cs
+
+Форматирование текстов миссий (цели, время, роль дрона) → Assets/Scripts/MainMenu/MissionText.cs
+
+Префаб панели выбора миссий (шапка, карточки, детали) → Assets/Prefabs/UI/MissionSelectPanel.prefab
 
 Карточка миссии → Assets/Prefabs/UI/MissionCard.prefab
 
@@ -49,6 +56,10 @@ HUD ударного дрона → Assets/Scripts/Camera/StrikeHUD.cs
 HUD сброса бомб → Assets/Scripts/Camera/DropHUD.cs
 
 HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
+
+Стиль HUD (масштаб, прозрачность, прицел, линии, рамка захвата) → Assets/Scripts/Settings/HudStyleService.cs
+
+Счётчик FPS → Assets/Scripts/UI/FpsCounterHud.cs
 
 Камера дрона → Assets/Scripts/Camera/DroneCameraModule.cs
 
@@ -65,6 +76,10 @@ HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
 Миссии и сохранения
 Описания миссий → Assets/Resources/Missions/
 
+Тренировочная миссия → Assets/Resources/Missions/Mission1.asset (id: training_mission, сцена PreparingDemo)
+
+Первая миссия → Assets/Resources/Missions/Mission2.asset (id: mission_1, сцена FirstMission(Forest))
+
 Реестр миссий → Assets/Resources/MissionRegistry.asset
 
 Класс описания миссии → Assets/Scripts/Data/MissionDefinition.cs → MissionDefinition
@@ -74,6 +89,22 @@ HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
 Контекст выбранной миссии → Assets/Scripts/Data/MissionContext.cs
 
 Сохранение прогресса → Assets/Scripts/Data/ProgressService.cs
+
+Статистика прохождений (MissionRecord: время, счёт, прохождения) → Assets/Scripts/Data/ProgressService.cs
+
+Генератор префабов экрана миссий (Editor) → Assets/Scripts/Editor/MissionSelectPanelBuilder.cs
+
+Генератор контента миссий и дронов (Editor) → Assets/Scripts/Editor/MissionContentBuilder.cs
+
+Контроллер дебрифинга → Assets/Scripts/Data/DebriefController.cs
+
+Объект MissionManager (MissionController + DebriefController) → Assets/Scenes/PreparingDemo.unity → MissionManager и Assets/Scenes/FirstMission(Forest).unity → MissionManager
+
+UI дебрифинга → Assets/Scenes/PreparingDemo.unity → Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton) и Assets/Scenes/FirstMission(Forest).unity → Canvas/DebriefPanel (DebriefTitle, DebriefStats, ReturnButton)
+
+Камера-заглушка дебрифинга → Assets/Scenes/PreparingDemo.unity → DebriefCamera и Assets/Scenes/FirstMission(Forest).unity → DebriefCamera
+
+EventSystem (обработка кликов дебрифинга) → Assets/Scenes/FirstMission(Forest).unity → EventSystem
 
 Дроны
 Профили дронов → Assets/Settings/DroneConfigs/
@@ -117,6 +148,10 @@ PID-регулятор → Assets/Scripts/Physics/PIDController.cs
 
 Сервис РЭБ → Assets/Scripts/Core/EWService.cs
 
+Владелец Volume и постобработки (РЭБ + ПНВ + Motion Blur) → Assets/Scripts/Settings/PostFxRouter.cs
+
+Звук помех → Assets/Scripts/Audio/EWAudio.cs
+
 Core / сервисы
 Общие события → Assets/Scripts/Core/GameEvents.cs
 
@@ -130,7 +165,48 @@ Core / сервисы
 
 Взрывы и splash damage → Assets/Scripts/Core/ExplosionService.cs
 
-VFX и звуки → Assets/Scripts/Core/EffectService.cs
+VFX и звуки → Assets/Scripts/Core/EffectService.cs (пул AudioSource, группа SFX)
+
+Звук моторов дрона → Assets/Scripts/Audio/DroneMotorAudio.cs
+
+Звук помех → Assets/Scripts/Audio/EWAudio.cs
+
+Настройки (Settings)
+Модель настроек → Assets/Scripts/Data/SettingsData.cs
+
+Сервис настроек (settings.json, миграция схемы, Apply) → Assets/Scripts/MainMenu/SettingsService.cs
+
+Точка входа применения (экран, качество, графика, камеры) → Assets/Scripts/Data/SettingsApplier.cs
+
+Панель настроек (4 вкладки, кнопка «Сброс») → Assets/Scripts/UI/SettingsPanel.cs
+
+Конструктор строк панели (Slider / Toggle / Dropdown) → Assets/Scripts/UI/SettingsListBuilder.cs
+
+Применение «тяжёлых» настроек по отпусканию слайдера → Assets/Scripts/UI/SliderReleaseNotifier.cs
+
+Стиль HUD → Assets/Scripts/Settings/HudStyleService.cs
+
+Область применения (бункер/миссия) → Assets/Scripts/Settings/SettingsScope.cs
+
+Графика URP (рантайм-клон ассета) → Assets/Scripts/Settings/GraphicsApplier.cs
+
+Камеры (far clip/тени/AA/постобработка) → Assets/Scripts/Settings/CameraApplier.cs
+
+Постобработка и РЭБ (владелец Volume) → Assets/Scripts/Settings/PostFxRouter.cs
+
+Звуковая шина AudioMixer → Assets/Scripts/Settings/AudioBus.cs
+
+Применение громкостей → Assets/Scripts/Settings/AudioApplier.cs
+
+Файл сохранения настроек → Application.persistentDataPath/settings.json (+ .bak)
+
+Ассет микшера (создаётся вручную) → Assets/Resources/Audio/MainMixer.mixer
+
+Префаб панели настроек → Assets/Prefabs/UI/SettingsPanel.prefab
+
+Панель настроек в главном меню → Assets/Scenes/MainMenu.unity (инстанс префаба SettingsPanel)
+
+Панель настроек в бункере → Assets/Scenes/Bunker(main).unity → InteractionCanvas/PausePanel/settings
 
 Техника и AI
 Техника → Assets/Prefabs/Vehicles/Btr.prefab
@@ -180,7 +256,13 @@ Boot-сцена → Assets/Scenes/Boot.unity
 
 Main Menu-сцена → Assets/Scenes/MainMenu.unity
 
-Тестовая миссионная сцена → Assets/Scenes/SampleScene.unity
+Старая тестовая миссионная сцена → Assets/Scenes/SampleScene.unity
+
+Тренировочная миссия (сцена) → Assets/Scenes/PreparingDemo.unity (MissionManager: MissionController + DebriefController; DroneManager на GameSystems с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel; UIManager: меню паузы и окно крушения)
+
+Первая миссия (сцена) → Assets/Scenes/FirstMission(Forest).unity (MissionManager: MissionController + DebriefController; DroneManager на корневом объекте DroneManager с пулом allDronesInScene; UI дебрифинга Canvas/DebriefPanel; DebriefCamera; EventSystem; UIManager: меню паузы)
+
+Альтернативная карта первой миссии (не привязана) → Assets/Scenes/FirstMission(SpizjenyiVarik).unity
 
 Drone/Terrain demo → Assets/Scenes/TerrainDemoScene.unity
 
@@ -230,6 +312,21 @@ ZIL truck assets → Assets/ZIL130_MilitaryTruck/
 
 Mine asset → Assets/S-Mine 35/
 
+Рантайм-объекты (создаются кодом, в сценах их нет)
+SettingsService → DontDestroyOnLoad; создаёт Bootstrapper (Boot.unity) или SettingsPanel.Start()
+
+PostFxRouter → DontDestroyOnLoad, «PostFxRouter» с детьми PostFX_EW / PostFX_NV / PostFX_Settings; создаёт PostFxRouter.Ensure()
+
+EffectAudioPool → DontDestroyOnLoad, 16 AudioSource; создаёт EffectService.EnsurePool() при первом PlaySound
+
+FpsCounterHUD → DontDestroyOnLoad; создаёт RuntimeInitializeOnLoadMethod в FpsCounterHud
+
+IR_Spotlight → дочерний объект камеры дрона; создаёт NightVisionController.Awake(), если поле IR Spotlight пустое
+
+URP-клон «PC_RPAsset (Runtime)» → не объект сцены; подставляется в QualitySettings.renderPipeline в Play Mode и снимается при выходе
+
+AudioMixer → Assets/Resources/Audio/MainMixer.mixer; кэшируется AudioBus (ассет создаётся вручную)
+
 Чего нет (по концепции)
 Палатки → явный путь не найден
 
@@ -239,4 +336,4 @@ Mine asset → Assets/S-Mine 35/
 
 Кат-сцена перехода → явный игровой путь не найден
 
-См. также: CONTEXT.md, ARCHITECTURE.md.
+См. также: CONTEXT.md, ARCHITECTURE.md, SETTINGS_DESIGN.md.

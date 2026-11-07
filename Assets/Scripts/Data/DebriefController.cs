@@ -63,9 +63,11 @@ public class DebriefController : MonoBehaviour
             titleText.color = Color.red;
         }
 
+        int score = ProgressService.ComputeScore(mission, result, MissionContext.LastTimeElapsed, MissionContext.LastTargetsDestroyed);
+
         statsText.text = $"Время: {MissionContext.LastTimeElapsed:F1} сек\n" +
                          $"Целей уничтожено: {MissionContext.LastTargetsDestroyed} / {mission.targetCount}\n" +
-                         $"Награда: {(result == MissionResult.Success ? mission.rewardPoints : 0)} очков";
+                         $"Награда: {score} очков";
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;

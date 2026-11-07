@@ -23,19 +23,25 @@ public class StrikeHUD : MonoBehaviour
 
     private void OnGUI()
     {
+        if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return;
+
+        if (MissionUIManager.IsHudHidden) return;
+
         // 1. Проверяем режим камеры и флаг отображения HUD
         CameraType camType = (config != null) ? config.cameraType : (cameraModule != null ? cameraModule.CurrentCameraType : CameraType.StrikeFixed);
         bool isEnabled = (config != null) ? config.showStrikeHUD : true;
 
         if (camType == CameraType.ReconGimbal || !isEnabled) return;
 
+        Matrix4x4 previousMatrix = HudStyleService.Begin();
+
         // 2. Считываем визуальные параметры из конфига
         Color activeHudColor = (config != null) ? config.hudColor : new Color(0.1f, 1.0f, 0.2f, 0.85f);
-        float crosshairSize = (config != null) ? config.crosshairSize : 14f;
+        float crosshairSize = HudStyleService.CrosshairSize((config != null) ? config.crosshairSize : HudStyleService.DefaultCrosshairSize);
         Vector2 boxSize = (config != null) ? config.targetBoxSize : new Vector2(160f, 110f);
-        float lineWidth = (config != null) ? config.hudLineWidth : 2f;
+        float lineWidth = HudStyleService.LineThickness((config != null) ? config.hudLineWidth : 2f);
 
-        GUI.color = activeHudColor;
+        GUI.color = HudStyleService.ApplyAlpha(activeHudColor);
         Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
 
         // 3. Центральное перекрестие (+)
@@ -44,7 +50,7 @@ public class StrikeHUD : MonoBehaviour
 
         // 4. Прямоугольник захвата цели (Target Box)
         Rect targetRect = new Rect(center.x - boxSize.x / 2f, center.y - boxSize.y / 2f, boxSize.x, boxSize.y);
-        DrawBoxOutline(targetRect, lineWidth);
+        if (HudStyleService.TargetFrameVisible(true)) DrawBoxOutline(targetRect, lineWidth);
 
         // 5. Системные надписи OSD
         GUIStyle textStyle = new GUIStyle
@@ -52,7 +58,7 @@ public class StrikeHUD : MonoBehaviour
             fontSize = 13,
             fontStyle = FontStyle.Bold
         };
-        textStyle.normal.textColor = activeHudColor;
+        textStyle.normal.textColor = HudStyleService.Opaque(activeHudColor);
 
         string droneLabel = (config != null && !string.IsNullOrEmpty(config.droneName)) ? $"[{config.droneName.ToUpper()}]" : "[STRIKE FPV]";
         string warheadLabel = (config != null) ? $"ARMED / {config.warheadType}" : "ARMED / PG-7V";
@@ -67,6 +73,8 @@ public class StrikeHUD : MonoBehaviour
             warningStyle.normal.textColor = Color.red;
             GUI.Label(new Rect(targetRect.x, targetRect.y - 38f, 280f, 20f), $"[WARNING: EW JAMMING {(ewReceiver.jamIntensity * 100f):F0}%]", warningStyle);
         }
+
+        HudStyleService.End(previousMatrix);
     }
 
     private void DrawBoxOutline(Rect rect, float width)

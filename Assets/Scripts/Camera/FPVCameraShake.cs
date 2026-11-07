@@ -36,6 +36,18 @@ public class FPVCameraShake : MonoBehaviour
         bool useThrottle = (config != null) ? config.shakeUseThrottleEffect : true;
         float minThrottleFactor = (config != null) ? config.shakeMinThrottleFactor : 0.3f;
 
+        float intensity = 1f;
+        SettingsService service = SettingsService.Instance;
+        if (service != null && service.Data != null && service.Data.gameplay != null)
+            intensity = Mathf.Max(0f, service.Data.gameplay.cameraShakeIntensity);
+
+        if (intensity <= 0f)
+        {
+            transform.localPosition = initialLocalPos;
+            transform.localRotation = initialLocalRot;
+            return;
+        }
+
         float throttleFactor = 1f;
 
         if (useThrottle)
@@ -54,14 +66,14 @@ public class FPVCameraShake : MonoBehaviour
         float offsetRot = (Mathf.PerlinNoise(time, time) - 0.5f) * 2f;
 
         // Применяем микросмещение к позиции
-        Vector3 posOffset = new Vector3(offsetX, offsetY, 0f) * (posAmplitude * throttleFactor);
+        Vector3 posOffset = new Vector3(offsetX, offsetY, 0f) * (posAmplitude * throttleFactor * intensity);
         transform.localPosition = initialLocalPos + posOffset;
 
         // Применяем микроповорот относительно исходного вращения
         Quaternion rotOffset = Quaternion.Euler(
-            offsetX * rotAmplitude * throttleFactor,
+            offsetX * rotAmplitude * throttleFactor * intensity,
             0f,
-            offsetRot * rotAmplitude * throttleFactor
+            offsetRot * rotAmplitude * throttleFactor * intensity
         );
         transform.localRotation = initialLocalRot * rotOffset;
     }

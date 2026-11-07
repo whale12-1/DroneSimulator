@@ -8,6 +8,7 @@ public class MissionDefinition : ScriptableObject
     public string id;                      // "mission_01_village"
     public string displayName = "Патруль";
     [TextArea] public string description;
+    [TextArea] public string tacticalHint;
     public Sprite preview;
 
     [Header("Сцена")]

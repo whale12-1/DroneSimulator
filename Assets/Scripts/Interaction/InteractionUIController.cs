@@ -42,6 +42,13 @@ public class InteractionUIController : MonoBehaviour
 
     public void ShowHint(string text)
     {
+        SettingsService service = SettingsService.Instance;
+        if (service != null && service.Data != null && service.Data.gameplay != null && !service.Data.gameplay.showInteractionHints)
+        {
+            HideHint();
+            return;
+        }
+
         if (hintText != null) hintText.text = text;
         if (hintGroup != null) hintGroup.alpha = 1f;
     }

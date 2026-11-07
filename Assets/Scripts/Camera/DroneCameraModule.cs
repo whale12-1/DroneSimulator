@@ -16,6 +16,27 @@ public class DroneCameraModule : MonoBehaviour
 
     public CameraType CurrentCameraType => (config != null) ? config.cameraType : CameraType.StrikeFixed;
 
+    private float GimbalSpeed
+    {
+        get
+        {
+            SettingsService service = SettingsService.Instance;
+            if (service != null && service.Data != null && service.Data.controls != null)
+                return Mathf.Clamp(service.Data.controls.gimbalSpeed, 5f, 180f);
+
+            return config != null ? config.tiltSpeed : 45f;
+        }
+    }
+
+    private bool GimbalInvertY
+    {
+        get
+        {
+            SettingsService service = SettingsService.Instance;
+            return service != null && service.Data != null && service.Data.controls != null && service.Data.controls.gimbalInvertY;
+        }
+    }
+
     private void Awake()
     {
         ResetGimbalToDefault();
@@ -36,11 +57,12 @@ public class DroneCameraModule : MonoBehaviour
 
     private void HandleGimbalControl()
     {
-        float speed = (config != null) ? config.tiltSpeed : 45f;
+        float speed = GimbalSpeed;
+        float pitchSign = GimbalInvertY ? -1f : 1f;
 
         // R / F — Наклон Вверх / Вниз (Pitch)
-        if (Input.GetKey(KeyCode.R)) currentGimbalPitch -= speed * Time.deltaTime;
-        if (Input.GetKey(KeyCode.F)) currentGimbalPitch += speed * Time.deltaTime;
+        if (Input.GetKey(KeyCode.R)) currentGimbalPitch -= speed * Time.deltaTime * pitchSign;
+        if (Input.GetKey(KeyCode.F)) currentGimbalPitch += speed * Time.deltaTime * pitchSign;
 
         // Q / E — Поворот Влево / Вправо (Yaw)
         if (Input.GetKey(KeyCode.Q)) currentGimbalYaw -= speed * Time.deltaTime;
