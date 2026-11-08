@@ -75,6 +75,12 @@ public static class MissionContentBuilder
             return;
         }
 
+        if (property.propertyType != SerializedPropertyType.String)
+        {
+            Debug.LogError($"[MissionContentBuilder] Поле '{field}' имеет тип {property.propertyType}, а не String — значение не записано.");
+            return;
+        }
+
         property.stringValue = value;
     }
 }

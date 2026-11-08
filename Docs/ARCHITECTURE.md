@@ -849,6 +849,11 @@ activeSlots из mission.availableDrones (или из всего пула при
 через SelectByConfig(mission.defaultDrone) в Start(). Автовыбор первого слота остаётся только для
 тестового запуска без миссии (MissionContext.Current == null).
 
+OnDroneDestroyed (подписка на GameEvents.DroneExploded): обнуляет слот уничтоженного дрона и, если
+активный борт потерян, а GetAliveDronesCount() > 0, автоматически вызывает SelectDroneByIndex для первого
+живого борта (с записью в лог). Если живых бортов не осталось, currentActiveIndex = −1 — тогда
+MissionController в LateUpdate завершает миссию провалом. Ручное переключение — клавиши 1..9 в Update().
+
 Зависимости: старый Input.GetKeyDown, DroneConfig, MissionContext, GameEvents
 
 Статус: дроновые сцены
@@ -1278,7 +1283,11 @@ FPS-камера (bunkerFarClip, bunkerPostProcessing), иначе если ес
 Переприменяется на sceneLoaded и на GameEvents.DroneSwitched.
 
 Settings/AudioBus.cs — AudioMixer из Resources/Audio/MainMixer, группы Master/Music/SFX/DroneMotors/EW/UI,
-SetVolume(parameter, linear) в дБ.
+SetVolume(parameter, linear) в дБ. Ассет микшера существует (Assets/Resources/Audio/MainMixer.mixer,
+guid 8f63ca1855520d5438cde486b7dbf6ac, создан скриптом AudioMixerBuilder): Master → { Music,
+SFX → { DroneMotors, EW }, UI, Voice }, Expose-параметры MasterVolume / MusicVolume / SfxVolume /
+MotorsVolume / EwVolume / UiVolume / VoiceVolume, громкости групп 0 дБ в стартовом снапшоте, вид микшера
+содержит все 7 групп.
 
 Settings/AudioApplier.cs — 7 ползунков в AudioMixer; без микшера — fallback на AudioListener.volume.
 
@@ -1307,7 +1316,11 @@ Data/SettingsApplier.cs — точка входа применения: Apply / 
 GetResolutionOptions(), GetUniqueResolutions(), WindowModeLabels, ResetScreenCache().
 
 6. Сцены
-Всего найдено 15 сцен.
+Всего в Assets найдено 27 файлов .unity: 8 собственных в Assets/Scenes (Boot, MainMenu, Bunker(main),
+PreparingDemo, FirstMission(Forest), FirstMission(SpizjenyiVarik), player, SampleScene, TerrainDemoScene,
+FunctionalUI-Demo), 3 резервных в Assets/_Recovery и 16 сторонних demo-сцен в пакетах ассетов
+(ALP_Assets, Polyzero, R3DWorks, Realistic Tree, S-Mine 35, TerrainTexturesPackFree, UnityTechnologies,
+Vefects ×2, Volklight, ZIL130_MilitaryTruck). В Build Settings входят 5 сцен.
 
 Assets/Scenes/Boot.unity
 
@@ -1414,21 +1427,22 @@ Volklight/BTR/DemoScene.unity — demo БТР, сторонняя.
 ZIL130_MilitaryTruck/Scenes/SampleScene.unity — demo грузовика, сторонняя.
 
 Build Settings
-Включены:
+Включены (5 сцен, ProjectSettings/EditorBuildSettings.asset):
 
 Assets/Scenes/Boot.unity
 
 Assets/Scenes/MainMenu.unity
-
-Assets/Scenes/SampleScene.unity
-
-Assets/Scenes/TerrainDemoScene.unity
 
 Assets/Scenes/Bunker(main).unity
 
 Assets/Scenes/PreparingDemo.unity
 
 Assets/Scenes/FirstMission(Forest).unity
+
+Удалены из Build Settings (остались в проекте как demo/старьё): Assets/Scenes/SampleScene.unity,
+Assets/Scenes/TerrainDemoScene.unity. Unity не сохраняет EditorBuildSettings.asset автоматически,
+поэтому чистка выполняется скриптом ProjectStabilizer.CleanBuildSettings(), который после правки
+в памяти перезаписывает файл ProjectSettings/EditorBuildSettings.asset напрямую.
 
 Не включены:
 
@@ -1444,10 +1458,31 @@ Assets/Prefabs/Drones/StrikeDrone.prefab
 
 Содержат различные комбинации: Rigidbody, DroneFlightController, DroneMotors, DroneCollision, DroneCameraModule, EWReceiver, FPVZoom, HUD, Target Detector/Lock, Drop Mechanism, Interceptor Collision.
 
-Звук на префабах (добавлено вместе с настройками): на корне дрона — Audio Source + DroneMotorAudio
-(гул моторов), на камере дрона — Audio Source (Spatial Blend = 0) + EWAudio (треск помех).
-outputAudioMixerGroup назначается кодом (SFX/DroneMotors/EW), в инспекторе выставлять не нужно.
-Если компоненты не добавлены, звука моторов и помех нет, но игра работает и настройки не падают.
+Звук на префабах (сделано, ранее было только в документации): на корне дрона — Audio Source
+(outputAudioMixerGroup = DroneMotors, Spatial Blend = 1) + DroneMotorAudio; на камере дрона —
+Audio Source (Spatial Blend = 0, outputAudioMixerGroup = EW) + EWAudio. Ссылки DroneMotors /
+DroneFlightController / EWReceiver назначены автоматически скриптом DroneAudioBinder
+(меню Tools/DroneSimulator/Impact/2). Расставлено на всех 5 префабах:
+GimbalDrone, GimbalDrone Variant, ReconDrone, StrikeDrone, StrikeDrone 1.
+Примечание: у ReconDrone в префабе нет EWReceiver, поэтому EWAudio там молчит (receiver = null).
+
+Ещё на префабах не создан DroneDropMechanism: поле bombPrefab в DroneConfig назначено на
+Assets/Prefabs/Weapons/Bomb.prefab, но сбрасывать бомбы пока нечем — механизм сброса ни на одном
+префабе не висит (это следующий шаг, а не регресс).
+
+VFX и боеприпасы
+Assets/Prefabs/VFX/Explosion.prefab — процедурный префаб взрыва (корень Explosion, дети Flash и Smoke,
+каждый — ParticleSystem с ParticleSystemRenderer; материалы Assets/Art/VFX/ParticleFlash.mat и
+ParticleSmoke.mat, текстуры SoftGlow.png и SmokePuff.png; системы не зациклены, по окончании
+уничтожают себя через ParticleSystemStopAction.Destroy).
+
+Assets/Prefabs/Weapons/Bomb.prefab — цилиндр (Scale 0.14 / 0.22 / 0.14) с CapsuleCollider, Rigidbody
+(mass 8, ContinuousDynamic) и скриптом DroppedBomb; поле explosionVFX назначено на Explosion.prefab.
+
+Звук взрыва: Assets/Audio/SFX/Explosion.wav (процедурный синтез, моно 44.1 кГц, Vorbis).
+Назначен вместе с explosionPrefab и bombPrefab во все три конфига дронов
+(MavicReconConfig, SmallFpvHeatConfig, IntersectorConfig) скриптом ImpactVfxBuilder.
+Генератор: Tools/DroneSimulator/Impact/1. Build Explosion And Bomb.
 
 Техника
 Assets/Prefabs/Vehicles/Btr.prefab
@@ -1588,6 +1623,58 @@ SfxVolume, MotorsVolume, EwVolume, UiVolume (опционально VoiceVolume)
 и работает только общий уровень через AudioListener.volume (один warning в консоли).
 
 10. Известные проблемы
+Исправлено в итерации стабилизации (см. раздел 12)
+- Зелёный TMP-шрифт в PreparingDemo: запечённый инстанс материала «LiberationSans SDF Material (Instance)»
+  с зелёным _FaceColor был у Canvas/InstructionText; сброшен на дефолтный материал шрифта, осиротевший
+  инстанс материала удалён из сцены (ProjectStabilizer, шаг 1).
+- Кислотный цвет дебрифинга: DebriefController больше не использует Color.green / Color.red, а берёт
+  UIColorPalette.Success (#73CC6B) и UIColorPalette.Failure (#E67373).
+- Опечатка «Вы рызбились» в CrashPanel PreparingDemo исправлена на «Вы разбились» (шаг 2).
+- SampleScene и TerrainDemoScene убраны из Build Settings; файл EditorBuildSettings.asset перезаписан
+  явно, потому что Unity держит его в памяти и не сохраняет сама (шаг 4).
+- Автопереключение на живой борт: DroneManager.OnDroneDestroyed при потере активного дрона сам выбирает
+  первый живой борт (SelectDroneByIndex), если GetAliveDronesCount() > 0; при отсутствии бортов
+  currentActiveIndex сбрасывается в −1 и миссия завершается обычным провалом.
+- Звук появился: создан MainMixer.mixer с группами и Expose-параметрами, на префабах дронов есть
+  AudioSource + DroneMotorAudio / EWAudio, взрывам назначены префаб и звук.
+- VFX появились: Assets/Prefabs/VFX/Explosion.prefab и Assets/Prefabs/Weapons/Bomb.prefab созданы и
+  назначены в конфиги дронов.
+- UI приведён к одной палитре (UIColorPalette + UIThemeApplicator): кислотных цветов в префабах
+  SettingsPanel / MissionSelectPanel / MissionCard и сценах Bunker(main) / PreparingDemo /
+  FirstMission(Forest) не осталось.
+- Глобальный зелёный цвет шрифта исправлен (TmpColorFixer, шаг 9). Причина была не в компонентах, а в
+  дефолтном материале шрифта: у саб-ассета «LiberationSans SDF Material» в LiberationSans SDF.asset
+  параметр _FaceColor был r0.387 g0.925 b0.052 (кислотный зелёный), и все TMP-тексты проекта наследовали
+  его через шейдер (faceColor = _FaceColor × цвет вершины). Теперь _FaceColor = Color.white, а
+  fontSharedMaterial / m_fontColor / m_fontColor32 / m_faceColor / подчёркивание, зачёркивание и градиент
+  у всех TMP_Text и legacy Text в префабах Assets/Prefabs и сценах Bunker(main), MainMenu, PreparingDemo,
+  FirstMission(Forest), Boot приведены к белому или к цветам UIColorPalette (белый/серый/акцент/
+  Success/Failure). Текст в меню, бункере, миссиях, паузе и дебрифинге больше не зелёный. Отчёт:
+  Logs/tmp_color_fix_report.txt.
+- Поток красных ошибок «type is not a supported string value» из генераторов устранён. Причина —
+  AudioMixerBuilder.VerifyMixer читал поле guid у ExposedAudioParameter через SerializedProperty.stringValue,
+  а это не строка, а структура GUID (SerializedPropertyType.GUID). Стек в Editor.log указывал точно:
+  AudioMixerBuilder:ReadGuidString → VerifyMixer → BuildMainMixer (28 ошибок за прогоны). Теперь чтение
+  идёт через type-aware DescribeProperty (ветка на каждый SerializedPropertyType: stringValue только для
+  String, objectReferenceValue для ObjectReference, intValue/floatValue/enumValueIndex/colorValue для чисел,
+  enum и цвета, имя типа для структур), а точные значения guid/name печатаются из самого файла микшера
+  (LogExposedParametersFromFile). MissionContentBuilder.SetString дополнительно проверяет, что поле
+  действительно String, и пишет понятную ошибку вместо падения Unity. Подробности — раздел 12.
+- Проверено: 0 новых ошибок после исправления (все 28 старых записей в Editor.log датированы прогонами
+  до фикса), полный прогон «Run Full Stabilization» проходит без ошибок.
+
+Остаётся открытым
+- Миссия 2 проверила ссылки на дронов: в текущем ассете массив availableDrones содержит только
+  DroneConfig (MavicReconConfig + 4 × SmallFpvHeatConfig), битой ссылки на Mission1.asset нет;
+  ссылка на Mission1 лежит в prerequisites, что корректно. Инвариант теперь проверяется скриптом.
+- SerializedProperty не умеет отдавать содержимое GUID-структуры строкой: guid Expose-параметров
+  читается из YAML микшера, а не из ассета через API.
+- DroneDropMechanism не добавлен ни на один префаб дрона, поэтому bombPrefab в конфигах пока не используется.
+- ReconDrone без EWReceiver: EWAudio на его камере не звучит.
+- AudioMixer: привязка Expose-параметров проверяется только в Play Mode (в Edit Mode SetFloat возвращает
+  false, потому что микшер не инстанцирован).
+- Остальное из списка ниже (мультивыбор дрона, гейтинг, экономика, HUD миссии) не входило в эту итерацию.
+
 Критичные
 player.unity не входит в Build Settings
 
@@ -1749,5 +1836,108 @@ tent interaction;
 van interaction.
 
 Эти системы корректнее считать отдельным прототипом или неподключёнными подсистемами.
+
+12. Инструменты стабилизации и единая палитра (Editor)
+Каталог: Assets/Scripts/Editor/. Все инструменты запускаются из меню Tools/DroneSimulator,
+не требуют ручной работы в инспекторе и пишут подробные логи в консоль (и в Logs/Editor.log).
+
+StabilizationMaster.cs — «Run Full Stabilization»: одна кнопка, последовательно вызывает шаги 1–9
+(см. ниже). Порядок важен: сначала данные и ассеты, затем палитра UI, в конце — глобальный белый
+цвет шрифта TMP (шаг 9), чтобы палитра и починка шрифта не перетирали друг друга.
+
+ProjectStabilizer.cs — четыре пункта меню Stabilization/:
+1) Reset TMP Font Materials — проходит по сценам PreparingDemo, FirstMission(Forest), Bunker(main),
+   у каждого TMP_Text сравнивает fontSharedMaterial с font.material и, если отличается, ставит дефолтный
+   материал шрифта, обнуляет m_fontMaterial и массивы m_fontSharedMaterials / m_fontMaterials
+   (делается через SerializedObject, чтобы сцена осталась «чистой»), затем удаляет из сцены осиротевший
+   инстанс материала (проверяя, что на него больше нет ссылок);
+2) Fix Crash Panel Typo — заменяет «рызбились» на «разбились» во всех TMP_Text и legacy Text сцен;
+3) Validate Mission Drone Links — проверяет массивы availableDrones и поле defaultDrone у Mission1/
+   Mission2/Mission3: оставляет только ссылки на DroneConfig, чинит defaultDrone при необходимости;
+4) Clean Build Settings — убирает SampleScene и TerrainDemoScene и явно перезаписывает
+   ProjectSettings/EditorBuildSettings.asset (сохраняя прочие поля файла).
+
+ImpactVfxBuilder.cs — «Impact/1. Build Explosion And Bomb»: создаёт Assets/Art/VFX (материалы частиц
+на Sprites/Default и две процедурные PNG-текстуры), Assets/Prefabs/VFX/Explosion.prefab,
+Assets/Prefabs/Weapons/Bomb.prefab, Assets/Audio/SFX/Explosion.wav (WAV пишется вручную, затем
+AudioImporter с forceToMono и Vorbis) и назначает explosionPrefab / bombPrefab / explosionSound во все
+конфиги дронов; попутно назначает explosionVFX у DroppedBomb в префабах.
+
+AudioMixerBuilder.cs — «Impact/3. Build Audio Mixer» и «Impact/4. Verify Audio Mixer». Микшер создаётся
+через внутренний API Unity (UnityEditor.Audio.AudioMixerController, доступ по рефлексии):
+CreateMixerControllerAtPath → CreateNewGroup + AddChildToParent → SetValueForVolume в TargetSnapshot →
+exposedParameters (GUID берётся из AudioMixerGroupController.GetGUIDForVolume для каждой группы) →
+правка блока m_AudioMixerGroupViews в YAML микшера. Verify проверяет загрузку Resources/Audio/MainMixer,
+наличие 7 групп и записанных Expose-параметров (SetFloat в Edit Mode не проверяется: параметры
+привязываются только при инстанцировании микшера в Play Mode).
+
+Диагностика SerializedProperty (исправлено). Раньше VerifyMixer печатал guid каждого Expose-параметра
+через SerializedProperty.stringValue, но поле guid у ExposedAudioParameter — это структура GUID
+(SerializedPropertyType.GUID), поэтому Unity писала в консоль красную ошибку
+«type is not a supported string value» (28 записей за прогоны генераторов). Сейчас:
+- DescribeProperty(SerializedProperty) — единая type-aware замена stringValue: String → stringValue,
+  ObjectReference → objectReferenceValue.name, Integer / ArraySize / LayerMask / Character → intValue,
+  Float → floatValue, Boolean → boolValue, Color → colorValue, Enum → enumValueIndex,
+  Vector2/3/4, Rect, Bounds → соответствующие поля, Generic → «struct:<type>», прочее → имя типа
+  (для GUID выводится «GUID»); ни одна ветка не вызывает неподдерживаемый геттер;
+- LogExposedParametersFromFile() — читает блок m_ExposedParameters прямо из
+  Assets/Resources/Audio/MainMixer.mixer, поэтому фактические guid и имена видны в логе без обращений
+  к SerializedProperty по структуре.
+Правило для всех будущих Editor-скриптов проекта: перед чтением/записью значения SerializedProperty
+проверять property.propertyType (или пользоваться DescribeProperty), а stringValue применять только к
+SerializedPropertyType.String. MissionContentBuilder.SetString теперь явно проверяет тип поля.
+Тот же набор исправлений подтверждён прогоном «Run Full Stabilization»: новых ошибок в консоли нет.
+
+DroneAudioBinder.cs — «Impact/2. Attach Drone Audio Sources»: для всех префабов в Assets/Prefabs/Drones/
+добавляет на корень AudioSource (loop, spatialBlend 1, DroneMotors) + DroneMotorAudio, на первую камеру —
+AudioSource (spatialBlend 0, EW) + EWAudio, назначает ссылки motors / flightController / receiver.
+
+UIThemeApplicator.cs — «UI/1. Apply Terminal Palette» и «UI/2. Open Palette Report»: применяет палитру
+UIColorPalette к префабам SettingsPanel / MissionSelectPanel / MissionCard и сценам Bunker(main) /
+PreparingDemo / FirstMission(Forest). Правила: затемнение (overlay/scrim/completed) → Overlay; шапка →
+PanelHeader; панель/карточка/окно → PanelBackground (вложенная → PanelSurface); плашка кнопки
+(Button.targetGraphic) → Accent + ColorBlock; арт (preview/check/icon/lock/image/knob) → белый;
+разделитель → Divider или SemanticiseSurface; прочие кислотные цвета → SemanticiseSurface.
+Дополнительно правит сериализованные цвета MissionDetailsPanel, SettingsPanel, SettingsListBuilder.
+Полный отчёт по каждому элементу пишется в Logs/ui_theme_report.txt.
+
+TmpColorFixer.cs — «Text/1. Fix TMP Green Text» и «Text/2. Open TMP Color Report»: глобальная починка
+цвета текста, из-за которой раньше весь текст в игре (меню, бункер, миссии, пауза, дебрифинг) выглядел
+ядовито-зелёным. Причина была не в компонентах, а в дефолтном материале шрифта: у встроенного
+саб-ассета «LiberationSans SDF Material» (файл Assets/UnityTechnologies/ParticlePack/TextMesh Pro/
+Resources/Fonts & Materials/LiberationSans SDF.asset, guid 8f586378b4e144a9851e7b34d9b748ee,
+fileID 2180264) параметр _FaceColor был равен r0.387 g0.925 b0.052, а шейдер TMP_SDF считает
+faceColor = _FaceColor × цвет вершины, поэтому белый цвет вершины давал кислотно-зелёный текст.
+Скрипт:
+1) обходит все TMP_FontAsset (включая встроенные саб-ассеты материалов через LoadAllAssetsAtPath) и все
+   отдельные материалы TMP-шейдеров и принудительно ставит _FaceColor = Color.white (проверка —
+   material.HasProperty("_FaceColor"), поэтому попадают в том числе инстансы и пресеты Outline/Drop Shadow);
+2) проходит по всем префабам Assets/Prefabs и сценам Bunker(main), MainMenu, PreparingDemo,
+   FirstMission(Forest), Boot (открытие/сохранение через EditorSceneManager, префабы — через
+   LoadPrefabContents / SaveAsPrefabAsset) и у каждого TMP_Text / TextMeshPro / TextMeshProUGUI
+   проверяет fontSharedMaterial (зелёный _FaceColor → белый) и сериализованные поля цвета;
+3) поля m_fontColor, m_fontColor32, m_faceColor, m_underlineColor, m_strikethroughColor и четыре угла
+   m_fontColorGradient правятся через SerializedObject: кислотный зелёный (UIColorPalette.IsAcidic + зелёный
+   оттенок) заменяется на UIColorPalette.TextPrimary, для семантических имён/текстов (success/completed/
+   «выполн»/«успех») — на UIColorPalette.Success, для fail/locked — на UIColorPalette.Failure; альфа
+   исходного цвета сохраняется, цвета палитры (Success/Failure/Accent/TextPrimary/TextSecondary) считаются
+   целевыми и повторно не перекрашиваются, поэтому повторный запуск ничего не меняет;
+4) m_fontColor32 синхронизируется из m_fontColor: это кэш, который TMP пересчитывает при генерации меша
+   (TextMeshProUGUI.GenerateTextMesh: m_fontColor32 = m_fontColor), поэтому в сценах оставались устаревшие
+   значения (например, тёмно-серый 0xFF323232 у «ЗАКРЫТЬ» в бункере и кислотный m_faceColor у
+   Canvas/InstructionText в PreparingDemo) — после правки сериализованные данные совпадают с тем, что
+   реально рисуется;
+5) сохраняет только изменённые префабы/сцены, пишет отчёт Logs/tmp_color_fix_report.txt (MAT-FIX/MAT-KEEP
+   по материалам, TMP-MAT/TMP-COL/TMP-FLD/TMP-GRD/UI-COL по компонентам, GREEN-KEEP для зелёных оттенков
+   вне кислотного диапазона) и возвращает редактор в ранее открытую сцену.
+Play Mode скрипт не трогает: при активном Play Mode он пишет warning и выходит, чтобы не сохранять
+сцены во время игры. Скрипты палитры (UIThemeApplicator, UIColorPalette) не изменялись.
+
+UIColorPalette.cs (Assets/Scripts/UI/) — единственный источник цветов интерфейса. Значения:
+PanelBackground #1E2024 (0.90), PanelSurface #2A2D33 (0.90), PanelHeader #17191C (0.95),
+Overlay #000000 (0.62), Accent #D94A4A, AccentHover #E46363, AccentPressed #A93737,
+Success #73CC6B, Failure #E67373, TextPrimary #FFFFFF, TextSecondary #A0A5B0, Divider #FFFFFF (0.16).
+Хелперы: FromHex, WithAlpha, Lighten, Darken, IsAcidic, SemanticiseSurface, SemanticiseText.
+Потребители: DebriefController (цвет заголовка результата), все перечисленные префабы и сцены.
 
 См. также: CONTEXT.md, INDEX.md.

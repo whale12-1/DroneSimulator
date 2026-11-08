@@ -199,7 +199,7 @@ public class DroneManager : MonoBehaviour
     // --- Логика отслеживания смертей ---
     private void OnDroneDestroyed(Vector3 pos, MonoBehaviour destroyedDroneScript)
     {
-        GameObject destroyedObj = destroyedDroneScript.gameObject;
+        GameObject destroyedObj = destroyedDroneScript != null ? destroyedDroneScript.gameObject : null;
 
         // Обнуляем ссылку в слоте
         var slot = activeSlots.Find(s => s.droneObject == destroyedObj);
@@ -209,9 +209,26 @@ public class DroneManager : MonoBehaviour
         }
 
         int alive = GetAliveDronesCount();
-        if (alive > 0)
+        if (alive <= 0)
         {
-            Debug.Log($"<color=orange>[DroneManager]</color> Дрон уничтожен! Осталось: {alive}.");
+            currentActiveIndex = -1;
+            return;
+        }
+
+        Debug.Log($"<color=orange>[DroneManager]</color> Дрон уничтожен! Осталось: {alive}.");
+
+        bool activeDroneAlive = currentActiveIndex >= 0
+                                && currentActiveIndex < activeSlots.Count
+                                && activeSlots[currentActiveIndex].droneObject != null;
+        if (activeDroneAlive) return;
+
+        for (int i = 0; i < activeSlots.Count; i++)
+        {
+            if (activeSlots[i].droneObject == null) continue;
+
+            SelectDroneByIndex(i);
+            Debug.Log($"<color=orange>[DroneManager]</color> Активный борт потерян — автопереключение на борт {i + 1}.");
+            return;
         }
     }
 
