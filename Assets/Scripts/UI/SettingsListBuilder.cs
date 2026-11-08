@@ -7,7 +7,8 @@ public enum SettingType
 {
     Slider,
     Toggle,
-    Dropdown
+    Dropdown,
+    Key
 }
 
 public class SettingDescriptor
@@ -21,6 +22,8 @@ public class SettingDescriptor
     public string ValueFormat;
     public bool RequiresRelease;
     public string[] Options;
+    public string ActionId;
+    public int BindingIndex;
     public System.Func<int> GetIndex;
     public System.Action<int> SetIndex;
     public System.Func<float> GetFloat;
@@ -71,6 +74,7 @@ public class SettingsListBuilder : MonoBehaviour
             GameObject row;
             if (d.Type == SettingType.Toggle) row = CreateToggleRow(d);
             else if (d.Type == SettingType.Dropdown) row = CreateDropdownRow(d);
+            else if (d.Type == SettingType.Key) row = CreateKeyRow(d);
             else row = CreateSliderRow(d);
 
             RectTransform rt = (RectTransform)row.transform;
@@ -215,6 +219,47 @@ public class SettingsListBuilder : MonoBehaviour
 
         string id = d.Id;
         button.onClick.AddListener(() => ToggleDropdown(id));
+
+        return row;
+    }
+
+    private GameObject CreateKeyRow(SettingDescriptor d)
+    {
+        GameObject row = new GameObject(d.Id + "_Row", typeof(RectTransform));
+        ConfigureRowLayout(row);
+
+        Text label = CreateLabel(row.transform, d.Title);
+        SetHeight((RectTransform)label.transform, EffectiveRowHeight);
+        LayoutElement labelLE = label.gameObject.AddComponent<LayoutElement>();
+        labelLE.flexibleWidth = 1f;
+        labelLE.minWidth = 180f;
+
+        GameObject buttonObject = new GameObject(d.Id + "_Key", typeof(RectTransform));
+        buttonObject.transform.SetParent(row.transform, false);
+
+        Image image = buttonObject.AddComponent<Image>();
+        image.color = trackColor;
+
+        Button button = buttonObject.AddComponent<Button>();
+        button.targetGraphic = image;
+
+        GameObject textObject = new GameObject("Text", typeof(RectTransform));
+        textObject.transform.SetParent(buttonObject.transform, false);
+        Stretch((RectTransform)textObject.transform);
+
+        Text value = textObject.AddComponent<Text>();
+        value.font = GetLabelFont();
+        value.fontSize = 16;
+        value.alignment = TextAnchor.MiddleCenter;
+        value.color = labelColor;
+        value.raycastTarget = false;
+
+        LayoutElement buttonLE = buttonObject.AddComponent<LayoutElement>();
+        buttonLE.preferredWidth = sliderWidth;
+        buttonLE.preferredHeight = EffectiveRowHeight;
+
+        KeyBindingRow keyRow = buttonObject.AddComponent<KeyBindingRow>();
+        keyRow.Setup(d.ActionId, d.BindingIndex, value, () => OnChanged(d, true));
 
         return row;
     }

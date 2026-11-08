@@ -14,20 +14,20 @@ public class TrainingManager : MonoBehaviour
         SwitchToStrike,
         StrikeFlyGates,
         StrikeDestroyTarget,
-        SwitchBackToRecon,       // НОВЫЙ ЭТАП
-        ReconObjectiveControl,   // НОВЫЙ ЭТАП
+        SwitchBackToRecon,       // РќРћР’Р«Р™ Р­РўРђРџ
+        ReconObjectiveControl,   // РќРћР’Р«Р™ Р­РўРђРџ
         Completed
     }
 
-    [Header("Ссылки")]
+    [Header("РЎСЃС‹Р»РєРё")]
     [SerializeField] private Transform activeDroneTransform;
     [SerializeField] private TMP_Text instructionText;
 
-    [Header("Настройки полета")]
+    [Header("РќР°СЃС‚СЂРѕР№РєРё РїРѕР»РµС‚Р°")]
     [SerializeField] private float targetHeight = 5f;
     [SerializeField] private float heightTolerance = 1.5f;
 
-    [Header("Ворота")]
+    [Header("Р’РѕСЂРѕС‚Р°")]
     [SerializeField] private int totalGates = 3;
 
     private TrainingStep currentStep = TrainingStep.ReconTakeoff;
@@ -71,15 +71,15 @@ public class TrainingManager : MonoBehaviour
                 break;
 
             case TrainingStep.ReconHover:
-                if (Input.GetKeyDown(KeyCode.H)) NextStep();
+                if (GameInput.HoverTogglePressedThisFrame) NextStep();
                 break;
 
             case TrainingStep.ReconZoom:
-                if (Input.GetKeyDown(KeyCode.Z) || Input.GetKeyDown(KeyCode.X)) NextStep();
+                if (GameInput.ZoomStep != 0) NextStep();
                 break;
 
             case TrainingStep.ReconGimbal:
-                if (Input.GetKey(KeyCode.R) || Input.GetKey(KeyCode.F) || Input.GetKey(KeyCode.Q) || Input.GetKey(KeyCode.E))
+                if (GameInput.HasGimbalInput)
                 {
                     hoverTimer += Time.deltaTime;
                     if (hoverTimer > 1f) NextStep();
@@ -87,7 +87,7 @@ public class TrainingManager : MonoBehaviour
                 break;
 
             case TrainingStep.ReconNightVision:
-                if (Input.GetKeyDown(KeyCode.N)) NextStep();
+                if (GameInput.NightVisionPressedThisFrame) NextStep();
                 break;
 
             case TrainingStep.ReconTargetLock:
@@ -95,16 +95,16 @@ public class TrainingManager : MonoBehaviour
                 break;
 
             case TrainingStep.StrikeFlyGates:
-                // Ждем события от ворот
+                // Р–РґРµРј СЃРѕР±С‹С‚РёСЏ РѕС‚ РІРѕСЂРѕС‚
                 break;
 
             case TrainingStep.StrikeDestroyTarget:
-                // Ждем события уничтожения
+                // Р–РґРµРј СЃРѕР±С‹С‚РёСЏ СѓРЅРёС‡С‚РѕР¶РµРЅРёСЏ
                 break;
 
             case TrainingStep.ReconObjectiveControl:
-                // Игрок должен нажать Пробел, чтобы "сделать снимок" уничтоженной цели
-                if (Input.GetKeyDown(KeyCode.Space))
+                // РРіСЂРѕРє РґРѕР»Р¶РµРЅ РЅР°Р¶Р°С‚СЊ РџСЂРѕР±РµР», С‡С‚РѕР±С‹ "СЃРґРµР»Р°С‚СЊ СЃРЅРёРјРѕРє" СѓРЅРёС‡С‚РѕР¶РµРЅРЅРѕР№ С†РµР»Рё
+                if (GameInput.PrimaryActionPressedThisFrame)
                 {
                     NextStep();
                 }
@@ -119,7 +119,7 @@ public class TrainingManager : MonoBehaviour
         return (currentHeight - startY) >= targetH - heightTolerance;
     }
 
-    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
+    // --- РћР‘Р РђР‘РћРўР§РРљР РЎРћР‘Р«РўРР™ ---
 
     private void HandleGatePassed()
     {
@@ -133,7 +133,7 @@ public class TrainingManager : MonoBehaviour
     {
         if (currentStep == TrainingStep.StrikeDestroyTarget && vehicle.GetComponent<TargetObject>() != null)
         {
-            NextStep(); // Переходим в SwitchBackToRecon
+            NextStep(); // РџРµСЂРµС…РѕРґРёРј РІ SwitchBackToRecon
         }
     }
 
@@ -144,12 +144,12 @@ public class TrainingManager : MonoBehaviour
 
         var flight = newDrone.GetComponent<DroneFlightController>();
 
-        // Переключились на ударный дрон
+        // РџРµСЂРµРєР»СЋС‡РёР»РёСЃСЊ РЅР° СѓРґР°СЂРЅС‹Р№ РґСЂРѕРЅ
         if (currentStep == TrainingStep.SwitchToStrike && flight != null && flight.droneType == DroneType.StrikeFPV)
         {
             NextStep();
         }
-        // Переключились обратно на разведчика
+        // РџРµСЂРµРєР»СЋС‡РёР»РёСЃСЊ РѕР±СЂР°С‚РЅРѕ РЅР° СЂР°Р·РІРµРґС‡РёРєР°
         else if (currentStep == TrainingStep.SwitchBackToRecon && flight != null && flight.droneType == DroneType.ReconDrop)
         {
             NextStep();
@@ -162,7 +162,7 @@ public class TrainingManager : MonoBehaviour
         currentLockManager = drone.GetComponentInChildren<TargetLockManager>();
     }
 
-    // --- ЛОГИКА ШАГОВ И UI ---
+    // --- Р›РћР“РРљРђ РЁРђР“РћР’ Р UI ---
 
     private void NextStep()
     {
@@ -177,70 +177,70 @@ public class TrainingManager : MonoBehaviour
     {
         if (instructionText == null) return;
 
-        // Добавляем цветовые теги для важных кнопок, чтобы они выделялись
+        // Р”РѕР±Р°РІР»СЏРµРј С†РІРµС‚РѕРІС‹Рµ С‚РµРіРё РґР»СЏ РІР°Р¶РЅС‹С… РєРЅРѕРїРѕРє, С‡С‚РѕР±С‹ РѕРЅРё РІС‹РґРµР»СЏР»РёСЃСЊ
         string cW = "<color=#00FF00>[W]</color>";
         string cS = "<color=#00FF00>[S]</color>";
-        string cArrows = "<color=#00FF00>[Стрелки]</color>";
+        string cArrows = "<color=#00FF00>[РЎС‚СЂРµР»РєРё]</color>";
         string cAD = "<color=#00FF00>[A/D]</color>";
 
         switch (currentStep)
         {
-            // --- ЭТАП 1: РАЗВЕДЧИК ---
+            // --- Р­РўРђРџ 1: Р РђР—Р’Р•Р”Р§РРљ ---
             case TrainingStep.ReconTakeoff:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nВзлетите на высоту 5 метров.\n(Используйте " + cW + " / " + cS + ")";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР  (Р Р°Р·РІРµРґС‡РёРє):\nР’Р·Р»РµС‚РёС‚Рµ РЅР° РІС‹СЃРѕС‚Сѓ 5 РјРµС‚СЂРѕРІ.\n(РСЃРїРѕР»СЊР·СѓР№С‚Рµ " + cW + " / " + cS + ")";
                 break;
             case TrainingStep.ReconHover:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nНажмите <color=#00FF00>[H]</color>, чтобы включить режим зависания.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР  (Р Р°Р·РІРµРґС‡РёРє):\nРќР°Р¶РјРёС‚Рµ <color=#00FF00>[H]</color>, С‡С‚РѕР±С‹ РІРєР»СЋС‡РёС‚СЊ СЂРµР¶РёРј Р·Р°РІРёСЃР°РЅРёСЏ.";
                 break;
             case TrainingStep.ReconZoom:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nОптика готова. Нажмите <color=#00FF00>[Z]</color> или <color=#00FF00>[X]</color> для изменения зума.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР  (Р Р°Р·РІРµРґС‡РёРє):\nРћРїС‚РёРєР° РіРѕС‚РѕРІР°. РќР°Р¶РјРёС‚Рµ <color=#00FF00>[Z]</color> РёР»Рё <color=#00FF00>[X]</color> РґР»СЏ РёР·РјРµРЅРµРЅРёСЏ Р·СѓРјР°.";
                 break;
             case TrainingStep.ReconGimbal:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nПокрутите подвес камеры: <color=#00FF00>[R/F]</color> (вверх/вниз) и <color=#00FF00>[Q/E]</color> (влево/вправо).";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР  (Р Р°Р·РІРµРґС‡РёРє):\nРџРѕРєСЂСѓС‚РёС‚Рµ РїРѕРґРІРµСЃ РєР°РјРµСЂС‹: <color=#00FF00>[R/F]</color> (РІРІРµСЂС…/РІРЅРёР·) Рё <color=#00FF00>[Q/E]</color> (РІР»РµРІРѕ/РІРїСЂР°РІРѕ).";
                 break;
             case TrainingStep.ReconNightVision:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nНажмите <color=#00FF00>[N]</color>, чтобы протестировать ПНВ.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР  (Р Р°Р·РІРµРґС‡РёРє):\nРќР°Р¶РјРёС‚Рµ <color=#00FF00>[N]</color>, С‡С‚РѕР±С‹ РїСЂРѕС‚РµСЃС‚РёСЂРѕРІР°С‚СЊ РџРќР’.";
                 break;
             case TrainingStep.ReconTargetLock:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nНаведитесь на макет в конце ангара и нажмите <color=#00FF00>[Пробел]</color> для захвата.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР  (Р Р°Р·РІРµРґС‡РёРє):\nРќР°РІРµРґРёС‚РµСЃСЊ РЅР° РјР°РєРµС‚ РІ РєРѕРЅС†Рµ Р°РЅРіР°СЂР° Рё РЅР°Р¶РјРёС‚Рµ <color=#00FF00>[РџСЂРѕР±РµР»]</color> РґР»СЏ Р·Р°С…РІР°С‚Р°.";
                 break;
             case TrainingStep.SwitchToStrike:
-                instructionText.text = "ИНСТРУКТОР:\nЦель отмечена! Нажмите <color=#00FF00>[2]</color>, чтобы переключиться на ударный FPV-дрон.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nР¦РµР»СЊ РѕС‚РјРµС‡РµРЅР°! РќР°Р¶РјРёС‚Рµ <color=#00FF00>[2]</color>, С‡С‚РѕР±С‹ РїРµСЂРµРєР»СЋС‡РёС‚СЊСЃСЏ РЅР° СѓРґР°СЂРЅС‹Р№ FPV-РґСЂРѕРЅ.";
                 break;
 
-            // --- ЭТАП 2: УДАРНЫЙ ДРОН (ПОЛОСА ПРЕПЯТСТВИЙ) ---
+            // --- Р­РўРђРџ 2: РЈР”РђР РќР«Р™ Р”Р РћРќ (РџРћР›РћРЎРђ РџР Р•РџРЇРўРЎРўР’РР™) ---
             case TrainingStep.StrikeFlyGates:
                 if (gatesPassed == 0)
                 {
-                    instructionText.text = "<b>УРОК 1: ГАЗ И ТАНГАЖ</b>\n" +
-                                           $"Держите {cW}, чтобы подняться. Чтобы лететь вперед, наклоните дрон стрелкой <color=#00FF00>[Вверх]</color>.";
+                    instructionText.text = "<b>РЈР РћРљ 1: Р“РђР— Р РўРђРќР“РђР–</b>\n" +
+                                           $"Р”РµСЂР¶РёС‚Рµ {cW}, С‡С‚РѕР±С‹ РїРѕРґРЅСЏС‚СЊСЃСЏ. Р§С‚РѕР±С‹ Р»РµС‚РµС‚СЊ РІРїРµСЂРµРґ, РЅР°РєР»РѕРЅРёС‚Рµ РґСЂРѕРЅ СЃС‚СЂРµР»РєРѕР№ <color=#00FF00>[Р’РІРµСЂС…]</color>.";
                 }
                 else if (gatesPassed == 1)
                 {
-                    instructionText.text = "<b>УРОК 2: КРЕН И ПОВОРОТ</b>\n" +
-                                           $"Используйте <color=#00FF00>[Влево/Вправо]</color> для наклона (крена).\n" +
-                                           $"Используйте {cAD} для поворота корпуса (Yaw).\n" +
-                                           $"<size=80%>Прогресс: {gatesPassed}/{totalGates}</size>";
+                    instructionText.text = "<b>РЈР РћРљ 2: РљР Р•Рќ Р РџРћР’РћР РћРў</b>\n" +
+                                           $"РСЃРїРѕР»СЊР·СѓР№С‚Рµ <color=#00FF00>[Р’Р»РµРІРѕ/Р’РїСЂР°РІРѕ]</color> РґР»СЏ РЅР°РєР»РѕРЅР° (РєСЂРµРЅР°).\n" +
+                                           $"РСЃРїРѕР»СЊР·СѓР№С‚Рµ {cAD} РґР»СЏ РїРѕРІРѕСЂРѕС‚Р° РєРѕСЂРїСѓСЃР° (Yaw).\n" +
+                                           $"<size=80%>РџСЂРѕРіСЂРµСЃСЃ: {gatesPassed}/{totalGates}</size>";
                 }
                 else
                 {
-                    instructionText.text = "<b>УРОК 3: ТОРМОЖЕНИЕ</b>\n" +
-                                           $"Чтобы сбросить скорость перед финальной целью, просто <color=#00FF00>отпустите стрелку [Вверх]</color> (или нажмите [Вниз], чтобы клюнуть носом).\n" +
-                                           $"<size=80%>Прогресс: {gatesPassed}/{totalGates}</size>";
+                    instructionText.text = "<b>РЈР РћРљ 3: РўРћР РњРћР–Р•РќРР•</b>\n" +
+                                           $"Р§С‚РѕР±С‹ СЃР±СЂРѕСЃРёС‚СЊ СЃРєРѕСЂРѕСЃС‚СЊ РїРµСЂРµРґ С„РёРЅР°Р»СЊРЅРѕР№ С†РµР»СЊСЋ, РїСЂРѕСЃС‚Рѕ <color=#00FF00>РѕС‚РїСѓСЃС‚РёС‚Рµ СЃС‚СЂРµР»РєСѓ [Р’РІРµСЂС…]</color> (РёР»Рё РЅР°Р¶РјРёС‚Рµ [Р’РЅРёР·], С‡С‚РѕР±С‹ РєР»СЋРЅСѓС‚СЊ РЅРѕСЃРѕРј).\n" +
+                                           $"<size=80%>РџСЂРѕРіСЂРµСЃСЃ: {gatesPassed}/{totalGates}</size>";
                 }
                 break;
 
             case TrainingStep.StrikeDestroyTarget:
-                instructionText.text = "ИНСТРУКТОР (FPV):\nОтлично! Теперь разгонитесь и уничтожьте макет тараном.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР  (FPV):\nРћС‚Р»РёС‡РЅРѕ! РўРµРїРµСЂСЊ СЂР°Р·РіРѕРЅРёС‚РµСЃСЊ Рё СѓРЅРёС‡С‚РѕР¶СЊС‚Рµ РјР°РєРµС‚ С‚Р°СЂР°РЅРѕРј.";
                 break;
             case TrainingStep.SwitchBackToRecon:
-                instructionText.text = "ИНСТРУКТОР:\nЦель поражена! Нажмите <color=#00FF00>[1]</color>, чтобы вернуться на зависший разведчик.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nР¦РµР»СЊ РїРѕСЂР°Р¶РµРЅР°! РќР°Р¶РјРёС‚Рµ <color=#00FF00>[1]</color>, С‡С‚РѕР±С‹ РІРµСЂРЅСѓС‚СЊСЃСЏ РЅР° Р·Р°РІРёСЃС€РёР№ СЂР°Р·РІРµРґС‡РёРє.";
                 break;
             case TrainingStep.ReconObjectiveControl:
-                instructionText.text = "ИНСТРУКТОР:\nОцените ущерб. Наведитесь на обломки и нажмите <color=#00FF00>[Пробел]</color>, чтобы сделать снимок.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРћС†РµРЅРёС‚Рµ СѓС‰РµСЂР±. РќР°РІРµРґРёС‚РµСЃСЊ РЅР° РѕР±Р»РѕРјРєРё Рё РЅР°Р¶РјРёС‚Рµ <color=#00FF00>[РџСЂРѕР±РµР»]</color>, С‡С‚РѕР±С‹ СЃРґРµР»Р°С‚СЊ СЃРЅРёРјРѕРє.";
                 break;
             case TrainingStep.Completed:
-                instructionText.text = "ОБУЧЕНИЕ ЗАВЕРШЕНО!\nВы готовы к боевым вылетам.";
+                instructionText.text = "РћР‘РЈР§Р•РќРР• Р—РђР’Р•Р РЁР•РќРћ!\nР’С‹ РіРѕС‚РѕРІС‹ Рє Р±РѕРµРІС‹Рј РІС‹Р»РµС‚Р°Рј.";
                 break;
         }
     }

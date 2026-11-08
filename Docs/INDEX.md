@@ -32,7 +32,7 @@ UI взаимодействия (магазин/карта) → Assets/Scripts/I
 Восстановление состояния бункера после миссии → Assets/Scripts/Interaction/BunkerStateRestorer.cs
 Меню паузы и окно крушения в миссиях → Assets/Scripts/Interaction/MissionUIManager.cs (объект UIManager в сценах PreparingDemo и FirstMission(Forest))
 
-Заготовка Input-взаимодействия → Assets/Input/InputSystem_Actions.inputactions → Player/Interact
+Ввод дрона → Assets/Input/InputSystem_Actions.inputactions → карта Drone (Player/Interact — взаимодействие в бункере)
 
 UI главного меню → Assets/Scenes/MainMenu.unity
 
@@ -49,6 +49,12 @@ UI выбора миссии → Assets/Scripts/MainMenu/MissionSelectScreen.cs
 Карточка миссии → Assets/Prefabs/UI/MissionCard.prefab
 
 HUD дронов
+HUD миссии (активный борт N из M, боезапас, цели X / Y, таймер) → Assets/Scripts/UI/MissionHud.cs
+
+Объект HUD миссии → Assets/Scenes/PreparingDemo.unity → Canvas/MissionHud и Assets/Scenes/FirstMission(Forest).unity → Canvas/MissionHud (ссылки droneManager и missionController назначены)
+
+Вставка HUD миссии в сцены (Editor) → Assets/Scripts/Editor/MissionHudBinder.cs (Tools/DroneSimulator/UI/2. Add Mission HUD)
+
 HUD разведывательного дрона → Assets/Scripts/Camera/ReconHUD.cs
 
 HUD ударного дрона → Assets/Scripts/Camera/StrikeHUD.cs
@@ -79,6 +85,10 @@ HUD перехватчика → Assets/Scripts/Camera/IntersectorHUD.cs
 Тренировочная миссия → Assets/Resources/Missions/Mission1.asset (id: training_mission, сцена PreparingDemo)
 
 Первая миссия → Assets/Resources/Missions/Mission2.asset (id: mission_1, сцена FirstMission(Forest))
+
+Гейтинг миссий (Mission2 открывается после Mission1) → Assets/Resources/Missions/Mission2.asset → prerequisites → Mission1.asset
+
+Проверка гейтинга (Editor) → Assets/Scripts/Editor/MissionGateValidator.cs (Tools/DroneSimulator/Missions/1. Validate Mission Gating)
 
 Реестр миссий → Assets/Resources/MissionRegistry.asset
 
@@ -312,9 +322,23 @@ Recovery-сцены → Assets/_Recovery/
 Все основные сцены → Assets/Scenes/
 
 Input и настройки проекта
-Input Actions → Assets/Input/InputSystem_Actions.inputactions
+Input Actions (карты Player, UI и Drone) → Assets/Input/InputSystem_Actions.inputactions
 
-Старый Input Manager → ProjectSettings/InputManager.asset
+Карта Drone: Throttle, Yaw, Pitch, Roll, PrimaryAction, Gimbal, Zoom, NightVision, MotorStart, HoverToggle, AngleToggle, GimbalReset → Assets/Input/InputSystem_Actions.inputactions
+
+Адаптер ввода дрона (чтение InputAction, диспетчер PrimaryAction) → Assets/Scripts/Input/GameInput.cs
+
+Интерфейс контекстного действия с приоритетом → Assets/Scripts/Input/GameInput.cs → IPrimaryActionHandler (реализации: TargetLockManager 30, DroneDropMechanism 20, DroneCollision 10)
+
+Переназначение клавиш и хранение привязок → Assets/Scripts/Input/RebindService.cs
+
+Хранение привязок → SettingsData.controls.keyBindings (actionId «Действие:индекс», bindingJson — путь контрола) → Assets/Scripts/Data/SettingsData.cs
+
+Строка переназначения клавиши в настройках → Assets/Scripts/UI/KeyBindingRow.cs
+
+Проверка карты Drone (Editor) → Assets/Scripts/Editor/InputMapValidator.cs (Tools/DroneSimulator/Input/1. Validate Drone Input Map)
+
+Старый Input Manager (не используется скриптами) → ProjectSettings/InputManager.asset
 
 Tags и Layers → ProjectSettings/TagManager.asset
 
@@ -363,6 +387,19 @@ IR_Spotlight → дочерний объект камеры дрона; созд
 URP-клон «PC_RPAsset (Runtime)» → не объект сцены; подставляется в QualitySettings.renderPipeline в Play Mode и снимается при выходе
 
 AudioMixer → Assets/Resources/Audio/MainMixer.mixer; кэшируется AudioBus (ассет создан скриптом AudioMixerBuilder)
+
+InputActionAsset карты Drone → не объект сцены и не ассет в рантайме: строится кодом в GameInput.BuildAsset() и уничтожается в RuntimeInitializeOnLoadMethod(SubsystemRegistration)
+
+Инструменты обслуживания (Tools и Editor)
+Перекодировка скриптов cp1251 → UTF-8 и починка mojibake → Tools/FixScriptEncodings.ps1 (бэкапы в Logs/encoding_backup/)
+
+Вставка карты Drone в .inputactions (одноразово, история правки) → Tools/AddDroneInputMap.ps1
+
+Проверка карты Drone (ассет против кода) → Tools/DroneSimulator/Input/1. Validate Drone Input Map (Assets/Scripts/Editor/InputMapValidator.cs)
+
+Вставка HUD миссии в сцены → Tools/DroneSimulator/UI/2. Add Mission HUD (Assets/Scripts/Editor/MissionHudBinder.cs)
+
+Проверка гейтинга миссий → Tools/DroneSimulator/Missions/1. Validate Mission Gating (Assets/Scripts/Editor/MissionGateValidator.cs)
 
 Чего нет (по концепции)
 Палатки → явный путь не найден

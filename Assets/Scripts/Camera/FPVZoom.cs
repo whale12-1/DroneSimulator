@@ -32,13 +32,11 @@ public class FPVZoom : MonoBehaviour
         }
         else
         {
-            KeyCode zoomInKey = (config != null) ? config.zoomInKey : KeyCode.Z;
-            KeyCode zoomOutKey = (config != null) ? config.zoomOutKey : KeyCode.X;
-
             int maxIndex = GetZoomLevelsCount() - 1;
+            int zoomStep = GameInput.ZoomStep;
 
             // Увеличение кратности (уменьшение FOV)
-            if (Input.GetKeyDown(zoomInKey))
+            if (zoomStep > 0)
             {
                 if (currentZoomIndex < maxIndex)
                 {
@@ -47,7 +45,7 @@ public class FPVZoom : MonoBehaviour
             }
 
             // Уменьшение кратности (увеличение FOV)
-            if (Input.GetKeyDown(zoomOutKey))
+            if (zoomStep < 0)
             {
                 if (currentZoomIndex > 0)
                 {

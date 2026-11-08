@@ -1299,10 +1299,13 @@ Audio/EWAudio.cs — треск помех: отфильтрованный шу�
 
 Settings/PostFxRouter.cs — см. разделы 3 и 4.6.
 
-UI/SettingsPanel.cs — панель настроек (4 вкладки), кнопка «Сброс» → ResetSettings() → ResetAll().
+UI/SettingsPanel.cs — панель настроек (4 вкладки), кнопка «Сброс» → ResetSettings() → ResetAll() +
+RebindService.ResetAllBindings(); на вкладке «Управление» — 20 строк переназначения клавиш
+(см. раздел 13.5).
 
-UI/SettingsListBuilder.cs — конструктор строк Slider / Toggle / Dropdown (раскрывается списком внутри
-ScrollRect); для «тяжёлых» строк выставляет RequiresRelease.
+UI/SettingsListBuilder.cs — конструктор строк Slider / Toggle / Dropdown / Key (раскрывающиеся
+списки — внутри ScrollRect; строки клавиш создаются через Assets/Scripts/UI/KeyBindingRow.cs);
+для «тяжёлых» строк выставляет RequiresRelease.
 
 UI/SliderReleaseNotifier.cs — OnEndDrag / PointerUp → ApplyHeavy().
 
@@ -1939,5 +1942,171 @@ Overlay #000000 (0.62), Accent #D94A4A, AccentHover #E46363, AccentPressed #A937
 Success #73CC6B, Failure #E67373, TextPrimary #FFFFFF, TextSecondary #A0A5B0, Divider #FFFFFF (0.16).
 Хелперы: FromHex, WithAlpha, Lighten, Darken, IsAcidic, SemanticiseSurface, SemanticiseText.
 Потребители: DebriefController (цвет заголовка результата), все перечисленные префабы и сцены.
+
+13. Input System, HUD миссии и гейтинг миссий (реализовано)
+Раздел описывает слой, появившийся в итерации «аудит → кодировки, HUD, гейтинг, ввод».
+Каталог ввода: Assets/Scripts/Input/. Каталог HUD и UI-привязок: Assets/Scripts/UI/.
+
+13.1 Карта Drone в Assets/Input/InputSystem_Actions.inputactions
+В ассет (в дополнение к картам Player и UI) добавлена карта Drone: 12 действий, 26 привязок.
+Формат привязок: 1D-оси — композит «1DAxis» (сначала negative, затем positive, отсюда индексы
+частей 1 и 2), гимбал — композит «2DVector» (up/down/left/right → индексы 1..4), кнопки — одна
+привязка с индексом 0. Имена частей композита сопоставляются с полями композита без учёта регистра
+(BindingFlags.IgnoreCase во внутреннем коде Input System), поэтому «Negative»/«Positive» и
+«Up»/«Down» работают так же, как «negative»/«positive».
+
+Действие | тип | клавиши по умолчанию | индекс привязки
+Throttle | Value/Axis | S (negative, 1) / W (positive, 2)
+Yaw | Value/Axis | A (1) / D (2)
+Pitch | Value/Axis | Down (1) / Up (2)
+Roll | Value/Axis | Left (1) / Right (2)
+Zoom | Value/Axis | X (1) / Z (2)
+Gimbal | Value/Vector2 | Up=R (1), Down=F (2), Left=Q (3), Right=E (4)
+PrimaryAction | Button | Space (0)
+NightVision | Button | N (0)
+MotorStart | Button | W (0)
+HoverToggle | Button | H (0)
+AngleToggle | Button | M (0)
+GimbalReset | Button | C (0)
+
+Служебные действия (HoverToggle, AngleToggle, GimbalReset) добавлены сверх списка задачи, чтобы
+существующие возможности (зависание, режим углов разведчика, центрирование гимбала) не остались
+на легаси-вводе.
+
+13.2 GameInput (Assets/Scripts/Input/GameInput.cs)
+Статический адаптер над Input System, единая точка чтения ввода дрона. Свойства: ThrottleAxis,
+YawAxis, PitchAxis, RollAxis (float −1..1), GimbalAxis (Vector2), ZoomStep (+1/−1/0, фронт нажатия
+через WasPressedThisFrame + знак значения), PrimaryActionPressedThisFrame, MotorStartPressedThisFrame,
+NightVisionPressedThisFrame, HoverTogglePressedThisFrame, AngleTogglePressedThisFrame,
+GimbalResetPressedThisFrame. Служебные: GetAction(name), WasPressedThisFrame(name), DroneMap, Asset,
+IsReady, ActionNames (список имён действий), ReloadBindings().
+
+Инициализация ленивая: EnsureInitialized() вызывает SettingsService.EnsureInstance() (только в Play
+Mode), строит InputActionAsset в коде (AddActionMap + AddCompositeBinding), применяет сохранённые
+оверрайды через RebindService.ApplySavedBindings() и включает карту. RuntimeИнициализатор
+RuntimeInitializeOnLoadMethod(SubsystemRegistration) сбрасывает статику и уничтожает ассет, поэтому
+при отключённом Domain Reload (Enter Play Mode Options) не остаётся второго активного источника
+ввода.
+
+Почему карта дублируется в коде. .inputactions лежит в Assets/Input (вне Resources), поэтому
+в рантайме его нельзя загрузить без сериализованной ссылки на ассет или сгенерированного C#-враппера.
+Чтобы ввод не зависел от порядка инициализации сцен, источником истины в рантайме является код, а
+ассет остаётся проектным/дизайнерским артефактом. Совпадение проверяет
+Tools/DroneSimulator/Input/1. Validate Drone Input Map (Assets/Scripts/Editor/InputMapValidator.cs):
+он сверяет имена действий, количество привязок и пути каждой привязки в ассете и в коде, а также
+проверяет, что все part-привязки разрешились (effectivePath не пуст).
+
+13.3 IPrimaryActionHandler: контекстная логика Пробела
+Интерфейс объявлен в GameInput.cs: int PrimaryPriority, bool WantsPrimaryAction(),
+void OnPrimaryAction(). Подписчики регистрируются в OnEnable и снимаются в OnDisable
+(выключенный борт сцены в пуле DroneManager обработчиков не имеет). GameInput подписан на
+PrimaryAction.started и в диспетчере выбирает ровно одного желающего с максимальным приоритетом:
+30 — TargetLockManager, 20 — DroneDropMechanism, 10 — DroneCollision. Повторный вход в диспетчер
+защищён флагом primaryDispatching, исключения логируются, но не ломают обработку.
+
+Семантика:
+- TargetLockManager.WantsPrimaryAction(): если захват запрещён конфигом — false; если цель уже
+  захвачена — true только когда оружие не готово (WeaponsReady = есть заряд для сброса ИЛИ разрешена
+  ручная детонация), иначе нажатие отдаётся сбросу/детонации; если цели нет — true только когда в
+  радиусе захвата есть цель (FindLockCandidate).
+- DroneDropMechanism.WantsPrimaryAction(): CanDrop = HasPayload (bombPrefab + dropPoint + ammoCount > 0)
+  и прошёл dropCooldown.
+- DroneCollision.WantsPrimaryAction(): CanDetonateManually = !isExploded и allowManualDetonation.
+Итог: на разведчике Пробел ставит/снимает захват; на ударном борте первый Пробел по цели —
+захват, следующий — сброс (если есть заряд) или детонация; без цели в прицеле — сразу сброс/детонация.
+Конфликт C7 из аудита (одна клавиша = три действия одновременно) закрыт.
+
+13.4 RebindService (Assets/Scripts/Input/RebindService.cs)
+Хранение: SettingsData.controls.keyBindings (List<KeyBinding> из Assets/Scripts/Data/SettingsData.cs,
+namespace DroneSimulator.Settings). Одна запись = одна привязка:
+KeyBinding.actionId = «<ActionName>:<bindingIndex>» (например, «Throttle:2»),
+KeyBinding.bindingJson = путь контрола Input System («<Keyboard>/s», «<Keyboard>/space»).
+Формат выбран вместо action.SaveBindingOverridesAsJson, потому что ID привязок карты, построенной
+в коде, генерируются заново каждую сессию и JSON-оверрайды по ID не пережили бы перезапуск.
+
+API: ApplySavedBindings() (снять все оверрайды и накатить сохранённые), GetDisplayName(action, index),
+GetBindingId(action, index), TryAssignKey(action, index, Key, out error),
+ResetBinding(action, index), ResetAllBindings(), HasSavedBinding(action, index), CountSavedBindings(),
+ToControlPath(Key) (через Keyboard.current[key].path, поэтому поддерживаются любые раскладки
+имен контролов). TryAssignKey после применения оверрайда ищет дубль (FindConflict) и пишет warning
+в консоль, но нажатие не блокирует: намеренные пересечения (MotorStart и Throttle+ на W) сохраняются.
+
+13.5 UI переназначения клавиш
+SettingsListBuilder получил тип строки SettingType.Key и метод CreateKeyRow: строка = подпись +
+кнопка с текущей клавишей. Компонент Assets/Scripts/UI/KeyBindingRow.cs: клик по кнопке переводит
+строку в режим «Нажмите клавишу» и в Update ловит первую нажатую клавишу через
+Keyboard.current.allKeys (wasPressedThisFrame), Esc отменяет, Backspace/Delete сбрасывает привязку
+к дефолту. После изменения вызывается OnChanged → SettingsService.ApplyInstant/ApplyHeavy/MarkDirty
+(сохранение settings.json с debounce).
+SettingsPanel.ControlDescriptors дополнен 20 строками привязок (оси по частям, гимбал по направлениям,
+кнопки). SettingsPanel.Show() вызывает RebindService.ApplySavedBindings() — так панель всегда
+показывает актуальные клавиши; ResetSettings() дополнительно вызывает RebindService.ResetAllBindings().
+Prefab SettingsPanel править не нужно: строки генерируются в рантайме, Content имеет
+ContentSizeFitter (PreferredSize), поэтому список прокручивается.
+
+13.6 MissionHud (Assets/Scripts/UI/MissionHud.cs)
+IMGUI-плашка в левом нижнем углу (левый верхний угол занят ReconHUD, центр — StrikeHUD, правый
+верхний — FpsCounterHud). Объект MissionHud — дочерний к Canvas сцены (при отсутствии Canvas —
+к UIManager), добавляется в сцены PreparingDemo и FirstMission(Forest) Editor-скриптом
+Tools/DroneSimulator/UI/2. Add Mission HUD (Assets/Scripts/Editor/MissionHudBinder.cs), он же
+назначает ссылки droneManager и missionController через SerializedObject.
+
+Данные и источники:
+- строка «БОРТ»: DroneManager.ActiveDroneNumber / ActiveSlotCount / AliveDronesCount;
+- строка «БОЕЗАПАС»: DroneDropMechanism активного борта (HasPayload, AmmoCount); строки нет, если
+  механизма сброса на борту нет;
+- строка «ЦЕЛИ»: MissionController.DestroyedTargets / TargetCount (для DestroyAllTargets),
+  для SurviveTime и ReachPoint выводятся текстовые ярлыки; при выполнении цель зеленеет
+  (UIColorPalette.Success);
+- строка таймера: при timeLimit > 0 — обратный отсчёт, последние 30 с красные (UIColorPalette.Failure),
+  при timeLimit = 0 — прошедшее время миссии.
+Шапка плашки — displayName миссии в верхнем регистре.
+
+Стиль и поведение: цвета по умолчанию берутся из UIColorPalette (сериализуются в сцену), масштаб и
+прозрачность — HudStyleService (Begin/End вокруг GUI.matrix, ApplyAlpha для фона и текста).
+Высота плашки считается по числу реально доступных строк. Ранний выход из OnGUI: если
+SceneLoader.Instance.IsLoading (экран «LOADING...») или MissionUIManager.IsHudHidden (пауза,
+окно крушения, дебрифинг). Ссылки на DroneManager/MissionController ищутся лениво не чаще раза
+в секунду, если не назначены в инспекторе.
+
+Новые публичные свойства для HUD (только чтение, логика миссий не менялась):
+MissionController — Mission, DestroyedTargets, TargetCount, IsEnded, ElapsedTime, TimeLimit,
+TimeRemaining; DroneManager — ActiveSlotCount, AliveDronesCount, ActiveDroneNumber, GetActiveDrone().
+
+13.7 Гейтинг миссий
+Данные: Assets/Resources/Missions/Mission2.asset → prerequisites = [Mission1.asset
+(guid 61426ee32a5eb854cae5384762b6c235, id training_mission)]. Логика не менялась:
+ProgressService.IsUnlocked(m) возвращает true, если prerequisites пуст, если id миссии есть в
+unlockedMissionIds или если все prerequisites есть в completedMissionIds. Проверка:
+Tools/DroneSimulator/Missions/1. Validate Mission Gating (Assets/Scripts/Editor/MissionGateValidator.cs)
+печатает prerequisites и симулирует сохранение в памяти (временно убирает/добавляет id в
+completedMissionIds и unlockedMissionIds, затем восстанавливает списки и не вызывает Save()).
+Ожидаемый и подтверждённый результат: без пройденной Mission1 IsUnlocked(Mission2) = False,
+с пройденной — True. Пункт аудита «prerequisites пуст» относился к более раннему состоянию ассета.
+
+13.8 Скрипты и инструменты итерации
+Assets/Scripts/Input/GameInput.cs — адаптер и диспетчер PrimaryAction.
+Assets/Scripts/Input/RebindService.cs — переназначение и хранение привязок.
+Assets/Scripts/UI/MissionHud.cs — HUD миссии.
+Assets/Scripts/UI/KeyBindingRow.cs — строка переназначения клавиши.
+Assets/Scripts/Editor/InputMapValidator.cs — Tools/DroneSimulator/Input/1. Validate Drone Input Map.
+Assets/Scripts/Editor/MissionHudBinder.cs — Tools/DroneSimulator/UI/2. Add Mission HUD.
+Assets/Scripts/Editor/MissionGateValidator.cs — Tools/DroneSimulator/Missions/1. Validate Mission Gating.
+Tools/FixScriptEncodings.ps1 — перекодировка cp1251 → UTF-8 и починка mojibake (идемпотентно).
+Tools/AddDroneInputMap.ps1 — одноразовая вставка карты Drone в .inputactions (сохранён как история правки).
+
+13.9 Известные ограничения итерации
+- DroneDropMechanism (файл Assets/Scripts/Physics/DropDroneMechanism.cs) по-прежнему не висит ни на
+  одном префабе дрона, поэтому строка «БОЕЗАПАС» в сцене миссии не отображается, а Пробел на ударном
+  борте пока ведёт к детонации. Чтобы включить сброс, нужно добавить компонент на префабы ударных
+  дронов, назначить bombPrefab и dropPoint.
+- DroneConfig.detonateKey / targetLockKey / zoomInKey / zoomOutKey / nvToggleKey и
+  DroneDropMechanism.dropKey больше не читаются: клавиши теперь глобальные и переназначаемые.
+  Поля оставлены в ассетах (данные не мигрировались), удаление — отдельная задача.
+- Переназначение клавиш доступно в главном меню и в паузе бункера; в паузе миссии панели настроек
+  пока нет (см. раздел 7 CONTEXT.md).
+- Настройки ввода применяются на старте GameInput; если SettingsService появится позже (запуск
+  сцены миссии напрямую в редакторе), сохранённые привязки подхватятся при следующем создании
+  GameInput или при открытии панели настроек.
 
 См. также: CONTEXT.md, INDEX.md.

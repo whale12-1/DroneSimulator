@@ -46,9 +46,7 @@ public class NightVisionController : MonoBehaviour
             return;
         }
 
-        KeyCode toggleKey = (config != null) ? config.nvToggleKey : KeyCode.N;
-
-        if (Input.GetKeyDown(toggleKey)) SetNightVisionState(!isNightVisionActive);
+        if (GameInput.NightVisionPressedThisFrame) SetNightVisionState(!isNightVisionActive);
 
         if (isNightVisionActive || applyPending) ApplyLook();
     }

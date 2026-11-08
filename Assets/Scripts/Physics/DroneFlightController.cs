@@ -115,7 +115,7 @@ public class DroneFlightController : MonoBehaviour
         if (!isMotorStarted)
         {
             // Заводим мотор по нажатию Пробела (или можешь поменять на W)
-            if (Input.GetKeyDown(KeyCode.W))
+            if (GameInput.MotorStartPressedThisFrame)
             {
                 isMotorStarted = true;
                 currentInvulnTimer = invulnerabilityTime; // Запускаем таймер на 4 секунды
@@ -143,37 +143,33 @@ public class DroneFlightController : MonoBehaviour
             return;
         }
 
-        if (droneType == DroneType.ReconDrop && Input.GetKeyDown(KeyCode.H))
+        if (droneType == DroneType.ReconDrop && GameInput.HoverTogglePressedThisFrame)
         {
             hoverMode = !hoverMode;
             if (hoverMode) angleMode = true;
         }
 
-        if (droneType == DroneType.ReconDrop && Input.GetKeyDown(KeyCode.M))
+        if (droneType == DroneType.ReconDrop && GameInput.AngleTogglePressedThisFrame)
         {
             angleMode = !angleMode;
             if (!angleMode) hoverMode = false;
         }
 
-        KeyCode pitchUpKey = KeyCode.UpArrow;
-        KeyCode pitchDownKey = KeyCode.DownArrow;
+        float pitchAxis = GameInput.PitchAxis;
+        if (invertPitch) pitchAxis = -pitchAxis;
 
-        if (invertPitch)
-        {
-            pitchUpKey = KeyCode.DownArrow;
-            pitchDownKey = KeyCode.UpArrow;
-        }
-
-        UpdateStickRate(ref targetPitchInput, pitchUpKey, pitchDownKey);
-        UpdateStickRate(ref targetRollInput, KeyCode.RightArrow, KeyCode.LeftArrow);
-        UpdateStickRate(ref targetYawInput, KeyCode.D, KeyCode.A);
+        UpdateStickRate(ref targetPitchInput, pitchAxis);
+        UpdateStickRate(ref targetRollInput, GameInput.RollAxis);
+        UpdateStickRate(ref targetYawInput, GameInput.YawAxis);
 
         // Читаем газ ТОЛЬКО если мы не в режиме зависания
         if (!hoverMode)
         {
-            if (Input.GetKey(KeyCode.W))
+            float throttleAxis = GameInput.ThrottleAxis;
+
+            if (throttleAxis > 0f)
                 throttleInput = Mathf.MoveTowards(throttleInput, 1f, Time.deltaTime * throttleRate);
-            else if (Input.GetKey(KeyCode.S))
+            else if (throttleAxis < 0f)
                 throttleInput = Mathf.MoveTowards(throttleInput, 0f, Time.deltaTime * throttleRate);
             else if (throttleMode == 0)
                 throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleRate);
@@ -195,13 +191,10 @@ public class DroneFlightController : MonoBehaviour
         }
     }
 
-    private void UpdateStickRate(ref float value, KeyCode positive, KeyCode negative)
+    private void UpdateStickRate(ref float value, float axis)
     {
-        bool pos = Input.GetKey(positive);
-        bool neg = Input.GetKey(negative);
-
-        if (pos ^ neg)
-            value = Mathf.MoveTowards(value, pos ? 1f : -1f, Time.deltaTime * stickSpeed);
+        if (Mathf.Abs(axis) > 0.01f)
+            value = Mathf.MoveTowards(value, Mathf.Sign(axis), Time.deltaTime * stickSpeed);
         else
             value = Mathf.MoveTowards(value, 0f, Time.deltaTime * centeringSpeed);
     }

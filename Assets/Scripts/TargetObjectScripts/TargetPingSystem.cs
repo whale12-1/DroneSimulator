@@ -2,17 +2,17 @@ using UnityEngine;
 
 public class TargetPingSystem : MonoBehaviour
 {
-    [Header("Ссылки")]
+    [Header("РЎСЃС‹Р»РєРё")]
     [SerializeField] private DroneManager droneManager;
     [SerializeField] private GameObject pingMarkerPrefab;
     [SerializeField] private Camera reconCamera;
 
-    [Header("Настройки")]
+    [Header("РќР°СЃС‚СЂРѕР№РєРё")]
     [SerializeField] private LayerMask groundMask;
     [SerializeField] private float maxDistanceForRay = 1000f;
 
-    [Header("Близость (Когда маркер исчезает)")]
-    [Tooltip("Расстояние, ближе которого маркер исчезает (в метрах)")]
+    [Header("Р‘Р»РёР·РѕСЃС‚СЊ (РљРѕРіРґР° РјР°СЂРєРµСЂ РёСЃС‡РµР·Р°РµС‚)")]
+    [Tooltip("Р Р°СЃСЃС‚РѕСЏРЅРёРµ, Р±Р»РёР¶Рµ РєРѕС‚РѕСЂРѕРіРѕ РјР°СЂРєРµСЂ РёСЃС‡РµР·Р°РµС‚ (РІ РјРµС‚СЂР°С…)")]
     [SerializeField] private float disappearDistance = 200f;
 
     private GameObject activePing;
@@ -30,12 +30,12 @@ public class TargetPingSystem : MonoBehaviour
 
     private void Update()
     {
-        // Если маркер активен и у нас есть активный дрон
+        // Р•СЃР»Рё РјР°СЂРєРµСЂ Р°РєС‚РёРІРµРЅ Рё Сѓ РЅР°СЃ РµСЃС‚СЊ Р°РєС‚РёРІРЅС‹Р№ РґСЂРѕРЅ
         if (activePing != null && activeDroneTransform != null)
         {
             float distance = Vector3.Distance(activeDroneTransform.position, activePing.transform.position);
 
-            // Если подлетели ближе 200 метров - прячем маркер
+            // Р•СЃР»Рё РїРѕРґР»РµС‚РµР»Рё Р±Р»РёР¶Рµ 200 РјРµС‚СЂРѕРІ - РїСЂСЏС‡РµРј РјР°СЂРєРµСЂ
             if (distance < disappearDistance)
             {
                 Destroy(activePing);
@@ -48,12 +48,12 @@ public class TargetPingSystem : MonoBehaviour
         activeDroneTransform = newDrone.transform;
         var flight = newDrone.GetComponent<DroneFlightController>();
 
-        // Если переключились на ударный дрон — ставим маркер
+        // Р•СЃР»Рё РїРµСЂРµРєР»СЋС‡РёР»РёСЃСЊ РЅР° СѓРґР°СЂРЅС‹Р№ РґСЂРѕРЅ вЂ” СЃС‚Р°РІРёРј РјР°СЂРєРµСЂ
         if (flight != null && flight.droneType == DroneType.StrikeFPV)
         {
             CreatePingAtLastKnownPosition();
         }
-        // Если вернулись на разведчика — убираем старый маркер
+        // Р•СЃР»Рё РІРµСЂРЅСѓР»РёСЃСЊ РЅР° СЂР°Р·РІРµРґС‡РёРєР° вЂ” СѓР±РёСЂР°РµРј СЃС‚Р°СЂС‹Р№ РјР°СЂРєРµСЂ
         else if (flight != null && flight.droneType == DroneType.ReconDrop)
         {
             if (activePing != null) Destroy(activePing);
@@ -65,14 +65,14 @@ public class TargetPingSystem : MonoBehaviour
         Vector3 targetPos = Vector3.zero;
         bool foundTarget = false;
 
-        // 1. Пытаемся взять позицию цели, которую захватил разведчик
+        // 1. РџС‹С‚Р°РµРјСЃСЏ РІР·СЏС‚СЊ РїРѕР·РёС†РёСЋ С†РµР»Рё, РєРѕС‚РѕСЂСѓСЋ Р·Р°С…РІР°С‚РёР» СЂР°Р·РІРµРґС‡РёРє
         var lockManager = FindFirstObjectByType<TargetLockManager>();
         if (lockManager != null && lockManager.currentLockedTarget != null)
         {
             targetPos = lockManager.currentLockedTarget.transform.position;
             foundTarget = true;
         }
-        // 2. Если цель не захвачена — стреляем лучом из центра камеры разведчика
+        // 2. Р•СЃР»Рё С†РµР»СЊ РЅРµ Р·Р°С…РІР°С‡РµРЅР° вЂ” СЃС‚СЂРµР»СЏРµРј Р»СѓС‡РѕРј РёР· С†РµРЅС‚СЂР° РєР°РјРµСЂС‹ СЂР°Р·РІРµРґС‡РёРєР°
         else if (reconCamera != null)
         {
             Ray ray = reconCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
@@ -87,7 +87,7 @@ public class TargetPingSystem : MonoBehaviour
         {
             if (activePing != null) Destroy(activePing);
 
-            // Создаем маркер ровно в точке цели
+            // РЎРѕР·РґР°РµРј РјР°СЂРєРµСЂ СЂРѕРІРЅРѕ РІ С‚РѕС‡РєРµ С†РµР»Рё
             activePing = Instantiate(pingMarkerPrefab, targetPos, Quaternion.identity);
         }
     }

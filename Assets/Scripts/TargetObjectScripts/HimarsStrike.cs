@@ -3,25 +3,25 @@ using System.Collections;
 
 public class HimarsStrike : MonoBehaviour
 {
-    [Header("Ссылки")]
+    [Header("РЎСЃС‹Р»РєРё")]
     [SerializeField] private VehiclePatrol himarsPatrol;
-    [SerializeField] private VehicleHealth himarsHealth; // <--- ДОБАВИЛИ
+    [SerializeField] private VehicleHealth himarsHealth; // <--- Р”РћР‘РђР’РР›Р
 
-    [Header("Стрельба")]
+    [Header("РЎС‚СЂРµР»СЊР±Р°")]
     [SerializeField] private GameObject rocketVFX;
     [SerializeField] private Transform spawnPoint;
     [SerializeField] private int rocketsCount = 4;
     [SerializeField] private float delayBetweenRockets = 1.5f;
     [SerializeField] private float waitBeforeFiring = 3f;
 
-    [Header("Отступление")]
+    [Header("РћС‚СЃС‚СѓРїР»РµРЅРёРµ")]
     [SerializeField] private float himarsRetreatSpeed = 15f;
 
     private bool isFiring = false;
 
     private void Update()
     {
-        // Если патруль закончен и мы еще не стреляем
+        // Р•СЃР»Рё РїР°С‚СЂСѓР»СЊ Р·Р°РєРѕРЅС‡РµРЅ Рё РјС‹ РµС‰Рµ РЅРµ СЃС‚СЂРµР»СЏРµРј
         if (himarsPatrol != null && himarsPatrol.IsFinished && !isFiring)
         {
             StartCoroutine(FireAndRetreatSequence());
@@ -35,7 +35,7 @@ public class HimarsStrike : MonoBehaviour
 
         for (int i = 0; i < rocketsCount; i++)
         {
-            // ЗАЩИТА: Если Хаймерс мертв, прекращаем корутину
+            // Р—РђР©РРўРђ: Р•СЃР»Рё РҐР°Р№РјРµСЂСЃ РјРµСЂС‚РІ, РїСЂРµРєСЂР°С‰Р°РµРј РєРѕСЂСѓС‚РёРЅСѓ
             if (himarsHealth != null && himarsHealth.currentHealth <= 0) yield break;
 
             if (rocketVFX != null && spawnPoint != null)
@@ -46,7 +46,7 @@ public class HimarsStrike : MonoBehaviour
             yield return new WaitForSeconds(delayBetweenRockets);
         }
 
-        // ЗАЩИТА: Если он выжил после залпа, только тогда он уезжает
+        // Р—РђР©РРўРђ: Р•СЃР»Рё РѕРЅ РІС‹Р¶РёР» РїРѕСЃР»Рµ Р·Р°Р»РїР°, С‚РѕР»СЊРєРѕ С‚РѕРіРґР° РѕРЅ СѓРµР·Р¶Р°РµС‚
         if (himarsHealth != null && himarsHealth.currentHealth > 0)
         {
             if (himarsPatrol != null) himarsPatrol.StartRetreat(himarsRetreatSpeed);

@@ -53,7 +53,7 @@ public class FPVCameraShake : MonoBehaviour
         if (useThrottle)
         {
             // Берем ввод газа по вертикальной оси
-            float throttleInput = Mathf.Clamp01(Mathf.Abs(Input.GetAxis("Vertical")));
+            float throttleInput = Mathf.Clamp01(Mathf.Abs(GameInput.ThrottleAxis));
             throttleFactor = Mathf.Lerp(minThrottleFactor, 1.2f, throttleInput);
         }
 
