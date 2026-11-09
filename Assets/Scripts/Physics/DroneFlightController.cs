@@ -42,6 +42,12 @@ public class DroneFlightController : MonoBehaviour
     [Header("Газ")]
     [SerializeField] private float throttleSpeed = 1.8f;
 
+    [Header("Управление Мышью")]
+    [SerializeField] private bool useMouseControl = false;
+    [Tooltip("Чувствительность мыши. 2-5 - оптимально.")]
+    [SerializeField] private float mouseSensitivity = 3.0f;
+    [SerializeField] private KeyCode unlockCursorKey = KeyCode.Escape;
+
     private float stickSpeed = 4f;
     private float centeringSpeed = 8f;
     private float throttleRate = 1.8f;
@@ -61,8 +67,9 @@ public class DroneFlightController : MonoBehaviour
 
     [Header("Арминг (Заведение мотора)")]
     public bool isMotorStarted = false;
-    public float invulnerabilityTime = 4f; // 4 секунды неуязвимости
+    public float invulnerabilityTime = 4f;
     [HideInInspector] public float currentInvulnTimer = 0f;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -72,6 +79,12 @@ public class DroneFlightController : MonoBehaviour
         if (ewReceiver == null) ewReceiver = GetComponent<EWReceiver>();
 
         ApplyDroneProfile();
+    }
+
+    private void Start()
+    {
+        // Блокируем курсор при старте игры
+        LockCursor(true);
     }
 
     public void ApplyDroneProfile()
@@ -93,12 +106,18 @@ public class DroneFlightController : MonoBehaviour
             maxPitchRate = 220f;
             maxRollRate  = 220f;
             maxYawRate   = 140f;
-            throttleInput = 0f; // Стартуем с нуля, дрон падает
+            throttleInput = 0f;
         }
     }
 
     private void Update()
     {
+        // Управление курсором (Esc - освободить, ЛКМ - захватить обратно)
+        if (Input.GetKeyDown(unlockCursorKey))
+            LockCursor(false);
+        else if (Input.GetMouseButtonDown(0) && Cursor.lockState == CursorLockMode.None)
+            LockCursor(true);
+
         ReadInput();
     }
 
@@ -108,22 +127,26 @@ public class DroneFlightController : MonoBehaviour
         ApplyThrustAndRotation();
     }
 
+    private void LockCursor(bool lockState)
+    {
+        Cursor.lockState = lockState ? CursorLockMode.Locked : CursorLockMode.None;
+        Cursor.visible = !lockState;
+    }
+
     private void ReadInput()
     {
         RefreshInputSettings();
 
         if (!isMotorStarted)
         {
-            // Заводим мотор по нажатию Пробела (или можешь поменять на W)
             if (Input.GetKeyDown(KeyCode.W))
             {
                 isMotorStarted = true;
-                currentInvulnTimer = invulnerabilityTime; // Запускаем таймер на 4 секунды
+                currentInvulnTimer = invulnerabilityTime;
                 Debug.Log("[ДРОН] Мотор заведен! Неуязвимость на 4 секунды.");
             }
             else
             {
-                // Пока мотор не заведен, дрон не слушается стиков и висит на месте
                 return;
             }
         }
@@ -155,20 +178,41 @@ public class DroneFlightController : MonoBehaviour
             if (!angleMode) hoverMode = false;
         }
 
-        KeyCode pitchUpKey = KeyCode.UpArrow;
-        KeyCode pitchDownKey = KeyCode.DownArrow;
-
-        if (invertPitch)
+        // --- УПРАВЛЕНИЕ МЫШЬЮ (Pitch и Roll) ---
+        if (useMouseControl && Cursor.lockState == CursorLockMode.Locked)
         {
-            pitchUpKey = KeyCode.DownArrow;
-            pitchDownKey = KeyCode.UpArrow;
+            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+
+            if (invertPitch) mouseY *= -1f;
+
+            // Накапливаем положение стиков от мыши
+            targetRollInput = Mathf.Clamp(targetRollInput + mouseX, -1f, 1f);
+            targetPitchInput = Mathf.Clamp(targetPitchInput + mouseY, -1f, 1f);
+
+            // Плавный возврат в центр (как пружина на пульте), если мышь не двигается
+            if (Mathf.Abs(mouseX) < 0.01f) targetRollInput = Mathf.MoveTowards(targetRollInput, 0f, Time.deltaTime * centeringSpeed);
+            if (Mathf.Abs(mouseY) < 0.01f) targetPitchInput = Mathf.MoveTowards(targetPitchInput, 0f, Time.deltaTime * centeringSpeed);
+        }
+        else
+        {
+            // Если мышь отключена/разблокирована, работают стрелки
+            KeyCode pitchUpKey = KeyCode.UpArrow;
+            KeyCode pitchDownKey = KeyCode.DownArrow;
+
+            if (invertPitch)
+            {
+                pitchUpKey = KeyCode.DownArrow;
+                pitchDownKey = KeyCode.UpArrow;
+            }
+
+            UpdateStickRate(ref targetPitchInput, pitchUpKey, pitchDownKey);
+            UpdateStickRate(ref targetRollInput, KeyCode.RightArrow, KeyCode.LeftArrow);
         }
 
-        UpdateStickRate(ref targetPitchInput, pitchUpKey, pitchDownKey);
-        UpdateStickRate(ref targetRollInput, KeyCode.RightArrow, KeyCode.LeftArrow);
+        // Yaw (Рыскание) всегда остается на клавишах A/D
         UpdateStickRate(ref targetYawInput, KeyCode.D, KeyCode.A);
 
-        // Читаем газ ТОЛЬКО если мы не в режиме зависания
         if (!hoverMode)
         {
             if (Input.GetKey(KeyCode.W))
@@ -177,8 +221,6 @@ public class DroneFlightController : MonoBehaviour
                 throttleInput = Mathf.MoveTowards(throttleInput, 0f, Time.deltaTime * throttleRate);
             else if (throttleMode == 0)
                 throttleInput = Mathf.MoveTowards(throttleInput, 0.5f, Time.deltaTime * throttleRate);
-
-            // УБРАН БЛОК ELSE! Теперь газ остается там, где ты его оставил.
         }
 
         float jam = (enableEWImpact && ewReceiver != null) ? ewReceiver.jamIntensity : 0f;
@@ -314,8 +356,6 @@ public class DroneFlightController : MonoBehaviour
         float rollCorr = Mathf.Clamp(rollPID.Update(rollError, Time.fixedDeltaTime), -0.9f, 0.9f);
         float yawCorr = Mathf.Clamp(yawPID.Update(yawError, Time.fixedDeltaTime), -0.6f, 0.6f);
 
-        // --- НОВОЕ: Если газ на нуле, отключаем PID выравнивания ---
-        // Это заставит моторы ПОЛНОСТЬЮ остановиться и дрон упадет.
         if (effectiveThrottle <= 0.01f)
         {
             pitchCorr = 0f;

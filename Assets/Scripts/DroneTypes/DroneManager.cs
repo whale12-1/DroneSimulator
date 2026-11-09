@@ -6,13 +6,18 @@ public class DroneManager : MonoBehaviour
     [System.Serializable]
     public class DroneSetup
     {
-        public GameObject droneObject;
+        public GameObject droneObject; // Объект в сцене
+        public GameObject prefab;      // <--- ДОБАВЛЕНО: Префаб для возрождения
         public DroneConfig config;
     }
 
     [Header("Все дроны в сцене (пул)")]
     [Tooltip("Перетащи сюда все префабы/объекты дронов, которые могут быть в этой сцене")]
     [SerializeField] private DroneSetup[] allDronesInScene;
+
+    [Header("Точка возрождения (для обучения)")]
+    [Tooltip("Где будет появляться дрон после уничтожения (в режиме бесконечных попыток)")]
+    [SerializeField] private Transform respawnPoint;
 
     // Активные слоты для текущей миссии (формируются на старте)
     private List<DroneSetup> activeSlots = new List<DroneSetup>();
@@ -29,8 +34,6 @@ public class DroneManager : MonoBehaviour
     [SerializeField] private float jamRiseSpeed = 0.5f;
     [Tooltip("Как быстро спадают помехи при возвращении.")]
     [SerializeField] private float jamFallSpeed = 1f;
-
-    private float currentBoundaryJam = 0f;
 
     private void OnEnable()
     {
@@ -95,6 +98,7 @@ public class DroneManager : MonoBehaviour
             SelectDroneByIndex(0);
         }
     }
+
     private void CalculateBoundaryJam()
     {
         if (mapCenter == null) return;
@@ -142,7 +146,6 @@ public class DroneManager : MonoBehaviour
         CalculateBoundaryJam();
     }
 
-
     private void OnDrawGizmosSelected()
     {
         if (mapCenter == null) return;
@@ -165,6 +168,12 @@ public class DroneManager : MonoBehaviour
 
         SetActive(activeSlots[index].droneObject);
         currentActiveIndex = index;
+    }
+
+    public void SelectStrike()
+    {
+        int index = activeSlots.FindIndex(s => s.config != null && s.config.droneName.Contains("FPV") && s.droneObject != null);
+        if (index != -1) SelectDroneByIndex(index);
     }
 
     /// <summary>Активирует дрон по конфигу. Используется в миссиях.</summary>
@@ -224,4 +233,76 @@ public class DroneManager : MonoBehaviour
         }
         return count;
     }
+
+    /// <summary>
+    /// Возрождает ударный дрон. Используется в обучении для бесконечных попыток.
+    /// </summary>
+    public void RespawnStrikeDrone()
+    {
+        // Ищем индекс слота ударного дрона (FPV)
+        int index = activeSlots.FindIndex(s => s.config != null && s.config.droneName.Contains("FPV"));
+
+        if (index == -1)
+        {
+            Debug.LogError("[DroneManager] Не найден слот для ударного дрона (FPV)!");
+            return;
+        }
+
+        var slot = activeSlots[index];
+
+        // Проверяем, назначен ли префаб в инспекторе
+        if (slot.prefab == null)
+        {
+            Debug.LogError("[DroneManager] В инспекторе не назначен Prefab для ударного дрона! Возрождение невозможно.");
+            return;
+        }
+
+        // Удаляем старый объект, если он почему-то остался
+        if (slot.droneObject != null) Destroy(slot.droneObject);
+
+        // Спавним новый
+        Vector3 spawnPos = respawnPoint != null ? respawnPoint.position : Vector3.zero;
+        Quaternion spawnRot = respawnPoint != null ? respawnPoint.rotation : Quaternion.identity;
+
+        GameObject newDrone = Instantiate(slot.prefab, spawnPos, spawnRot);
+        slot.droneObject = newDrone;
+
+        // Сразу переключаемся на него
+        SelectDroneByIndex(index);
+        Debug.Log("<color=green>[DroneManager]</color> Ударный дрон успешно возрожден!");
+    }
+
+    /// <summary>
+    /// Спавнит ударный дрон в конкретной точке (используется при переходах между главами).
+    /// </summary>
+    public void RespawnStrikeDroneAt(Vector3 position, Quaternion rotation)
+    {
+        int index = activeSlots.FindIndex(s => s.config != null && s.config.droneName.Contains("FPV"));
+
+        if (index == -1)
+        {
+            Debug.LogError("[DroneManager] Не найден слот для ударного дрона (FPV)!");
+            return;
+        }
+
+        var slot = activeSlots[index];
+
+        if (slot.prefab == null)
+        {
+            Debug.LogError("[DroneManager] Не назначен Prefab для ударного дрона!");
+            return;
+        }
+
+        // Удаляем старый объект (если он еще существует)
+        if (slot.droneObject != null) Destroy(slot.droneObject);
+
+        // Спавним новый
+        GameObject newDrone = Instantiate(slot.prefab, position, rotation);
+        slot.droneObject = newDrone;
+
+        // Переключаемся на него
+        SelectDroneByIndex(index);
+        Debug.Log("<color=green>[DroneManager]</color> Ударный дрон заспавнен на новой точке!");
+    }
+
 }

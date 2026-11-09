@@ -1,12 +1,18 @@
-using UnityEngine;
+п»їusing UnityEngine;
 using TMPro;
+using System.Collections;
 
 public class TrainingManager : MonoBehaviour
 {
+    public enum TrainingChapter { Chapter1_Basics, Chapter2_IndoorTarget, Chapter3_Mangal, Completed }
+
     public enum TrainingStep
     {
-        ReconTakeoff,
-        ReconHover,
+        // --- Р“Р›РђР’Рђ 1 ---
+        StartMotor,   // <--- РќРћР’Р«Р™ РЁРђР“: Р—Р°РїСѓСЃРє РјРѕС‚РѕСЂР° (W)
+        DisableHover, // <--- РћС‚РєР»СЋС‡РµРЅРёРµ Р°РІС‚РѕР·Р°РІРёСЃР°РЅРёСЏ (H)
+        ReconTakeoff, // <--- Р’Р·Р»РµС‚ (W)
+        ReconHover,   // <--- Р’РєР»СЋС‡РµРЅРёРµ Р·Р°РІРёСЃР°РЅРёСЏ (H) - РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ
         ReconZoom,
         ReconGimbal,
         ReconNightVision,
@@ -14,28 +20,53 @@ public class TrainingManager : MonoBehaviour
         SwitchToStrike,
         StrikeFlyGates,
         StrikeDestroyTarget,
-        SwitchBackToRecon,       // НОВЫЙ ЭТАП
-        ReconObjectiveControl,   // НОВЫЙ ЭТАП
+        SwitchBackToRecon,
+        ReconObjectiveControl,
+
+        // --- Р“Р›РђР’Рђ 2 ---
+        Chapter2_Start,
+        Chapter2_DestroyIndoorTarget,
+
+        // --- Р“Р›РђР’Рђ 3 ---
+        Chapter3_Start,
+        Chapter3_DestroyModules,
+
+        // --- Р¤РРќРђР› ---
         Completed
     }
 
-    [Header("Ссылки")]
+    [Header("РЎСЃС‹Р»РєРё")]
     [SerializeField] private Transform activeDroneTransform;
     [SerializeField] private TMP_Text instructionText;
+    [SerializeField] private ScreenFader screenFader;
+    [SerializeField] private DroneManager droneManager;
 
-    [Header("Настройки полета")]
+    [Header("РћРєСЂСѓР¶РµРЅРёРµ Р“Р»Р°РІ")]
+    [SerializeField] private GameObject envChapter1;
+    [SerializeField] private GameObject envChapter2;
+    [SerializeField] private GameObject envChapter3;
+
+    [Header("РўРѕС‡РєРё СЃРїР°РІРЅР° РґР»СЏ Р“Р»Р°РІ")]
+    [SerializeField] private Transform spawnPosChapter2;
+    [SerializeField] private Transform spawnPosChapter3;
+
+    [Header("Р“Р»Р°РІР° 3: РњР°РЅРіР°Р»")]
+    [SerializeField] private int totalModulesToDestroy = 3;
+    private int destroyedModulesCount = 0;
+
+    [Header("РќР°СЃС‚СЂРѕР№РєРё")]
     [SerializeField] private float targetHeight = 5f;
     [SerializeField] private float heightTolerance = 1.5f;
-
-    [Header("Ворота")]
     [SerializeField] private int totalGates = 3;
 
-    private TrainingStep currentStep = TrainingStep.ReconTakeoff;
+    private TrainingChapter currentChapter = TrainingChapter.Chapter1_Basics;
+    private TrainingStep currentStep = TrainingStep.StartMotor; // <--- РќР°С‡РёРЅР°РµРј СЃ Р·Р°РїСѓСЃРєР° РјРѕС‚РѕСЂР°
+
     private int gatesPassed = 0;
     private float hoverTimer = 0f;
     private float startY;
+    private bool isTransitioning = false;
 
-    private DroneFlightController currentFlightController;
     private TargetLockManager currentLockManager;
 
     private void Start()
@@ -52,20 +83,36 @@ public class TrainingManager : MonoBehaviour
     {
         TrainingGate.OnGatePassed += HandleGatePassed;
         GameEvents.VehicleDestroyed += HandleVehicleDestroyed;
+        GameEvents.ModuleDestroyed += HandleModuleDestroyed;
         GameEvents.DroneSwitched += HandleDroneSwitched;
+        GameEvents.DroneExploded += HandleDroneExploded;
     }
 
     private void OnDisable()
     {
         TrainingGate.OnGatePassed -= HandleGatePassed;
         GameEvents.VehicleDestroyed -= HandleVehicleDestroyed;
+        GameEvents.ModuleDestroyed -= HandleModuleDestroyed;
         GameEvents.DroneSwitched -= HandleDroneSwitched;
+        GameEvents.DroneExploded -= HandleDroneExploded;
     }
 
     private void Update()
     {
+        if (isTransitioning) return;
+
         switch (currentStep)
         {
+            case TrainingStep.StartMotor:
+                // Р–РґРµРј РЅР°Р¶Р°С‚РёСЏ W РґР»СЏ Р·Р°РїСѓСЃРєР° РјРѕС‚РѕСЂР°
+                if (Input.GetKeyDown(KeyCode.W)) NextStep();
+                break;
+
+            case TrainingStep.DisableHover:
+                // Р–РґРµРј H РґР»СЏ РѕС‚РєР»СЋС‡РµРЅРёСЏ Р°РІС‚РѕРїРёР»РѕС‚Р°
+                if (Input.GetKeyDown(KeyCode.H)) NextStep();
+                break;
+
             case TrainingStep.ReconTakeoff:
                 if (CheckHeight(targetHeight)) NextStep();
                 break;
@@ -94,32 +141,175 @@ public class TrainingManager : MonoBehaviour
                 if (currentLockManager != null && currentLockManager.currentLockedTarget != null) NextStep();
                 break;
 
-            case TrainingStep.StrikeFlyGates:
-                // Ждем события от ворот
-                break;
-
-            case TrainingStep.StrikeDestroyTarget:
-                // Ждем события уничтожения
-                break;
-
             case TrainingStep.ReconObjectiveControl:
-                // Игрок должен нажать Пробел, чтобы "сделать снимок" уничтоженной цели
-                if (Input.GetKeyDown(KeyCode.Space))
-                {
-                    NextStep();
-                }
+                if (Input.GetKeyDown(KeyCode.Space)) NextStep();
                 break;
         }
+    }
+
+    private void NextStep()
+    {
+        if (isTransitioning) return;
+
+        if (currentStep == TrainingStep.ReconObjectiveControl)
+        {
+            StartCoroutine(TransitionToChapter(TrainingChapter.Chapter2_IndoorTarget, "Р“Р›РђР’Рђ 2\nР¦РµР»СЊ РІ РїРѕРјРµС‰РµРЅРёРё", TrainingStep.Chapter2_Start));
+            return;
+        }
+        if (currentStep == TrainingStep.Chapter2_DestroyIndoorTarget)
+        {
+            StartCoroutine(TransitionToChapter(TrainingChapter.Chapter3_Mangal, "Р“Р›РђР’Рђ 3\nР‘СЂРѕРЅРёСЂРѕРІР°РЅРЅС‹Рµ С†РµР»Рё", TrainingStep.Chapter3_Start));
+            return;
+        }
+        if (currentStep == TrainingStep.Chapter3_DestroyModules && destroyedModulesCount >= totalModulesToDestroy)
+        {
+            StartCoroutine(TransitionToChapter(TrainingChapter.Completed, "РћР‘РЈР§Р•РќРР• Р—РђР’Р•Р РЁР•РќРћ!", TrainingStep.Chapter3_DestroyModules));
+            return;
+        }
+
+        currentStep = (TrainingStep)((int)currentStep + 1);
+        hoverTimer = 0f;
+        if (activeDroneTransform != null) startY = activeDroneTransform.position.y;
+        UpdateUI();
+    }
+
+    private IEnumerator TransitionToChapter(TrainingChapter nextChapter, string title, TrainingStep firstStepOfNextChapter)
+    {
+        isTransitioning = true;
+        instructionText.text = "";
+
+        if (screenFader != null)
+            yield return StartCoroutine(screenFader.FadeOut(title));
+
+        // РћС‡РёСЃС‚РєР° VFX Рё Р·РІСѓРєРѕРІ
+        ParticleSystem[] allParticles = FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None);
+        foreach (var ps in allParticles)
+        {
+            if (ps.GetComponentInParent<Canvas>() == null) Destroy(ps.gameObject);
+        }
+
+        AudioSource[] allAudio = FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
+        foreach (var audio in allAudio)
+        {
+            if (audio.playOnAwake && audio.loop == false) audio.Stop();
+        }
+
+        if (nextChapter == TrainingChapter.Completed)
+        {
+            UpdateUI();
+            if (screenFader != null) yield return StartCoroutine(screenFader.FadeIn());
+
+            MissionController mc = FindFirstObjectByType<MissionController>();
+            if (mc != null) mc.CompleteMission(MissionResult.Success, totalModulesToDestroy);
+            else
+            {
+                MissionContext.MarkResult(MissionResult.Success, totalModulesToDestroy, Time.time);
+                GameStateMachine.TransitionTo(GameState.Debrief);
+            }
+            yield break;
+        }
+
+        if (envChapter1 != null) envChapter1.SetActive(false);
+        if (envChapter2 != null) envChapter2.SetActive(false);
+        if (envChapter3 != null) envChapter3.SetActive(false);
+
+        Vector3 newSpawnPos = Vector3.zero;
+        Quaternion newSpawnRot = Quaternion.identity;
+
+        if (nextChapter == TrainingChapter.Chapter2_IndoorTarget)
+        {
+            if (envChapter2 != null) envChapter2.SetActive(true);
+            if (spawnPosChapter2 != null)
+            {
+                newSpawnPos = spawnPosChapter2.position;
+                newSpawnRot = spawnPosChapter2.rotation;
+            }
+        }
+        else if (nextChapter == TrainingChapter.Chapter3_Mangal)
+        {
+            if (envChapter3 != null) envChapter3.SetActive(true);
+            if (spawnPosChapter3 != null)
+            {
+                newSpawnPos = spawnPosChapter3.position;
+                newSpawnRot = spawnPosChapter3.rotation;
+            }
+        }
+
+        currentChapter = nextChapter;
+        currentStep = firstStepOfNextChapter;
+
+        if (nextChapter != TrainingChapter.Chapter1_Basics && droneManager != null)
+        {
+            droneManager.RespawnStrikeDroneAt(newSpawnPos, newSpawnRot);
+            yield return null;
+        }
+
+        UpdateUI();
+        if (screenFader != null)
+            yield return StartCoroutine(screenFader.FadeIn());
+
+        isTransitioning = false;
+    }
+
+    private void HandleVehicleDestroyed(VehicleHealth vehicle)
+    {
+        if (vehicle.GetComponent<TargetObject>() == null) return;
+
+        if (currentStep == TrainingStep.StrikeDestroyTarget) NextStep();
+        else if (currentChapter == TrainingChapter.Chapter2_IndoorTarget &&
+                (currentStep == TrainingStep.Chapter2_Start || currentStep == TrainingStep.Chapter2_DestroyIndoorTarget))
+        {
+            StartCoroutine(TransitionToChapter(TrainingChapter.Chapter3_Mangal, "Р“Р›РђР’Рђ 3\nР‘СЂРѕРЅРёСЂРѕРІР°РЅРЅС‹Рµ С†РµР»Рё", TrainingStep.Chapter3_Start));
+        }
+    }
+
+    private void HandleModuleDestroyed(VehicleModule module)
+    {
+        if (currentChapter == TrainingChapter.Chapter3_Mangal)
+        {
+            currentStep = TrainingStep.Chapter3_DestroyModules;
+            destroyedModulesCount++;
+            UpdateUI();
+
+            if (destroyedModulesCount >= totalModulesToDestroy) NextStep();
+        }
+    }
+
+    private void HandleDroneExploded(Vector3 pos, MonoBehaviour drone)
+    {
+        if (isTransitioning) return;
+
+        if (currentStep == TrainingStep.StrikeFlyGates ||
+            currentStep == TrainingStep.StrikeDestroyTarget ||
+            currentStep == TrainingStep.Chapter2_Start ||
+            currentStep == TrainingStep.Chapter2_DestroyIndoorTarget ||
+            currentStep == TrainingStep.Chapter3_Start ||
+            currentStep == TrainingStep.Chapter3_DestroyModules)
+        {
+            Invoke(nameof(RespawnStrikeDrone), 1.5f);
+        }
+    }
+
+    private void RespawnStrikeDrone()
+    {
+        if (droneManager != null) droneManager.RespawnStrikeDrone();
+    }
+
+    private void HandleDroneSwitched(GameObject newDrone)
+    {
+        activeDroneTransform = newDrone.transform;
+        UpdateDroneReferences(newDrone);
+
+        var flight = newDrone.GetComponent<DroneFlightController>();
+        if (currentStep == TrainingStep.SwitchToStrike && flight != null && flight.droneType == DroneType.StrikeFPV) NextStep();
+        else if (currentStep == TrainingStep.SwitchBackToRecon && flight != null && flight.droneType == DroneType.ReconDrop) NextStep();
     }
 
     private bool CheckHeight(float targetH)
     {
         if (activeDroneTransform == null) return false;
-        float currentHeight = activeDroneTransform.position.y;
-        return (currentHeight - startY) >= targetH - heightTolerance;
+        return (activeDroneTransform.position.y - startY) >= targetH - heightTolerance;
     }
-
-    // --- ОБРАБОТЧИКИ СОБЫТИЙ ---
 
     private void HandleGatePassed()
     {
@@ -129,119 +319,55 @@ public class TrainingManager : MonoBehaviour
         if (gatesPassed >= totalGates) NextStep();
     }
 
-    private void HandleVehicleDestroyed(VehicleHealth vehicle)
-    {
-        if (currentStep == TrainingStep.StrikeDestroyTarget && vehicle.GetComponent<TargetObject>() != null)
-        {
-            NextStep(); // Переходим в SwitchBackToRecon
-        }
-    }
-
-    private void HandleDroneSwitched(GameObject newDrone)
-    {
-        activeDroneTransform = newDrone.transform;
-        UpdateDroneReferences(newDrone);
-
-        var flight = newDrone.GetComponent<DroneFlightController>();
-
-        // Переключились на ударный дрон
-        if (currentStep == TrainingStep.SwitchToStrike && flight != null && flight.droneType == DroneType.StrikeFPV)
-        {
-            NextStep();
-        }
-        // Переключились обратно на разведчика
-        else if (currentStep == TrainingStep.SwitchBackToRecon && flight != null && flight.droneType == DroneType.ReconDrop)
-        {
-            NextStep();
-        }
-    }
-
     private void UpdateDroneReferences(GameObject drone)
     {
-        currentFlightController = drone.GetComponent<DroneFlightController>();
         currentLockManager = drone.GetComponentInChildren<TargetLockManager>();
-    }
-
-    // --- ЛОГИКА ШАГОВ И UI ---
-
-    private void NextStep()
-    {
-        currentStep++;
-        hoverTimer = 0f;
-
-        if (activeDroneTransform != null) startY = activeDroneTransform.position.y;
-        UpdateUI();
     }
 
     private void UpdateUI()
     {
         if (instructionText == null) return;
-
-        // Добавляем цветовые теги для важных кнопок, чтобы они выделялись
         string cW = "<color=#00FF00>[W]</color>";
         string cS = "<color=#00FF00>[S]</color>";
-        string cArrows = "<color=#00FF00>[Стрелки]</color>";
-        string cAD = "<color=#00FF00>[A/D]</color>";
 
         switch (currentStep)
         {
-            // --- ЭТАП 1: РАЗВЕДЧИК ---
+            // --- Р“Р›РђР’Рђ 1 ---
+            case TrainingStep.StartMotor:
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nР”Р»СЏ РЅР°С‡Р°Р»Р° СЂР°Р±РѕС‚С‹ Р·Р°РІРµРґРёС‚Рµ РјРѕС‚РѕСЂ. РќР°Р¶РјРёС‚Рµ <color=#00FF00>[W]</color>.";
+                break;
+
+            case TrainingStep.DisableHover:
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nР”СЂРѕРЅ СЃРµР№С‡Р°СЃ РІ СЂРµР¶РёРјРµ Р°РІС‚РѕР·Р°РІРёСЃР°РЅРёСЏ. РќР°Р¶РјРёС‚Рµ <color=#00FF00>[H]</color>, С‡С‚РѕР±С‹ РїРµСЂРµР№С‚Рё РЅР° СЂСѓС‡РЅРѕРµ СѓРїСЂР°РІР»РµРЅРёРµ РіР°Р·РѕРј.";
+                break;
+
             case TrainingStep.ReconTakeoff:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nВзлетите на высоту 5 метров.\n(Используйте " + cW + " / " + cS + ")";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРћС‚Р»РёС‡РЅРѕ! РўРµРїРµСЂСЊ РІР·Р»РµС‚РёС‚Рµ РЅР° РІС‹СЃРѕС‚Сѓ 5 РјРµС‚СЂРѕРІ. (" + cW + " / " + cS + ")";
                 break;
+
             case TrainingStep.ReconHover:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nНажмите <color=#00FF00>[H]</color>, чтобы включить режим зависания.";
-                break;
-            case TrainingStep.ReconZoom:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nОптика готова. Нажмите <color=#00FF00>[Z]</color> или <color=#00FF00>[X]</color> для изменения зума.";
-                break;
-            case TrainingStep.ReconGimbal:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nПокрутите подвес камеры: <color=#00FF00>[R/F]</color> (вверх/вниз) и <color=#00FF00>[Q/E]</color> (влево/вправо).";
-                break;
-            case TrainingStep.ReconNightVision:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nНажмите <color=#00FF00>[N]</color>, чтобы протестировать ПНВ.";
-                break;
-            case TrainingStep.ReconTargetLock:
-                instructionText.text = "ИНСТРУКТОР (Разведчик):\nНаведитесь на макет в конце ангара и нажмите <color=#00FF00>[Пробел]</color> для захвата.";
-                break;
-            case TrainingStep.SwitchToStrike:
-                instructionText.text = "ИНСТРУКТОР:\nЦель отмечена! Нажмите <color=#00FF00>[2]</color>, чтобы переключиться на ударный FPV-дрон.";
+                instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРќР°Р¶РјРёС‚Рµ <color=#00FF00>[H]</color> СЃРЅРѕРІР°, РµСЃР»Рё Р·Р°С…РѕС‚РёС‚Рµ РІРєР»СЋС‡РёС‚СЊ СЂРµР¶РёРј Р·Р°РІРёСЃР°РЅРёСЏ.";
                 break;
 
-            // --- ЭТАП 2: УДАРНЫЙ ДРОН (ПОЛОСА ПРЕПЯТСТВИЙ) ---
-            case TrainingStep.StrikeFlyGates:
-                if (gatesPassed == 0)
-                {
-                    instructionText.text = "<b>УРОК 1: ГАЗ И ТАНГАЖ</b>\n" +
-                                           $"Держите {cW}, чтобы подняться. Чтобы лететь вперед, наклоните дрон стрелкой <color=#00FF00>[Вверх]</color>.";
-                }
-                else if (gatesPassed == 1)
-                {
-                    instructionText.text = "<b>УРОК 2: КРЕН И ПОВОРОТ</b>\n" +
-                                           $"Используйте <color=#00FF00>[Влево/Вправо]</color> для наклона (крена).\n" +
-                                           $"Используйте {cAD} для поворота корпуса (Yaw).\n" +
-                                           $"<size=80%>Прогресс: {gatesPassed}/{totalGates}</size>";
-                }
-                else
-                {
-                    instructionText.text = "<b>УРОК 3: ТОРМОЖЕНИЕ</b>\n" +
-                                           $"Чтобы сбросить скорость перед финальной целью, просто <color=#00FF00>отпустите стрелку [Вверх]</color> (или нажмите [Вниз], чтобы клюнуть носом).\n" +
-                                           $"<size=80%>Прогресс: {gatesPassed}/{totalGates}</size>";
-                }
-                break;
+            case TrainingStep.ReconZoom: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРћРїС‚РёРєР°. РќР°Р¶РјРёС‚Рµ <color=#00FF00>[Z]</color> РёР»Рё <color=#00FF00>[X]</color>."; break;
+            case TrainingStep.ReconGimbal: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРџРѕРєСЂСѓС‚РёС‚Рµ РєР°РјРµСЂСѓ: <color=#00FF00>[R/F]</color> Рё <color=#00FF00>[Q/E]</color>."; break;
+            case TrainingStep.ReconNightVision: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРџРќР’. РќР°Р¶РјРёС‚Рµ <color=#00FF00>[N]</color>."; break;
+            case TrainingStep.ReconTargetLock: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРќР°РІРµРґРёС‚РµСЃСЊ РЅР° РјР°РєРµС‚ Рё РЅР°Р¶РјРёС‚Рµ <color=#00FF00>[РџСЂРѕР±РµР»]</color>."; break;
+            case TrainingStep.SwitchToStrike: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРќР°Р¶РјРёС‚Рµ <color=#00FF00>[2]</color> РґР»СЏ РїРµСЂРµС…РѕРґР° РЅР° СѓРґР°СЂРЅС‹Р№ РґСЂРѕРЅ."; break;
+            case TrainingStep.StrikeFlyGates: instructionText.text = "<b>РџРћР›РћРЎРђ РџР Р•РџРЇРўРЎРўР’РР™</b>\nРџСЂРѕР»РµС‚РёС‚Рµ С‡РµСЂРµР· РєРѕР»СЊС†Р°.\nРџСЂРѕРіСЂРµСЃСЃ: " + gatesPassed + "/" + totalGates; break;
+            case TrainingStep.StrikeDestroyTarget: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРЈРЅРёС‡С‚РѕР¶СЊС‚Рµ РјР°РєРµС‚ С‚Р°СЂР°РЅРѕРј."; break;
+            case TrainingStep.SwitchBackToRecon: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРќР°Р¶РјРёС‚Рµ <color=#00FF00>[1]</color>, С‡С‚РѕР±С‹ РІРµСЂРЅСѓС‚СЊСЃСЏ РЅР° СЂР°Р·РІРµРґС‡РёРє."; break;
+            case TrainingStep.ReconObjectiveControl: instructionText.text = "РРќРЎРўР РЈРљРўРћР :\nРќР°Р¶РјРёС‚Рµ <color=#00FF00>[РџСЂРѕР±РµР»]</color> РґР»СЏ СЃРЅРёРјРєР° РѕР±Р»РѕРјРєРѕРІ."; break;
 
-            case TrainingStep.StrikeDestroyTarget:
-                instructionText.text = "ИНСТРУКТОР (FPV):\nОтлично! Теперь разгонитесь и уничтожьте макет тараном.";
-                break;
-            case TrainingStep.SwitchBackToRecon:
-                instructionText.text = "ИНСТРУКТОР:\nЦель поражена! Нажмите <color=#00FF00>[1]</color>, чтобы вернуться на зависший разведчик.";
-                break;
-            case TrainingStep.ReconObjectiveControl:
-                instructionText.text = "ИНСТРУКТОР:\nОцените ущерб. Наведитесь на обломки и нажмите <color=#00FF00>[Пробел]</color>, чтобы сделать снимок.";
-                break;
-            case TrainingStep.Completed:
-                instructionText.text = "ОБУЧЕНИЕ ЗАВЕРШЕНО!\nВы готовы к боевым вылетам.";
-                break;
+            // --- Р“Р›РђР’Рђ 2 ---
+            case TrainingStep.Chapter2_Start: instructionText.text = "<b>Р“Р›РђР’Рђ 2: РўРћР§РќРћРЎРўР¬</b>\nР’С‹ РЅР° СѓРґР°СЂРЅРѕРј РґСЂРѕРЅРµ. РќР°Р№РґРёС‚Рµ РґРѕРј РІРїРµСЂРµРґРё Рё Р·Р°Р»РµС‚РёС‚Рµ Р’РќРЈРўР Р¬ С‡РµСЂРµР· РѕС‚РєСЂС‹С‚РѕРµ РѕРєРЅРѕ РёР»Рё РґРІРµСЂСЊ."; break;
+            case TrainingStep.Chapter2_DestroyIndoorTarget: instructionText.text = "<b>Р—РђР”РђР§Рђ:</b>\nРќР°Р№РґРёС‚Рµ СЃРєР»Р°Рґ Р±РѕРµРїСЂРёРїР°СЃРѕРІ РІРЅСѓС‚СЂРё РґРѕРјР° Рё СѓРЅРёС‡С‚РѕР¶СЊС‚Рµ РµРіРѕ."; break;
+
+            // --- Р“Р›РђР’Рђ 3 ---
+            case TrainingStep.Chapter3_Start: instructionText.text = "<b>Р“Р›РђР’Рђ 3: Р‘Р РћРќРЇ</b>\nРџРµСЂРµРґ РІР°РјРё С‚РµС…РЅРёРєР° СЃ Р·Р°С‰РёС‚РЅРѕР№ СЃРµС‚РєРѕР№ (РјР°РЅРіР°Р»). Р›РѕР± Рё РІРµСЂС… Р·Р°С‰РёС‰РµРЅС‹. Р¦РµР»СЊС‚РµСЃСЊ РІ РґРІРёРіР°С‚РµР»СЊ РёР»Рё РіСѓСЃРµРЅРёС†С‹. Р”СЂРѕРЅС‹ Р±РµСЃРєРѕРЅРµС‡РЅС‹."; break;
+            case TrainingStep.Chapter3_DestroyModules: instructionText.text = $"<b>Р—РђР”РђР§Рђ:</b>\nРЈРЅРёС‡С‚РѕР¶СЊС‚Рµ СѓСЏР·РІРёРјС‹Рµ С‡Р°СЃС‚Рё С‚РµС…РЅРёРєРё!\nРџСЂРѕРіСЂРµСЃСЃ: {destroyedModulesCount} / {totalModulesToDestroy}"; break;
+
+            case TrainingStep.Completed: instructionText.text = "РћР‘РЈР§Р•РќРР• Р—РђР’Р•Р РЁР•РќРћ!\nР’С‹ РіРѕС‚РѕРІС‹ Рє Р±РѕРµРІС‹Рј РІС‹Р»РµС‚Р°Рј."; break;
         }
     }
 }

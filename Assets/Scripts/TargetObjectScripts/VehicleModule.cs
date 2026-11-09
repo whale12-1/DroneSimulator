@@ -100,6 +100,9 @@ public class VehicleModule : MonoBehaviour, IDamageable
             Destroy(detachableMesh, 15f);
         }
 
+        Debug.Log($"<color=red>[MODULE]</color> Модуль '{moduleType}' УНИЧТОЖЕН! Отправляем событие.");
+
+
         GameEvents.RaiseModuleDestroyed(this);
         mainVehicle?.OnModuleFunctionalityLost(moduleType);
     }
