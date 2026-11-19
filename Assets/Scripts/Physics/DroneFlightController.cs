@@ -336,7 +336,8 @@ public class DroneFlightController : MonoBehaviour
             float currentRoll = NormalizeAngle(transform.localEulerAngles.z);
 
             float desiredPitch = hoverMode ? 0f : targetPitchInput * maxAngle;
-            float desiredRoll = hoverMode ? 0f : targetRollInput  * maxAngle;
+            // Инвертируем desiredRoll, так как наклон вправо в Unity — это отрицательный угол по Z
+            float desiredRoll = hoverMode ? 0f : -targetRollInput * maxAngle;
 
             float response = hoverMode ? 6f : 4f;
             targetPitchRate = (desiredPitch - currentPitch) * response;
@@ -345,7 +346,8 @@ public class DroneFlightController : MonoBehaviour
         else
         {
             targetPitchRate = targetPitchInput * maxPitchRate;
-            targetRollRate  = targetRollInput  * maxRollRate;
+            // Инвертируем targetRollRate: нажатие вправо (+1) = отрицательная угловая скорость по Z
+            targetRollRate  = -targetRollInput * maxRollRate;
         }
 
         float pitchError = targetPitchRate - localAngularVel.x;
@@ -364,10 +366,10 @@ public class DroneFlightController : MonoBehaviour
 
         rb.AddRelativeTorque(Vector3.up * yawCorr * 8f, ForceMode.Force);
 
-        float motorFL = effectiveThrottle - pitchCorr + rollCorr;
-        float motorFR = effectiveThrottle - pitchCorr - rollCorr;
-        float motorBL = effectiveThrottle + pitchCorr + rollCorr;
-        float motorBR = effectiveThrottle + pitchCorr - rollCorr;
+        float motorFL = effectiveThrottle - pitchCorr - rollCorr;
+        float motorFR = effectiveThrottle - pitchCorr + rollCorr;
+        float motorBL = effectiveThrottle + pitchCorr - rollCorr;
+        float motorBR = effectiveThrottle + pitchCorr + rollCorr;
 
         motors.ApplyMotorsThrust(motorFL, motorFR, motorBL, motorBR);
     }
