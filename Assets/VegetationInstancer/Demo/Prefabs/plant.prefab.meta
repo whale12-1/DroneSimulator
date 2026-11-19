@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ab00994869ab06e4e85db8fea26a5b2f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Demo/Prefabs/plant.prefab
+  uploadId: 644510

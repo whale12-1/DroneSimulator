@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 15ce30d1d439ac3469eeb79b4bd5327c
+ShaderIncludeImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Shaders/Include/GPUInstancedIndirectInclude.cginc
+  uploadId: 644510

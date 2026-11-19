@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 9d652220528880641a2d5b4894e0741e
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Scripts/ShaderConverter.cs
+  uploadId: 644510

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 6cd54df0038b1e54fb68d427a4f64968
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Scripts/utils/TerrainHeight.cs
+  uploadId: 644510

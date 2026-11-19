@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1b4395214682de94b98ed96b57d2a7d8
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/VegetationInstancerDoc.pdf
+  uploadId: 644510

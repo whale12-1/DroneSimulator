@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cc799caf516ab2c42b95c2477da4ad02
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Demo/Prefabs/Materials/grass.mat
+  uploadId: 644510

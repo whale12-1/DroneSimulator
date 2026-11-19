@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 5dadd8f4595f90340b00f8979802d435
+guid: 7ef5967fc26a70e4fb38b6379d6ed49d
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -134,8 +134,8 @@ TextureImporter:
   assetBundleVariant: 
 AssetOrigin:
   serializedVersion: 1
-  productId: 213197
-  packageName: Unity Terrain - URP Demo Scene
-  packageVersion: 1.0.3
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
   assetPath: Assets/TerrainDemoScene_URP/Terrain/Textures/Heather_A/Heather_A_BaseColor.tif
-  uploadId: 727820
+  uploadId: 644510

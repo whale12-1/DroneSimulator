@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bb30324b7988bdd4398a77e9f2e3b7fd
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Shaders/windGrass.shader
+  uploadId: 644510

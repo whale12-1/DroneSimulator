@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 85980c91a6fc85c4a977b370a51cb2b9
+ComputeShaderImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Scripts/ComputeShaders/culling.compute
+  uploadId: 644510

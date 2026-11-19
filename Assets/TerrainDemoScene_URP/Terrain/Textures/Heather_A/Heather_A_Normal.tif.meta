@@ -1,11 +1,11 @@
 fileFormatVersion: 2
-guid: 9ccf61cff0b9fa3418e5721286105312
+guid: a10ea040b345c2b4f811f91978289724
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
   serializedVersion: 11
   mipmaps:
-    mipMapMode: 0
+    mipMapMode: 1
     enableMipMap: 1
     sRGBTexture: 0
     linearTexture: 0
@@ -33,7 +33,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 4
     mipBias: 0
     wrapU: 0
@@ -134,8 +134,8 @@ TextureImporter:
   assetBundleVariant: 
 AssetOrigin:
   serializedVersion: 1
-  productId: 213197
-  packageName: Unity Terrain - URP Demo Scene
-  packageVersion: 1.0.3
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
   assetPath: Assets/TerrainDemoScene_URP/Terrain/Textures/Heather_A/Heather_A_Normal.tif
-  uploadId: 727820
+  uploadId: 644510

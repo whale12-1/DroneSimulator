@@ -8,8 +8,8 @@ NativeFormatImporter:
   assetBundleVariant: 
 AssetOrigin:
   serializedVersion: 1
-  productId: 213197
-  packageName: Unity Terrain - URP Demo Scene
-  packageVersion: 1.0.3
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
   assetPath: Assets/TerrainDemoScene_URP/Terrain/Layers/Grass_A.terrainlayer
-  uploadId: 727820
+  uploadId: 644510

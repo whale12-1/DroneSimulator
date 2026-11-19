@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a3715797144bed546985bccca0376cdf
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 15600000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Demo/TerrainsData/TerrainData_c4cc5524-6fe9-46ac-bddb-62cce5e31db9.asset
+  uploadId: 644510

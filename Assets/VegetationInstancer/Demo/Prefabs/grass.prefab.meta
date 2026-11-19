@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2e56ccf1e77159d4da2dd352918588b8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
+  assetPath: Assets/VegetationInstancer/Demo/Prefabs/grass.prefab
+  uploadId: 644510

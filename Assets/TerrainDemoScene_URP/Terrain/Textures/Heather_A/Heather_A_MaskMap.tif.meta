@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: e877d96a4ad8736438de34008da4c98e
+guid: 0863bda754ff96545a8a047a58ff1a07
 TextureImporter:
   internalIDToNameTable: []
   externalObjects: {}
@@ -134,8 +134,8 @@ TextureImporter:
   assetBundleVariant: 
 AssetOrigin:
   serializedVersion: 1
-  productId: 213197
-  packageName: Unity Terrain - URP Demo Scene
-  packageVersion: 1.0.3
+  productId: 271330
+  packageName: GPU procedural vegetation instancer
+  packageVersion: 1.0
   assetPath: Assets/TerrainDemoScene_URP/Terrain/Textures/Heather_A/Heather_A_MaskMap.tif
-  uploadId: 727820
+  uploadId: 644510
