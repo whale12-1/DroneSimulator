@@ -62,7 +62,7 @@
 | `MissionCardView` | Карточка миссии: превью, имя, метаданные, оверлей блокировки, бейдж выполнения, рамка выбора | `MissionDefinition`, `MissionText` |
 | `MissionDetailsPanel` | Правая панель деталей: баннер, статус, награда, описание, статистика, цели, техника, кнопка «Запустить» | `MissionDefinition`, `ProgressService`, `MissionText` |
 | `MissionText` (static) | Склонения/форматирование: «N целей», длительность `mm:ss`, роль дрона | `MissionDefinition`, `DroneConfig` |
-| `SettingsPanel` | Панель настроек: 4 вкладки (Графика/Управление/Аудио/Геймплей), сброс (`ResetSettings` → `SettingsService.ResetAll` + пересборка строк), нормализация Z, fallback-поиск кнопок `CloseButton`/`ResetButton` по имени | `SettingsService`, `SettingsListBuilder`, `SettingsApplier` |
+| `SettingsPanel` | Панель настроек: 4 вкладки (Графика 13 / Управление 10 / Аудио 8 / Геймплей 12), сброс (`ResetSettings` → `SettingsService.ResetAll` + пересборка строк), нормализация Z, fallback-поиск кнопок `CloseButton`/`ResetButton` по имени | `SettingsService`, `SettingsListBuilder`, `SettingsApplier` |
 | `SettingsListBuilder` | Процедурная генерация строк настроек (слайдер/тумблер/дропдаун), `SliderReleaseNotifier` | `SettingDescriptor`, `SliderReleaseNotifier` |
 | `SliderReleaseNotifier` | Сообщает «отпустил ползунок» для настроек, применяемых по отпусканию | `Slider` |
 | `ScreenFader` | Затемнение экрана с текстом (титры глав обучения) | `CanvasGroup`, `TMP_Text` |
@@ -143,7 +143,7 @@
 | `HimarsStrike` | Залп 4 ракет (`rocketVFX`) после завершения маршрута, затем отступление | `VehiclePatrol`, `VehicleHealth` |
 | `TargetPingSystem` | Ставит маркер последней позиции цели при переключении на ударный дрон (по `TargetLockManager` или рейкасту центра), удаляет маркер при приближении < 200 м | `DroneManager`, `TargetLockManager`, `GameEvents` |
 | `EWEmitter` (файл `EWEmiter.cs`) | Источник помех: `jamRadius`, `isActive`, регистрация в `EWService` | `EWService` |
-| `EWReceiver` | Приём помех: `jamIntensity = max(raw, boundary) * (1 - ewResistance)`, постэффекты (chromatic/vignette/grain), джиттер кадра и FOV, процедурный «снег» и разрывы в `OnGUI` | `EWService`, `PostFxRouter`, `FPVZoom`, `SettingsService`, `MissionUIManager` |
+| `EWReceiver` | Приём помех: `jamIntensity = max(raw, boundary) * (1 - ewResistance)`, постэффекты (chromatic/vignette/grain), джиттер кадра и FOV, процедурный «снег» и разрывы в `OnGUI` (рисуются всегда) | `EWService`, `PostFxRouter`, `FPVZoom`, `SettingsService` (только `ewPostFxQuality`/`ewNoiseResolution`), `MissionUIManager` |
 | `EWAudio` | Шум РЭБ: громкость/питч от `jamIntensity` | `EWReceiver`, `AudioBus` |
 | `DestructibleWallZone` | Пробиваемая стена: HP, включение `DepthMask`-маски, отключение коллайдера, пыль/обломки | `Collider` |
 | `TrainingGate` | Кольцо полосы препятствий, статическое событие `OnGatePassed`, перекраска материала | `DroneFlightController` |
@@ -198,6 +198,7 @@
 **Особенности:**
 
 * `SettingsService.SchemaVersion = 3`, а `SettingsData.version` по умолчанию `2` (`SettingsData.cs:124`) — свежесозданный объект сразу считается «старым»; миграция безвредна, но переписывает `graphics.windowMode` из `fullscreen`.
+* Удалены неиспользуемые поля настроек (22.11.2026): `graphics.droneFog`, `graphics.droneFogDensity`, `graphics.droneLensDistortion`, `graphics.ewVisualDistortion`, `graphics.nightVisionGain`, `gameplay.reduceDangerousEffects`. `EWReceiver.VisualScale` больше не масштабируется настройкой (жёстко `1f` — прежний дефолт `ewVisualDistortion`), поэтому шум и джиттер РЭБ всегда при 100 %. `SchemaVersion` не менялся: старые ключи в `settings.json` игнорируются `JsonUtility` и исчезают при следующем сохранении.
 * `GraphicsApplier` использует рефлексию к `m_SoftShadowsSupported` — при обновлении URP поле может исчезнуть, и soft shadows молча перестанут применяться.
 * `PostFxRouter.ApplyMotionBlur(bool enabled)` ставит `settingsMotionBlur.active = !enabled` (`PostFxRouter.cs:49`) — при включённом в настройках Motion Blur эффект **выключается**. Похоже на инверсию.
 

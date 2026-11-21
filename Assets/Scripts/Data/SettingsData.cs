@@ -37,15 +37,10 @@ namespace DroneSimulator.Settings
         public float droneFarClip = 2000f;
         public float droneShadowDistance = 300f;
         public float droneLodBias = 1.5f;
-        public bool droneFog = true;
-        public float droneFogDensity = 0.01f;
         public int ewPostFxQuality = 1;
-        public float ewVisualDistortion = 1f;
         public int ewNoiseResolution = 128;
         public int nightVisionColor = 0;
-        public float nightVisionGain = 1f;
         public int droneAntiAliasing = 0;
-        public bool droneLensDistortion = true;
     }
 
     [System.Serializable]
@@ -113,7 +108,6 @@ namespace DroneSimulator.Settings
         public bool gimbalAutoCenter = false;
         public float gimbalAutoCenterDelay = 1.5f;
         public bool ewMotionComfort = false;
-        public bool reduceDangerousEffects = false;
         public bool trainingHints = true;
         public bool showSubtitlesOnPause = true;
     }

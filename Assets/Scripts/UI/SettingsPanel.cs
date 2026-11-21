@@ -193,14 +193,10 @@ public class SettingsPanel : UIScreen
             MakeSlider("droneFov", "FOV дрона", 70f, 110f, true, "F0", () => g.droneFov, v => g.droneFov = v),
             MakeSlider("droneFarClip", "Дальность прорисовки (дрон)", 500f, 3000f, true, "F0", () => g.droneFarClip, v => g.droneFarClip = v),
             MakeSlider("droneShadowDistance", "Тени дрона (дистанция)", 0f, 300f, true, "F0", () => g.droneShadowDistance, v => g.droneShadowDistance = v),
-            MakeToggle("droneFog", "Туман у дрона", () => g.droneFog, v => g.droneFog = v),
-            MakeToggle("droneLensDistortion", "Дисторсия объектива", () => g.droneLensDistortion, v => g.droneLensDistortion = v),
             MakeSlider("bunkerShadowDistance", "Дистанция теней (бункер)", 10f, 40f, true, "F0", () => g.bunkerShadowDistance, v => g.bunkerShadowDistance = v),
             MakeToggle("bunkerSoftShadows", "Мягкие тени (бункер)", () => g.bunkerSoftShadows, v => g.bunkerSoftShadows = v),
             MakeToggle("bunkerPostProcessing", "Постобработка бункера", () => g.bunkerPostProcessing, v => g.bunkerPostProcessing = v),
             MakeToggle("bunkerMotionBlur", "Motion Blur (бункер)", () => g.bunkerMotionBlur, v => g.bunkerMotionBlur = v),
-            MakeSlider("ewDistortion", "Искажения РЭБ", 0f, 1f, false, "P0", () => g.ewVisualDistortion, v => g.ewVisualDistortion = v),
-            MakeSlider("nightVisionGain", "Усиление ПНВ", 0.5f, 3f, false, "F1", () => g.nightVisionGain, v => g.nightVisionGain = v),
         };
     }
 
@@ -264,7 +260,6 @@ public class SettingsPanel : UIScreen
             MakeSlider("shake", "Тряска камеры", 0f, 1.5f, false, "P0", () => p.cameraShakeIntensity, v => p.cameraShakeIntensity = v),
             MakeToggle("throttleShake", "Тряска от газа", () => p.throttleShake, v => p.throttleShake = v),
             MakeToggle("trainingHints", "Подсказки обучения", () => p.trainingHints, v => p.trainingHints = v),
-            MakeToggle("dangerousFx", "Уменьшить опасные эффекты", () => p.reduceDangerousEffects, v => p.reduceDangerousEffects = v),
         };
     }
 

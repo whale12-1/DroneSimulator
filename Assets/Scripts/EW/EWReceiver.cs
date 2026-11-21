@@ -18,12 +18,10 @@ public class EWReceiver : MonoBehaviour
     private int noiseResolution;
 
     private float baseFov;
-    private float settingsVisualScale = 1f;
     private float externalVisualScale = 1f;
     private bool postFxAllowed = true;
-    private bool dangerousEffectsReduced;
 
-    public float VisualScale => Mathf.Clamp01(settingsVisualScale * externalVisualScale);
+    public float VisualScale => Mathf.Clamp01(externalVisualScale);
 
     private void Awake()
     {
@@ -63,11 +61,9 @@ public class EWReceiver : MonoBehaviour
         if (service == null || service.Data == null) return;
 
         DroneSimulator.Settings.GraphicsSettings graphics = service.Data.graphics;
-        DroneSimulator.Settings.GameplaySettings gameplay = service.Data.gameplay;
 
         if (graphics != null)
         {
-            settingsVisualScale = Mathf.Clamp01(graphics.ewVisualDistortion);
             postFxAllowed = graphics.ewPostFxQuality > 0;
 
             int resolution = Mathf.Clamp(graphics.ewNoiseResolution, 32, 512);
@@ -77,8 +73,6 @@ public class EWReceiver : MonoBehaviour
                 RebuildNoiseTexture();
             }
         }
-
-        if (gameplay != null) dangerousEffectsReduced = gameplay.reduceDangerousEffects;
     }
 
     private void EnsureNoiseTexture()
@@ -178,7 +172,6 @@ public class EWReceiver : MonoBehaviour
     {
         if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return;
         if (MissionUIManager.IsHudHidden) return;
-        if (dangerousEffectsReduced) return;
 
         float scale = VisualScale;
         if (scale <= 0.001f) return;
