@@ -80,7 +80,7 @@
 |---|---|---|
 | `Player` | `PlayerController`, `PlayerInteractionDetector`, `BunkerStateRestorer`, `CharacterController`, `Animator` | Игрок + восстановление позы после миссии |
 | `Main Camera` | `Camera`, `CameraFollowHead` | Камера следует за костью головы (`Swat.fbx`) |
-| `Chair_Blocker` | `ChairInteractable` (+ `Collider`) | Сесть/встать, телепорт на `sitPosition` / `standPosition` |
+| `Chair_Blocker` | `ChairInteractable` (+ `Collider`) | Сесть/встать, телепорт на `sitPosition` / `standPosition` (вставание — **справа** от стула) |
 | `Interact_OperatorTerminal` | `ComputerInteractable` | Вход в компьютер (только сидя) |
 | `ComputerOS` | `ComputerUIController` (+ `CanvasGroup`, `RectTransform`) | Анимированное окно «рабочего стола» |
 | `Btn_Missions` | `DesktopIcon` + `Button` | Иконка «Миссии» на рабочем столе |

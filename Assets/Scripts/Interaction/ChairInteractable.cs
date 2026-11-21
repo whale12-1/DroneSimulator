@@ -74,7 +74,6 @@ public class ChairInteractable : MonoBehaviour, IInteractable
 
         isSitting = true;
         playerController.isSitting = true;
-        playerController.SetSitting(true);
 
         if (characterController != null) characterController.enabled = false;
         if (chairCollider != null) chairCollider.enabled = false;
@@ -82,6 +81,9 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         Transform player = playerController.transform;
         player.position = sitPosition.position;
         player.rotation = sitPosition.rotation;
+
+        // Переход SitDown не проигрываем: сразу конечная поза SitIdle в той же позе.
+        playerController.ForceSitIdle();
 
         if (uiController != null)
         {
@@ -114,6 +116,9 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         isSitting = false;
         playerController.isSitting = false;
         playerController.SetSitting(false);
+        // Мгновенно прерываем анимацию посадки/сидения: иначе клип SitDown доигрывает
+        // до перехода в SitIdle, и анимация «накладывается» на уже вставшего игрока.
+        playerController.ForceIdle();
 
         if (uiController != null) uiController.HideSittingHint();
 

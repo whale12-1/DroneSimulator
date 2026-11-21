@@ -81,10 +81,10 @@
 | Скрипт | Ответственность | Зависит от |
 |---|---|---|
 | `IInteractable` | Контракт: `GetInteractionPrompt()`, `CanInteract()`, `Interact()` | — |
-| `PlayerController` | FPS-движение (WASD), мышь-обзор, гравитация, аниматор, режим «сидит», применение настроек мыши | `CharacterController`, `Animator`, `SettingsService` |
+| `PlayerController` | FPS-движение (WASD), мышь-обзор, гравитация, аниматор, режим «сидит», применение настроек мыши; переключение поз — `SetSitting(bool)`, `SetTyping(bool)`, `ForceSitIdle()` (мгновенная посадка: `IsSitting = true` + `Play("SitIdle", 0, 0f)` + `Update(0f)`, клип `SitDown` не проигрывается) и `ForceIdle()` (сбрасывает `IsSitting`/`IsTyping` и жёстко переключает Animator в `Idle`, не дожидаясь конца клипа) | `CharacterController`, `Animator`, `SettingsService` |
 | `CameraFollowHead` | Позиционирует камеру у кости головы с офсетом | `Transform headBone` |
 | `PlayerInteractionDetector` | Raycast из камеры (3 м, слой), подсказка, `E` — взаимодействие | `IInteractable`, `InteractionUIController` |
-| `ChairInteractable` | Сесть/встать: телепорт, отключение `CharacterController`/коллайдера, анимация сидения, `Space` — встать; подсказка/посадка только при приближении на `maxInteractDistance` (0.8 м по горизонтали до ближайшей точки коллайдера) | `PlayerController`, `InteractionUIController` |
+| `ChairInteractable` | Сесть/встать: телепорт на `sitPosition` `(0, −0.385, 0)` и **мгновенная** посадка без клипа `SitDown` — сразу `PlayerController.ForceSitIdle()` (`SitIdle` с нулевого кадра); отключение `CharacterController`/коллайдера; `Space` — встать: телепорт на `standPosition` **справа** от стула `(1.425, −1.6, 1.893)` + мгновенный `PlayerController.ForceIdle()`; подсказка/посадка только при приближении на `maxInteractDistance` (0.8 м по горизонтали до ближайшей точки коллайдера) | `PlayerController`, `InteractionUIController` |
 | `ComputerInteractable` | Вход в компьютер (только сидя); дергает `ComputerUIController.ToggleDesktop()` | `PlayerController`, `ComputerUIController` |
 | `ComputerUIController` | Анимация открытия «рабочего стола» (scale 0.1→1, alpha 0→1), `timeScale = 0`, закрытие по `E`/`Esc` | `CanvasGroup`, `PlayerController`, `MissionMenuController` |
 | `DesktopIcon` | Иконка «Миссии» → `MissionMenuController.OpenMissionMenu()` | `MissionMenuController` |
@@ -100,6 +100,7 @@
 * `BunkerPauseController` — фактически «god object» бункера: держит ссылки на 10 систем и вручную управляет их `enabled`.
 * `MissionUIManager.RestartMission()` **жёстко** грузит `PreparingDemo` (`MissionUIManager.cs:87`), а не текущую миссию — рестарт корректно работает только в обучении.
 * `ChairInteractable` пишет 5 отладочных `Debug.Log` на каждую посадку/вставание.
+* Исправлено (21.11.2026): посадка на стул **мгновенная** — клип `SitDown` не проигрывается (`ChairInteractable.SitDown()` → `PlayerController.ForceSitIdle()` ставит `SitIdle` с нулевого кадра), вставание — `PlayerController.ForceIdle()` (сразу `Idle`). Переход `SitDown → Idle` (`IsSitting` = *If Not*, `hasExitTime = false`, 0.2 с) в `PlayerAnimator.controller` оставлен как страховка, но `SitDown` кодом не запускается. Проверка `isSitting` для «не сажать уже вставшего» вынесена в `ComputerUIController.CloseDesktop()`.
 
 ---
 

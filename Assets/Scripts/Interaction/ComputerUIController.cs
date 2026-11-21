@@ -80,7 +80,8 @@ public class ComputerUIController : MonoBehaviour
         Cursor.visible = false;
 
         if (playerController == null) playerController = FindAnyObjectByType<PlayerController>();
-        if (playerController != null) playerController.ForceSitIdle();
+        // Игрок мог уже встать (Space при открытом рабочем столе) — не возвращаем позу сидения.
+        if (playerController != null && playerController.isSitting) playerController.ForceSitIdle();
     }
 
     public void ToggleDesktop()

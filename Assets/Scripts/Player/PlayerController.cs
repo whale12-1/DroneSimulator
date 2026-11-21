@@ -146,11 +146,30 @@ public class PlayerController : MonoBehaviour
         animator.SetBool("IsSitting", isSitting);
     }
 
+    // Мгновенная посадка: клип-переход SitDown не проигрывается — Animator сразу
+    // переключается в конечную позу SitIdle. Корень игрока при этом уже телепортирован
+    // на SitPoint, поэтому поза «стоит на стуле» не показывается ни одного кадра.
     public void ForceSitIdle()
     {
         if (animator == null) return;
+
         animator.SetBool("IsSitting", true);
-        animator.Play("SitIdle", 0, 1f);
+        animator.SetBool("IsTyping", false);
+        animator.Play("SitIdle", 0, 0f);
+        animator.Update(0f);
+    }
+
+    // Мгновенно возвращает персонажа в стойку: сбрасывает флаги сидения/печати и жёстко
+    // переключает Animator на Idle, не дожидаясь окончания текущего клипа сидения.
+    // Без этого анимация сидения продолжала проигрываться поверх уже вставшего игрока.
+    public void ForceIdle()
+    {
+        if (animator == null) return;
+
+        animator.SetBool("IsSitting", false);
+        animator.SetBool("IsTyping", false);
+        animator.Play("Idle", 0, 0f);
+        animator.Update(0f);
     }
 
     public void SetTyping(bool isTyping)
