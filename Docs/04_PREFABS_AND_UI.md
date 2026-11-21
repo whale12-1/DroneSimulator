@@ -197,7 +197,7 @@ SettingsPanel [CanvasGroup, SettingsPanel, SettingsListBuilder]
 | ComputerOS | `ComputerInteractable` (сидя, `E`) | `E` / `Esc` | `ComputerUIController.IsOpen` |
 | Меню миссий | `DesktopIcon`, `BunkerStateRestorer` | `BackButton`, `Esc` | `MissionMenuController.IsOpen` |
 
-Чтобы `Esc` не закрывал сразу всё, в коде расставлены «окна блокировки» по 0.2 с (`lastOpenTime`, `lastCloseTime`, `LastClosedTime`). Порядок проверок в `BunkerPauseController.Update()`:
+Чтобы `Esc` не закрывал сразу всё, в коде расставлены «окна блокировки» по 0.2 с (`lastOpenTime`, `lastCloseTime`, `LastClosedTime`). Дополнительно (22.11.2026): пока `ComputerUIController.IsOpen == true`, игрок **не может встать со стула** — `ChairInteractable.IsStandUpBlocked` блокирует `Пробел`; `Esc`/`E` закрывают рабочий стол, и только после этого вставание разблокируется. Порядок проверок в `BunkerPauseController.Update()`:
 
 ```
 restorer.IsRestoring                        → выйти

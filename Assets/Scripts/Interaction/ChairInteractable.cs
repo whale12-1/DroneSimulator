@@ -9,6 +9,8 @@ public class ChairInteractable : MonoBehaviour, IInteractable
     [SerializeField] private Collider chairCollider;
     [SerializeField] private InteractionUIController uiController;
     [SerializeField] private float maxInteractDistance = 0.8f;
+    // Рабочий стол компьютера: пока он открыт, Пробел не должен поднимать игрока со стула.
+    [SerializeField] private ComputerUIController computerUI;
 
     private CharacterController characterController;
     private bool isSitting;
@@ -16,6 +18,10 @@ public class ChairInteractable : MonoBehaviour, IInteractable
     private void Awake()
     {
         if (chairCollider == null) chairCollider = GetComponent<Collider>();
+
+        // ComputerOS в сцене выключен (m_IsActive: 0), поэтому без Include ссылка не найдётся.
+        if (computerUI == null)
+            computerUI = FindAnyObjectByType<ComputerUIController>(FindObjectsInactive.Include);
     }
 
     public string GetInteractionPrompt() => isSitting ? "Встать [Пробел]" : "Сесть [E]";
@@ -41,6 +47,10 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         return offset.sqrMagnitude <= maxInteractDistance * maxInteractDistance;
     }
 
+    // Встать нельзя, пока открыт рабочий стол компьютера: иначе игрок поднимается
+    // со стула, а окно ОС остаётся открытым (Time.timeScale при этом уже 0).
+    public bool IsStandUpBlocked => isSitting && computerUI != null && computerUI.IsOpen;
+
     public void Interact(GameObject interactor)
     {
         if (isSitting) StandUp();
@@ -62,6 +72,7 @@ public class ChairInteractable : MonoBehaviour, IInteractable
     private void Update()
     {
         if (!isSitting) return;
+        if (IsStandUpBlocked) return; // открыт рабочий стол — Пробел игнорируется
         if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
             StandUp();
     }
@@ -97,6 +108,12 @@ public class ChairInteractable : MonoBehaviour, IInteractable
     public void StandUp()
     {
         if (!isSitting) return;
+
+        if (IsStandUpBlocked)
+        {
+            Debug.Log("[ChairInteractable] StandUp() ignored: ComputerOS is open.");
+            return;
+        }
 
         Debug.Log($"[ChairInteractable] StandUp() called: isSitting = {isSitting}, time = {Time.unscaledTime:F3}");
         if (playerController == null) return;
