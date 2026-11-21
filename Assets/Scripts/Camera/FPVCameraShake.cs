@@ -6,30 +6,25 @@ public class FPVCameraShake : MonoBehaviour
     [SerializeField] private DroneConfig config;
 
     private Vector3 initialLocalPos;
-    private Quaternion initialLocalRot;
     private float seed;
 
     private void Start()
     {
-        // Запоминаем исходное положение и поворот камеры относительно дрона
+        // Запоминаем ИСХОДНУЮ позицию. Важно: она должна быть 0, 0.05, -0.05 в инспекторе!
         initialLocalPos = transform.localPosition;
-        initialLocalRot = transform.localRotation;
-
-        // Рандомный сдвиг для уникальности шума
         seed = Random.value * 100f;
     }
 
     private void LateUpdate()
     {
-        // Если конфиг задан и тряска отключена — возвращаем камеру в исходную позицию
+        // 1. Если тряска выключена в конфиге — просто ставим камеру в исходную позицию
         if (config != null && !config.enableCameraShake)
         {
             transform.localPosition = initialLocalPos;
-            transform.localRotation = initialLocalRot;
             return;
         }
 
-        // Считываем параметры из конфига или подставляем значения по умолчанию
+        // 2. Считываем настройки
         float frequency = (config != null) ? config.shakeFrequency : 35f;
         float posAmplitude = (config != null) ? config.shakePosAmplitude : 0.003f;
         float rotAmplitude = (config != null) ? config.shakeRotAmplitude : 0.2f;
@@ -44,37 +39,34 @@ public class FPVCameraShake : MonoBehaviour
         if (intensity <= 0f)
         {
             transform.localPosition = initialLocalPos;
-            transform.localRotation = initialLocalRot;
             return;
         }
 
+        // 3. Считаем фактор газа
         float throttleFactor = 1f;
-
         if (useThrottle)
         {
-            // Берем ввод газа по вертикальной оси
             float throttleInput = Mathf.Clamp01(Mathf.Abs(Input.GetAxis("Vertical")));
             throttleFactor = Mathf.Lerp(minThrottleFactor, 1.2f, throttleInput);
         }
 
-        // Вычисляем время с учетом частоты
+        // 4. Генерируем шум
         float time = (Time.time + seed) * frequency;
-
-        // Генерация шума Перлина в диапазоне от -1 до 1
         float offsetX = (Mathf.PerlinNoise(time, 0f) - 0.5f) * 2f;
         float offsetY = (Mathf.PerlinNoise(0f, time) - 0.5f) * 2f;
         float offsetRot = (Mathf.PerlinNoise(time, time) - 0.5f) * 2f;
 
-        // Применяем микросмещение к позиции
+        // 5. Применяем смещение позиции (только X и Y, Z не трогаем)
         Vector3 posOffset = new Vector3(offsetX, offsetY, 0f) * (posAmplitude * throttleFactor * intensity);
         transform.localPosition = initialLocalPos + posOffset;
 
-        // Применяем микроповорот относительно исходного вращения
-        Quaternion rotOffset = Quaternion.Euler(
-            offsetX * rotAmplitude * throttleFactor * intensity,
-            0f,
-            offsetRot * rotAmplitude * throttleFactor * intensity
-        );
-        transform.localRotation = initialLocalRot * rotOffset;
+        // 6. Применяем тряску поворота (просто добавляем к текущему повороту)
+        // ВАЖНО: Мы используем Rotate, чтобы добавить тряску поверх наклона, который задал DroneCameraModule
+        float rotX = offsetX * rotAmplitude * throttleFactor * intensity;
+        float rotZ = offsetRot * rotAmplitude * throttleFactor * intensity;
+
+        // Сбрасываем поворот к базовому (если DroneCameraModule не успел это сделать)
+        // и применяем шейк.
+        transform.localRotation = Quaternion.Euler(transform.localEulerAngles.x + rotX, 0f, transform.localEulerAngles.z + rotZ);
     }
 }

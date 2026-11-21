@@ -39,7 +39,7 @@ public class PostFxRouter : MonoBehaviour
     public void Bind(NightVisionController controller)
     {
         if (controller == null) return;
-        controller.SetColorAdjustments(nvColorAdjustments);
+        //controller.SetColorAdjustments(nvColorAdjustments);
     }
 
     public void ApplyMotionBlur(bool enabled)

@@ -8,12 +8,11 @@ using UnityEngine.SceneManagement;
 // Rebuilds treeInstances on the main "Terrain" only, reusing the terrain-layer masks
 // from RoadsideGrassBuilder:
 //   * Pebbles_A_TerrainLayer (road surface) -> hard 5.5 m clearance, no trees at all;
-//   * NewLayer 3 / farm_soil (arable fields) -> no trees above 0.15 farm alpha,
-//     with a noise-warped, ragged field border;
-//   * everything else -> a roadside belt from 5.5 m to a Perlin-warped 16..26 m
-//     (1-2 rows in narrow stretches, 4-5 in wide ones, meadow breaks between)
-//     plus at most 8% sparse far-field roosts. All 3 terrain tree prototypes are
-//     used with noise-clustered species.
+//   * NewLayer 3 / farm_soil (arable fields) -> no trees on farm-dominant cells; a
+//     cell that also has a painted grass layer counts as an overgrown margin;
+//   * everything else -> a full-density core belt 5.5..16-26 m and a sparser,
+//     noise-broken back belt 26..30-44 m, plus at most 8% far-field roosts. All 3
+//     terrain tree prototypes are used with noise-clustered species.
 // Menu: Tools/DroneSimulator/Trees/Generate Roadside Trees
 public static class RoadsideTreeBuilder
 {
@@ -28,27 +27,35 @@ public static class RoadsideTreeBuilder
     const int FarmLayerFallback = 6;
     const float RoadAlphaClear = 0.10f;               // any painted road weight above this is road
     const float FarmAlphaClear = 0.15f;               // hard farm_soil limit
+    const float FarmGrassOverride = 0.20f;            // farm + this much grass = not yet a field
 
     // ---- road corridor ---------------------------------------------------------
     const float RoadClearance = 5.5f;     // hard inner offset from the painted road edge
 
     // ---- roadside belt shape ---------------------------------------------------
-    // Trees only grow in a band from 5.5 m to a Perlin-warped 16..26 m outer edge,
-    // which reads as 1-2 rows in narrow stretches and 4-5 rows in wide ones.
-    // NOTE: the whole 2000 m road network only offers ~155,000 m2 of such a band,
-    // so at 5 m spacing the map physically tops out near 4,000 trunks. Raise
-    // BeltOuterMax (or lower MinTreeDistance) if a higher total is required.
-    const float BeltOuterMin = 16f;
-    const float BeltOuterMax = 26f;
+    // Core belt: 5.5 m .. Perlin-warped 16..26 m, planted at full density.
+    // Back belt: core edge .. Perlin-warped 30..44 m, planted at a lower, noisy
+    // density so the strip fades into the fields instead of forming a hard wall.
+    const float BeltCoreOuterMin = 16f;
+    const float BeltCoreOuterMax = 26f;
+    const float BeltOuterMin = 30f;
+    const float BeltOuterMax = 44f;
     const float BeltWidthNoiseScale = 0.008f;
+    const float BeltOuterNoiseScale = 0.011f;
     const float BeltPresenceNoiseScale = 0.006f;    // ~167 m wavelength (120-200 m band)
     const float BeltPresenceDetailScale = 0.018f;
     const float BeltPresenceStart = 0.34f;          // below this: open grass meadow
     const float BeltPresenceEnd = 0.58f;
     const float BeltThinningFloor = 0.55f;          // keeps accepted belts hole-free
 
+    // ---- sparse back-belt layer ------------------------------------------------
+    const float BackBeltDensity = 0.40f;            // keep 40% of back-belt candidates
+    const float BackNoiseScale = 0.020f;            // random clearings in the back belt
+    const float BackNoiseStart = 0.35f;
+    const float BackNoiseEnd = 0.75f;
+
     // ---- sparse far-field roosts ----------------------------------------------
-    const float DistantMinDistance = 32f;           // stands > 28 m from the road edge
+    const float DistantMinDistance = 50f;           // beyond the 44 m belt (still > 28 m)
     const float DistantTreeShare = 0.08f;           // <= 8% of the final tree total
     const float RoostNoiseScale = 0.045f;           // small 3..6 tree groves
     const float RoostNoiseStart = 0.48f;
@@ -117,6 +124,7 @@ public static class RoadsideTreeBuilder
 
         int roadLayer = ResolveLayer(data, RoadLayerName, RoadLayerFallback);
         int farmLayer = ResolveLayer(data, FarmLayerName, FarmLayerFallback);
+        int[] grassLayers = ResolveGrassLayers(data);
         float[,,] alphamaps = data.GetAlphamaps(0, 0, data.alphamapWidth, data.alphamapHeight);
 
         int previousCount = data.treeInstanceCount;
@@ -131,30 +139,54 @@ public static class RoadsideTreeBuilder
         var mask = new PlantingMask(origin, size,
             new AlphaField(data, alphamaps, roadLayer),
             new AlphaField(data, alphamaps, farmLayer),
+            new MultiAlphaField(data, alphamaps, grassLayers),
             roadDistance);
 
-        // 3. two independent Poisson runs: the belt (5.5..26 m) and the far field
-        //    (32+ m) are separated by a bare moat, so they are disconnected
-        //    habitats and one Bridson pass cannot fill both.
+        // 3. two independent Poisson runs: the widened belt (5.5..44 m) and the far
+        //    field (beyond the belt) are separated by a bare moat, so they are
+        //    disconnected habitats and one Bridson pass cannot fill both.
         var rng = new System.Random(RandomSeed);
-        List<Vector2> beltPoints = BuildPoissonPoints(origin, size, mask.IsBeltPlantable, rng);
-        List<Vector2> distantPoints = BuildPoissonPoints(origin, size, mask.IsDistantPlantable, rng);
-        int candidateCount = beltPoints.Count + distantPoints.Count;
+        List<Vector2> beltCandidates = BuildPoissonPoints(origin, size, mask.IsBeltPlantable, rng);
+        List<Vector2> distantCandidates = BuildPoissonPoints(origin, size, mask.IsDistantPlantable, rng);
+        int candidateCount = beltCandidates.Count + distantCandidates.Count;
         if (candidateCount == 0)
         {
             Debug.LogError(LogPrefix + "no plantable spot was found - check the terrain layers.");
             return;
         }
 
-        // 4. fill the belts first, then add at most 8% far-field roosts ------------
-        int beltTarget = Mathf.Min(TargetTreeCount, beltPoints.Count);
-        int maxDistant = Mathf.FloorToInt(
-            beltTarget * DistantTreeShare / Mathf.Max(0.0001f, 1f - DistantTreeShare));
-        int distantTarget = Mathf.Min(distantPoints.Count,
-            Mathf.Min(maxDistant, Mathf.Max(0, TargetTreeCount - beltTarget)));
+        // 4. split the belt candidates into the full-density core and the sparse back
+        var corePoints = new List<Vector2>();
+        var backPoints = new List<Vector2>();
+        for (int i = 0; i < beltCandidates.Count; i++)
+        {
+            Vector2 world = beltCandidates[i];
+            float u = (world.x - origin.x) / size.x;
+            float v = (world.y - origin.z) / size.z;
+            float distance = roadDistance.Sample(u, v);
+            if (distance <= BeltCoreOuter(world)) corePoints.Add(world);
+            else backPoints.Add(world);
+        }
 
-        List<Vector2> beltChosen = ThinToTarget(beltPoints, beltTarget, rng, BeltThinningWeight);
-        List<Vector2> distantChosen = ThinToTarget(distantPoints, distantTarget, rng, RoostThinningWeight);
+        // 5. keep the core solid, thin the back belt to 40% of its candidates, then
+        //    add at most 8% far-field roosts.
+        int coreTarget = Mathf.Min(corePoints.Count, TargetTreeCount);
+        List<Vector2> coreChosen = ThinToTarget(corePoints, coreTarget, rng, BeltThinningWeight);
+
+        int backBudget = Mathf.Max(0, TargetTreeCount - coreChosen.Count);
+        int backTarget = Mathf.Min(backPoints.Count,
+            Mathf.Min(Mathf.RoundToInt(backPoints.Count * BackBeltDensity), backBudget));
+        List<Vector2> backChosen = ThinToTarget(backPoints, backTarget, rng, BackThinningWeight);
+
+        var beltChosen = new List<Vector2>(coreChosen.Count + backChosen.Count);
+        beltChosen.AddRange(coreChosen);
+        beltChosen.AddRange(backChosen);
+
+        int maxDistant = Mathf.FloorToInt(
+            beltChosen.Count * DistantTreeShare / Mathf.Max(0.0001f, 1f - DistantTreeShare));
+        int distantTarget = Mathf.Min(distantCandidates.Count,
+            Mathf.Min(maxDistant, Mathf.Max(0, TargetTreeCount - beltChosen.Count)));
+        List<Vector2> distantChosen = ThinToTarget(distantCandidates, distantTarget, rng, RoostThinningWeight);
         distantChosen = RemoveCloseTo(distantChosen, beltChosen, MinTreeDistance);
 
         var planted = new List<Vector2>(beltChosen.Count + distantChosen.Count);
@@ -215,20 +247,21 @@ public static class RoadsideTreeBuilder
         AssetDatabase.SaveAssets();
 
         Report(prototypes, instances.Length, previousCount, candidateCount,
-            beltChosen.Count, distantChosen.Count, perPrototype, heightSum);
+            coreChosen.Count, backChosen.Count, distantChosen.Count, perPrototype, heightSum);
     }
 
     static void Report(TreePrototype[] prototypes, int total, int previousCount, int candidates,
-        int beltCount, int distantCount, int[] perPrototype, double[] heightSum)
+        int coreCount, int backCount, int distantCount, int[] perPrototype, double[] heightSum)
     {
         var report = new System.Text.StringBuilder();
         report.Append(LogPrefix).Append("generated ").Append(total)
               .Append(" trees (previous ").Append(previousCount)
-              .Append("), belt=").Append(beltCount)
+              .Append("), core belt=").Append(coreCount)
+              .Append(", back belt=").Append(backCount)
               .Append(", far-field roosts=").Append(distantCount)
               .Append(", Poisson candidates ").Append(candidates)
               .Append(", min spacing ").Append(MinTreeDistance.ToString("F1")).Append(" m")
-              .Append(", belt 5.5..16-26 m\n");
+              .Append(", core 5.5..16-26 m + back 26..30-44 m\n");
 
         for (int p = 0; p < prototypes.Length; p++)
         {
@@ -246,8 +279,8 @@ public static class RoadsideTreeBuilder
                   .Append("% (limit ").Append((DistantTreeShare * 100f).ToString("F0")).Append("%)\n");
 
         if (total < TargetTreeCount)
-            report.Append("  [INFO] the 5.5..26 m belt holds ").Append(beltCount)
-                  .Append(" trunks at ").Append(MinTreeDistance.ToString("F1"))
+            report.Append("  [INFO] core ").Append(coreCount).Append(" + back ").Append(backCount)
+                  .Append(" belt trunks at ").Append(MinTreeDistance.ToString("F1"))
                   .Append(" m spacing; with ").Append(distantCount).Append(" roosts the total is ")
                   .Append(total).Append(" (the ").Append(TargetTreeCount)
                   .Append(" target is used as an upper cap).\n");
@@ -334,12 +367,22 @@ public static class RoadsideTreeBuilder
     // ============================================================================
     //  Belt shape + density masks
     // ============================================================================
-    // Outer edge of the belt: 16 m in narrow stretches, 26 m in wide ones.
-    static float BeltOuter(Vector2 world)
+    // Core belt outer edge: 16 m in narrow stretches, 26 m in wide ones.
+    static float BeltCoreOuter(Vector2 world)
     {
         float n = Mathf.PerlinNoise(
             world.x * BeltWidthNoiseScale + 17.3f,
             world.y * BeltWidthNoiseScale + 5.9f);
+        return Mathf.Lerp(BeltCoreOuterMin, BeltCoreOuterMax, n);
+    }
+
+    // Total belt outer edge including the sparse back belt: 30..44 m, driven by a
+    // second, larger Perlin so the whole strip fades in and out along the road.
+    static float BeltOuter(Vector2 world)
+    {
+        float n = Mathf.PerlinNoise(
+            world.x * BeltOuterNoiseScale + 57.1f,
+            world.y * BeltOuterNoiseScale + 23.7f);
         return Mathf.Lerp(BeltOuterMin, BeltOuterMax, n);
     }
 
@@ -363,6 +406,17 @@ public static class RoadsideTreeBuilder
     static float BeltThinningWeight(Vector2 world)
     {
         return Mathf.Lerp(BeltThinningFloor, 1f, BeltPresence(world));
+    }
+
+    // The back belt is deliberately sparser and breaks into random clumps.
+    static float BackThinningWeight(Vector2 world)
+    {
+        float n = Mathf.PerlinNoise(
+            world.x * BackNoiseScale + 211.7f,
+            world.y * BackNoiseScale + 83.3f);
+        float t = Mathf.SmoothStep(0f, 1f,
+            Mathf.InverseLerp(BackNoiseStart, BackNoiseEnd, n));
+        return Mathf.Lerp(0.15f, 1f, t);
     }
 
     // Far-field trees are grouped into small groves: most candidates get a tiny
@@ -645,27 +699,30 @@ public static class RoadsideTreeBuilder
     // ============================================================================
     //  Masks
     // ============================================================================
-    // Hard planting rules: road surface + 5 m shoulder, arable fields (farm alpha
-    // above a noise-warped 0.02..0.15 limit - never above the hard 0.15 cap).
+    // Hard planting rules: road surface + 5.5 m shoulder; arable fields only if the
+    // farm layer is strong and no grass layer is blended in (the "not yet a field"
+    // rule), otherwise the farm alpha must stay under a noise-warped 0.02..0.15 limit.
     sealed class PlantingMask
     {
         readonly Vector3 origin;
         readonly Vector3 size;
         readonly AlphaField roadAlpha;
         readonly AlphaField farmAlpha;
+        readonly MultiAlphaField grassAlpha;
         readonly DistanceField roadDistance;
 
         public PlantingMask(Vector3 origin, Vector3 size, AlphaField roadAlpha,
-            AlphaField farmAlpha, DistanceField roadDistance)
+            AlphaField farmAlpha, MultiAlphaField grassAlpha, DistanceField roadDistance)
         {
             this.origin = origin;
             this.size = size;
             this.roadAlpha = roadAlpha;
             this.farmAlpha = farmAlpha;
+            this.grassAlpha = grassAlpha;
             this.roadDistance = roadDistance;
         }
 
-        // Shared hard rules: no road surface, no arable field, 5.5 m minimum offset.
+        // Shared hard rules: no road surface, no field, 5.5 m minimum offset.
         // minDistance is the conservative cell-minimum (real clearance), while
         // centerDistance is the interpolated value used for the outer belt edge.
         bool PassesSurfaceRules(Vector2 world, out float minDistance, out float centerDistance)
@@ -685,9 +742,12 @@ public static class RoadsideTreeBuilder
             centerDistance = roadDistance.Sample(u, v);
             if (minDistance < RoadClearance) return false;
 
-            // The limit wanders with Perlin noise for a ragged border, but it is
-            // clamped to 0.02..0.15 so farm_soil is never planted.
+            // Farm border: reject only when the cell is farm-dominant. If grass is
+            // also painted there, the patch is an overgrown margin, not a field yet.
             float farm = farmAlpha.SampleMax(u, v);
+            float grass = grassAlpha.Sample(u, v);
+            if (grass > FarmGrassOverride) return true;
+
             float edgeNoise = Mathf.PerlinNoise(
                 world.x * FieldEdgeNoiseScale + 41.7f,
                 world.y * FieldEdgeNoiseScale + 83.1f);
@@ -695,8 +755,8 @@ public static class RoadsideTreeBuilder
             return farm <= farmLimit;
         }
 
-        // Roadside belt: 5.5 m .. Perlin-warped 16..26 m, with meadow breaks from
-        // the large-scale presence mask.
+        // Roadside belt: 5.5 m .. Perlin-warped 30..44 m, with meadow breaks from
+        // the large-scale presence mask. The part beyond the core edge is thinned.
         public bool IsBeltPlantable(Vector2 world)
         {
             float minDistance, centerDistance;
@@ -760,6 +820,35 @@ public static class RoadsideTreeBuilder
             m = Mathf.Max(m, values[y1 * width + x0]);
             m = Mathf.Max(m, values[y1 * width + x1]);
             return m;
+        }
+    }
+
+    // Sum of several terrain-layer weight maps (all grass layers), sampled in
+    // normalized terrain space. Used for the "grass on a farm cell" override so a
+    // blended field margin is not treated as a ploughed field yet.
+    sealed class MultiAlphaField
+    {
+        readonly AlphaField[] fields;
+
+        public MultiAlphaField(TerrainData data, float[,,] maps, int[] layers)
+        {
+            if (layers == null || layers.Length == 0)
+            {
+                fields = new AlphaField[0];
+                return;
+            }
+
+            fields = new AlphaField[layers.Length];
+            for (int i = 0; i < layers.Length; i++)
+                fields[i] = new AlphaField(data, maps, layers[i]);
+        }
+
+        public float Sample(float u, float v)
+        {
+            float sum = 0f;
+            for (int i = 0; i < fields.Length; i++)
+                sum += fields[i].Sample(u, v);
+            return sum;
         }
     }
 
@@ -843,5 +932,31 @@ public static class RoadsideTreeBuilder
         Debug.LogWarning(LogPrefix + "terrain layer '" + layerName +
                          "' was not found, falling back to index " + index + ".");
         return index;
+    }
+
+    // All painted grass layers (by name). A farm cell that also carries grass is
+    // treated as an overgrown margin rather than a ploughed field.
+    static int[] ResolveGrassLayers(TerrainData data)
+    {
+        var result = new List<int>();
+        TerrainLayer[] layers = data.terrainLayers;
+        if (layers != null)
+        {
+            for (int i = 0; i < layers.Length; i++)
+            {
+                if (layers[i] == null) continue;
+                if (layers[i].name.IndexOf("grass", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    result.Add(i);
+            }
+        }
+
+        if (result.Count == 0)
+        {
+            if (layers != null && layers.Length > 0) result.Add(0);
+            if (layers != null && layers.Length > 2) result.Add(2);
+            Debug.LogWarning(LogPrefix + "no grass-named terrain layers found; using fallback indices 0 and 2.");
+        }
+
+        return result.ToArray();
     }
 }
