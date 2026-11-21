@@ -23,6 +23,9 @@ public class MainMenuController : MonoBehaviour
         Log("Start()");
         DumpFields();
 
+        // Клики по кнопкам главного меню (Play / Settings / Exit).
+        if (mainPanel != null) UISoundService.Attach(mainPanel.gameObject);
+
         if (GameStateMachine.Current != GameState.MainMenu)
         {
             Log($"Текущее состояние {GameStateMachine.Current} → переход в MainMenu");

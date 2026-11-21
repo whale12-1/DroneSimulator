@@ -96,6 +96,10 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         // Переход SitDown не проигрываем: сразу конечная поза SitIdle в той же позе.
         playerController.ForceSitIdle();
 
+        // Процедурный SFX через пул EffectService (шина SFX) — настройка "Эффекты"
+        // влияет и на взаимодействия в бункере.
+        EffectService.PlaySound(ProceduralClips.Thud(), transform.position, 0.7f);
+
         if (uiController != null)
         {
             uiController.HideHint();
@@ -136,6 +140,8 @@ public class ChairInteractable : MonoBehaviour, IInteractable
         // Мгновенно прерываем анимацию посадки/сидения: иначе клип SitDown доигрывает
         // до перехода в SitIdle, и анимация «накладывается» на уже вставшего игрока.
         playerController.ForceIdle();
+
+        EffectService.PlaySound(ProceduralClips.Thud(), transform.position, 0.6f);
 
         if (uiController != null) uiController.HideSittingHint();
 

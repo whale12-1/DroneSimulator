@@ -20,6 +20,10 @@ public class SettingDescriptor
     public bool WholeNumbers;
     public string ValueFormat;
     public bool RequiresRelease;
+    // true — изменение требует "тяжёлого" применения (Screen / QualitySettings /
+    // runtime URP-ассет / камеры). Для настроек управления/звука/геймплея
+    // достаточно ApplyInstant, иначе ApplyHeavy вызывался на каждый тик слайдера.
+    public bool AppliesHeavy;
     public string[] Options;
     public System.Func<int> GetIndex;
     public System.Action<int> SetIndex;
@@ -88,13 +92,24 @@ public class SettingsListBuilder : MonoBehaviour
 
             if (d.Type == SettingType.Dropdown && d.Id == expandedId) AddOptionRows(d);
         }
+
+        // Кнопки строк (дропдауны и их опции) создаются здесь — подписываем их на клик.
+        UISoundService.Attach(content.gameObject);
     }
 
     public void Clear()
     {
         if (content == null) return;
+
+        // Destroy откладывается до конца кадра, поэтому строки сначала отвязываем
+        // от Content: иначе при повторной сборке в том же кадре (сброс настроек,
+        // выбор пункта дропдауна) в контейнере остаются дубликаты.
         for (int i = content.childCount - 1; i >= 0; i--)
-            Destroy(content.GetChild(i).gameObject);
+        {
+            Transform child = content.GetChild(i);
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
+        }
     }
 
     private Font GetLabelFont()
@@ -166,6 +181,7 @@ public class SettingsListBuilder : MonoBehaviour
         toggle.onValueChanged.AddListener(v =>
         {
             if (d.SetBool != null) d.SetBool(v);
+            UISoundService.PlayClick();
             OnChanged(d, true);
         });
 
@@ -378,7 +394,11 @@ public class SettingsListBuilder : MonoBehaviour
         });
 
         SliderReleaseNotifier notifier = root.AddComponent<SliderReleaseNotifier>();
-        notifier.OnRelease = () => OnChanged(d, true);
+        notifier.OnRelease = () =>
+        {
+            UISoundService.PlayClick();
+            OnChanged(d, true);
+        };
 
         return root;
     }
@@ -416,7 +436,11 @@ public class SettingsListBuilder : MonoBehaviour
 
         service.ApplyInstant();
 
-        if (descriptor == null || !descriptor.RequiresRelease || released)
+        // ApplyHeavy запускаем только для дескрипторов, помеченных AppliesHeavy,
+        // и (если требуется) только по отпусканию ползунка.
+        if (descriptor == null)
+            service.ApplyHeavy();
+        else if (descriptor.AppliesHeavy && (!descriptor.RequiresRelease || released))
             service.ApplyHeavy();
 
         service.MarkDirty();

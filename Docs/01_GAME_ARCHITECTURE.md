@@ -195,7 +195,7 @@ score = rewardPoints + targetsDestroyed * 25 + round(clamp01(1 - timeElapsed / t
 
 | Файл | Кто пишет | Формат | Особенности |
 |---|---|---|---|
-| `settings.json` | `SettingsService` | `JsonUtility`, pretty-print | Схема версионируется (`SchemaVersion = 3`), есть миграция и запасной путь при ошибке чтения. Запись атомарная: `.tmp` → `File.Replace` (с бэкапом `.bak`). Сохранение дебаунсится на 0.5 с (`MarkDirty()` / `SaveNow()` / `OnApplicationQuit`). |
+| `settings.json` | `SettingsService` | `JsonUtility`, pretty-print | Схема версионируется (`SchemaVersion = 4`), есть миграция и запасной путь при ошибке чтения. Запись атомарная: `.tmp` → `File.Replace` (с бэкапом `.bak`). Сохранение дебаунсится на 0.5 с (`MarkDirty()` / `SaveNow()` / `OnApplicationQuit`). |
 | `progress.json` | `ProgressService` | `JsonUtility`, pretty-print | `SaveData { completedMissionIds, unlockedMissionIds, totalScore, records[] }`. `MissionRecord` хранит `completed, bestTime, lastTime, bestScore, lastScore, completions, attempts, bestTargets`. Запись — прямой `File.WriteAllText` (без атомарности). |
 
 Разблокировка миссий: `ProgressService.IsUnlocked(m)` — либо у миссии нет `prerequisites`, либо все пререквизиты в `completedMissionIds`, либо `id` находится в `unlockedMissionIds`.

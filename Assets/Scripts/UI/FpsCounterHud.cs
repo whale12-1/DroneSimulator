@@ -85,7 +85,12 @@ public class FpsCounterHud : MonoBehaviour
         SettingsService service = SettingsService.Instance;
         if (service == null || service.Data == null || service.Data.gameplay == null) return false;
         if (!service.Data.gameplay.showFpsCounter) return false;
-        if (GameStateMachine.Current != GameState.Gameplay) return false;
+
+        // Счётчик — глобальная настройка: рисуем и в главном меню, и в геймплее
+        // (бункер/миссии). В Boot/Loading, на паузе и в дебрифе не рисуем.
+        GameState state = GameStateMachine.Current;
+        if (state != GameState.Gameplay && state != GameState.MainMenu) return false;
+
         if (Time.timeScale <= 0f) return false;
         if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return false;
 

@@ -62,11 +62,12 @@
 | `MissionCardView` | Карточка миссии: превью, имя, метаданные, оверлей блокировки, бейдж выполнения, рамка выбора | `MissionDefinition`, `MissionText` |
 | `MissionDetailsPanel` | Правая панель деталей: баннер, статус, награда, описание, статистика, цели, техника, кнопка «Запустить» | `MissionDefinition`, `ProgressService`, `MissionText` |
 | `MissionText` (static) | Склонения/форматирование: «N целей», длительность `mm:ss`, роль дрона | `MissionDefinition`, `DroneConfig` |
-| `SettingsPanel` | Панель настроек: 4 вкладки (Графика 13 / Управление 10 / Аудио 8 / Геймплей 12), сброс (`ResetSettings` → `SettingsService.ResetAll` + пересборка строк), нормализация Z, fallback-поиск кнопок `CloseButton`/`ResetButton` по имени | `SettingsService`, `SettingsListBuilder`, `SettingsApplier` |
-| `SettingsListBuilder` | Процедурная генерация строк настроек (слайдер/тумблер/дропдаун), `SliderReleaseNotifier` | `SettingDescriptor`, `SliderReleaseNotifier` |
+| `SettingsPanel` | Панель настроек: 4 вкладки (Графика 13 / Управление 10 / Аудио 8 / Геймплей 12), сброс (`ResetSettings` → `SettingsService.ResetAll` + пересборка строк), нормализация Z, fallback-поиск кнопок `CloseButton`/`ResetButton` по имени, пометка «тяжёлых» дескрипторов вкладки «Графика» (`AppliesHeavy`) | `SettingsService`, `SettingsListBuilder`, `SettingsApplier`, `UISoundService` |
+| `SettingsListBuilder` | Процедурная генерация строк настроек (слайдер/тумблер/дропдаун), `SliderReleaseNotifier`; `AppliesHeavy` ограничивает `ApplyHeavy()` только графикой; `Clear()` отвязывает строки от `Content` до `Destroy` (нет дубликатов при пересборке в одном кадре) | `SettingDescriptor`, `SliderReleaseNotifier`, `UISoundService` |
 | `SliderReleaseNotifier` | Сообщает «отпустил ползунок» для настроек, применяемых по отпусканию | `Slider` |
+| `UISoundService` (static) | Клики интерфейса: 2D-`AudioSource` (`UISoundHost`, `DontDestroyOnLoad`) в шине `AudioBus.UI`, идемпотентная подписка кнопок через `Attach()` | `ProceduralClips`, `AudioBus` |
 | `ScreenFader` | Затемнение экрана с текстом (титры глав обучения) | `CanvasGroup`, `TMP_Text` |
-| `FpsCounterHud` | Автосоздаваемый `OnGUI`-счётчик FPS | `SettingsService`, `HudStyleService`, `GameStateMachine`, `SceneLoader` |
+| `FpsCounterHud` | Автосоздаваемый `OnGUI`-счётчик FPS; рисуется в `MainMenu` и `Gameplay` (скрыт в `Boot`/`Loading`/`Paused`/`Debrief`, при `timeScale = 0` и во время загрузки) | `SettingsService`, `HudStyleService`, `GameStateMachine`, `SceneLoader` |
 
 **Особенности:**
 
@@ -74,6 +75,7 @@
 * `SettingsPanel.Start()` вызывает `SettingsService.EnsureInstance()` — панель может сама создать сервис, если открыта не из `Boot`.
 * Исправлено (22.11.2026): кнопка «Сброс» теперь действительно сбрасывает настройки в обеих сценах. Причины бага: (1) в `SettingsPanel.prefab` поле `resetButton` не сериализовано, поэтому `Start()` не подписывался на кнопку; (2) на сценовых кнопках `ResetButton` висел persistent-вызов `MainMenuController.OnBackFromSettings` — в `MainMenu` он закрывал панель, в `Bunker` имел `m_Target: {fileID: 0}` и ничего не делал. Решение: `ResolveMissingReferences()` ищет `ResetButton`/`CloseButton` по имени (`GetComponentsInChildren<Button>(true)`), `Start()` подписывает `ResetSettings` кодом идемпотентно (`RemoveListener` + `AddListener`); persistent-вызовы удалены из `MainMenu.unity` и `Bunker(main).unity`. `ResetSettings()` вызывает `SettingsService.ResetAll()`, затем `SelectTab(currentTab)` — строки пересобираются из нового `Data`, поэтому слайдеры/тумблеры показывают дефолты сразу, а панель остаётся открытой.
 * `MissionDetailsPanel` содержит 20+ сериализованных UI-ссылок и много логики форматирования; это самый «толстый» UI-скрипт.
+* Исправлено (22.11.2026, аудит настроек): `InteractionUIController.ShowSittingHint()` теперь тоже уважает `gameplay.showInteractionHints` (раньше выключение подсказок скрывало только центральную, а «Встать [Пробел]» оставалась); `FpsCounterHud` рисуется и в `MainMenu`; клики кнопок меню/паузы/настроек озвучены через `UISoundService` (`AudioBus.UI`), посадка/вставание на стул — процедурный SFX через `EffectService` (`AudioBus.SFX`); `SettingsListBuilder.Clear()` отвязывает строки от `Content` перед `Destroy`, поэтому пересборка в одном кадре (сброс настроек, выбор пункта дропдауна) не оставляет дубликатов.
 
 ---
 
@@ -186,21 +188,25 @@
 
 | Скрипт | Ответственность |
 |---|---|
-| `SettingsService` (singleton) | Загрузка/миграция/сохранение `settings.json`, `MarkDirty()` (дебаунс 0.5 с), `ApplyAll/ApplyInstant/ApplyHeavy`, `ResetAll` (новый `SettingsData`, проставляет `version = SchemaVersion` и сбрасывает кэш режима окна через `SettingsApplier.ResetScreenCache()`), `SetMasterVolume/SetSfxVolume/SetQuality/SetFullscreen`, повторное применение при `sceneLoaded` |
-| `AudioBus` (static) | `Resources.Load<AudioMixer>("Audio/MainMixer")`, группы `Master/Music/SFX/DroneMotors/EW/UI`, `SetVolume(param, linear)` с переводом в дБ |
-| `AudioApplier` (static) | Применение громкостей; fallback на `AudioListener.volume` при отсутствии микшера |
+| `SettingsService` (singleton) | Загрузка/миграция/сохранение `settings.json` (`SchemaVersion = 4`), `MarkDirty()` (дебаунс 0.5 с), `ApplyAll/ApplyInstant/ApplyHeavy`, `ResetAll`, `SetMasterVolume/SetSfxVolume/SetQuality/SetFullscreen`, повторное применение при `sceneLoaded`, подписка на `GameStateMachine.StateChanged` (пересчёт duck-музыки) |
+| `AudioBus` (static) | `Resources.Load<AudioMixer>("Audio/MainMixer")`, группы `Master/Music/SFX/DroneMotors/EW/UI`, `SetVolume(param, linear)` с переводом в дБ; Exposed Parameters `MasterVolume`…`VoiceVolume` |
+| `AudioApplier` (static) | Громкости через микшер; fallback на `AudioListener.volume` при отсутствии микшера; `duckOnMenus` — музыка ×0.35 вне `Gameplay` |
 | `GraphicsApplier` (static) | Runtime-клон URP-ассета: `renderScale`, тени, MSAA, soft shadows; `SettingsScope` выбирает «бункерный»/«дроновый» shadow distance |
 | `CameraApplier` (static) | `farClipPlane`, `renderPostProcessing`, `renderShadows`, `antialiasing` у FPS- и дрон-камер; подписка на `GameEvents.DroneSwitched` |
-| `PostFxRouter` (singleton) | Три runtime-Volume (`PostFX_EW` / `PostFX_NV` / `PostFX_Settings`), раздача эффектов, `ApplyMotionBlur` |
+| `PostFxRouter` (singleton) | Три runtime-Volume (`PostFX_EW` / `PostFX_NV` / `PostFX_Settings`), раздача эффектов; `ApplyMotionBlur(enabled)` включает эффект с интенсивностью 0.6 (только вне миссий) |
 | `HudStyleService` (static) | Стиль HUD: `Scale`, `Transparency`, `ApplyAlpha`, `CrosshairSize`, `LineThickness`, `TargetFrameVisible`, `GUI.matrix`-масштабирование |
 | `SettingsScope` (static) | `IsMission` — по наличию `DroneManager` в сцене |
 
 **Особенности:**
 
-* `SettingsService.SchemaVersion = 3`, а `SettingsData.version` по умолчанию `2` (`SettingsData.cs:124`) — свежесозданный объект сразу считается «старым»; миграция безвредна, но переписывает `graphics.windowMode` из `fullscreen`.
-* Удалены неиспользуемые поля настроек (22.11.2026): `graphics.droneFog`, `graphics.droneFogDensity`, `graphics.droneLensDistortion`, `graphics.ewVisualDistortion`, `graphics.nightVisionGain`, `gameplay.reduceDangerousEffects`. `EWReceiver.VisualScale` больше не масштабируется настройкой (жёстко `1f` — прежний дефолт `ewVisualDistortion`), поэтому шум и джиттер РЭБ всегда при 100 %. `SchemaVersion` не менялся: старые ключи в `settings.json` игнорируются `JsonUtility` и исчезают при следующем сохранении.
+* `SettingsService.SchemaVersion = 4`, `SettingsData.version` тоже `4` — свежесозданный объект больше не проходит миграцию. Миграция: `v < 3` → `windowMode` из `fullscreen`; `v < 4` → `resolutionWidth/resolutionHeight` из legacy-поля `resolutionIndex` (оно оставлено только для чтения старых файлов и всегда сбрасывается в `-1`). `windowMode` — единственный источник истины, `fullscreen` — производное зеркало (`SettingsApplier.ApplyScreen`).
+* Разрешение хранится в пикселях: `graphics.resolutionWidth/resolutionHeight` (`0 × 0` = «Текущее»). Индекс в `Screen.resolutions` больше не сохраняется, поэтому настройка не «съезжает» при смене монитора/набора режимов. UI-дропдаун ↔ данные конвертируют `SettingsApplier.FindResolutionOptionIndex()` / `SetResolutionOption()`.
+* Лимит FPS «побеждает» VSync: при `fpsLimit > 0` принудительно `QualitySettings.vSyncCount = 0` и `Application.targetFrameRate = fpsLimit`; при `fpsLimit == 0` действует настройка VSync (`targetFrameRate = -1`).
+* Motion Blur бункера больше не утекает в миссии: `SettingsApplier.ApplyHeavy` вызывает `ApplyMotionBlur(!SettingsScope.IsMission && graphics.bunkerMotionBlur)`. Сам эффект включается корректно (`active = enabled`, `intensity = 0.6`; раньше было `active = !enabled` и `intensity = 0`).
+* `ApplyHeavy()` запускается только для дескрипторов с `AppliesHeavy` (вкладка «Графика») и только по отпусканию слайдера — настройки управления/звука/геймплея больше не дёргают `Screen`/`QualitySettings`/URP на каждый тик.
+* Удалены неиспользуемые поля настроек (22.11.2026): `graphics.droneFog`, `graphics.droneFogDensity`, `graphics.droneLensDistortion`, `graphics.ewVisualDistortion`, `graphics.nightVisionGain`, `gameplay.reduceDangerousEffects`. `EWReceiver.VisualScale` больше не масштабируется настройкой (жёстко `1f` — прежний дефолт `ewVisualDistortion`), поэтому шум и джиттер РЭБ всегда при 100 %. Старые ключи в `settings.json` игнорируются `JsonUtility` и исчезают при следующем сохранении.
 * `GraphicsApplier` использует рефлексию к `m_SoftShadowsSupported` — при обновлении URP поле может исчезнуть, и soft shadows молча перестанут применяться.
-* `PostFxRouter.ApplyMotionBlur(bool enabled)` ставит `settingsMotionBlur.active = !enabled` (`PostFxRouter.cs:49`) — при включённом в настройках Motion Blur эффект **выключается**. Похоже на инверсию.
+* Ограничение Editor Play Mode: `Screen.SetResolution`/`Screen.fullScreenMode` и `Application.targetFrameRate` в редакторе применяются не полностью (Game view) — проверять их нужно в билде. Путь данных и фактические вызовы проверены в Play Mode (кэш `SettingsApplier.lastWindowMode/lastResolutionWidth/lastResolutionHeight`).
 
 ---
 
@@ -210,6 +216,12 @@
 |---|---|
 | `DroneMotorAudio` | Процедурный луп моторов (4 гармоники 96 Гц + «wobble»), громкость/питч от `DroneMotors.CurrentThrust01`, `AudioBus.Motors`; клип генерируется один раз (static cache) |
 | `EWAudio` | Процедурный фильтрованный белый шум, громкость/питч от `EWReceiver.jamIntensity`, `AudioBus.EW` |
+| `ProceduralClips` (static) | Кэшированные процедурные клипы: `Click()` (интерфейс) и `Thud()` (посадка/вставание) — без внешних аудио-ассетов |
+
+**Особенности:**
+
+* `Assets/Resources/Audio/MainMixer.mixer` — группы `Master → Music / SFX / DroneMotors / EW / UI / Voice` и Exposed Parameters `MasterVolume`, `MusicVolume`, `SfxVolume`, `MotorsVolume`, `EwVolume`, `UiVolume`, `VoiceVolume`. `AudioBus` ищет группы по имени (`FindMatchingGroups`), остальные системы (`EffectService`, `DroneMotorAudio`, `EWAudio`, `UISoundService`) берут группы напрямую.
+* В `MainMenu` на `MenuCamera` добавлен `AudioListener`, а звук видео-фона (`MenuVideoPlayer`, 1 аудиодорожка) выведен в `AudioSource` с группой `Music` — слайдеры «Музыка» и «Приглушать при меню» слышны уже в главном меню.
 
 ---
 

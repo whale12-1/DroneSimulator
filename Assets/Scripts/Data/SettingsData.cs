@@ -8,7 +8,15 @@ namespace DroneSimulator.Settings
     {
         public bool fullscreen = true;
         public int windowMode = 0;
+
+        // Легаси-поле схемы 3 и ниже: хранило индекс в списке Screen.resolutions.
+        // Индекс зависел от машины (набор режимов экрана), поэтому с версии 4
+        // настройка хранится в пикселях. Поле читается только миграцией.
         public int resolutionIndex = -1;
+
+        // 0 x 0 = "Текущее" (не менять разрешение, только режим окна).
+        public int resolutionWidth = 0;
+        public int resolutionHeight = 0;
         public bool vSync = true;
         public int fpsLimit = 0;
         public float renderScale = 1f;
@@ -115,7 +123,10 @@ namespace DroneSimulator.Settings
     [System.Serializable]
     public class SettingsData
     {
-        public int version = 2;
+        // Должно совпадать с SettingsService.SchemaVersion (4). Раньше здесь стояло 2,
+        // из-за чего свежесозданный объект считался "старым" и проходил миграцию,
+        // перезаписывавшую выбранный пользователем windowMode из legacy-поля fullscreen.
+        public int version = 4;
         public GraphicsSettings graphics = new GraphicsSettings();
         public AudioSettings audio = new AudioSettings();
         public ControlSettings controls = new ControlSettings();

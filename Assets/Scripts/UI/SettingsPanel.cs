@@ -55,6 +55,11 @@ public class SettingsPanel : UIScreen
             }
         }
 
+        // Звуки интерфейса: клики по вкладкам, сбросу, закрытию и строкам настроек.
+        // Строки создаются позже (Build), поэтому UISoundService дополнительно
+        // подписывается на динамические кнопки при повторном вызове Attach.
+        UISoundService.Attach(gameObject);
+
         if (hideOnStart) Hide();
         else Show();
     }
@@ -88,6 +93,12 @@ public class SettingsPanel : UIScreen
             Debug.LogError("[SettingsPanel] SettingsService недоступен — сброс настроек невозможен.", this);
             return;
         }
+
+        // Звуки интерфейса вешаются на кнопки панели (клик, сброс, закрытие, вкладки).
+        UISoundService.Attach(gameObject);
+
+        // Звуки интерфейса вешаются на кнопки панели (клик, сброс, закрытие, вкладки).
+        UISoundService.Attach(gameObject);
 
         service.ResetAll();
 
@@ -157,7 +168,7 @@ public class SettingsPanel : UIScreen
     {
         switch (tab)
         {
-            case 0: return ApplyOnRelease(GraphicsDescriptors());
+            case 0: return PrepareGraphicsDescriptors(GraphicsDescriptors());
             case 1: return ControlDescriptors();
             case 2: return AudioDescriptors();
             case 3: return GameplayDescriptors();
@@ -166,10 +177,14 @@ public class SettingsPanel : UIScreen
         return new List<SettingDescriptor>();
     }
 
-    private static List<SettingDescriptor> ApplyOnRelease(List<SettingDescriptor> descriptors)
+    private static List<SettingDescriptor> PrepareGraphicsDescriptors(List<SettingDescriptor> descriptors)
     {
+        // Вкладка "Графика" — единственная, где изменение требует тяжёлого применения
+        // (Screen / QualitySettings / runtime URP). Слайдеры применяем по отпусканию,
+        // чтобы не дёргать SetResolution/SetQualityLevel на каждый пиксель драга.
         for (int i = 0; i < descriptors.Count; i++)
         {
+            descriptors[i].AppliesHeavy = true;
             if (descriptors[i].Type == SettingType.Slider) descriptors[i].RequiresRelease = true;
         }
 
@@ -184,11 +199,11 @@ public class SettingsPanel : UIScreen
 
         return new List<SettingDescriptor>
         {
-            MakeDropdown("windowMode", "Режим окна", SettingsApplier.WindowModeLabels, () => Mathf.Clamp(g.windowMode, 0, 2), v => { g.windowMode = v; g.fullscreen = v != 2; }),
-            MakeDropdown("resolution", "Разрешение экрана", SettingsApplier.GetResolutionOptions(), () => Mathf.Max(0, g.resolutionIndex + 1), v => g.resolutionIndex = v - 1),
+            MakeDropdown("windowMode", "Режим окна", SettingsApplier.WindowModeLabels, () => Mathf.Clamp(g.windowMode, 0, 2), v => g.windowMode = v),
+            MakeDropdown("resolution", "Разрешение экрана", SettingsApplier.GetResolutionOptions(), () => SettingsApplier.FindResolutionOptionIndex(g), v => SettingsApplier.SetResolutionOption(g, v)),
             MakeToggle("vsync", "Вертикальная синхронизация", () => g.vSync, v => g.vSync = v),
             MakeSlider("renderScale", "Масштаб рендера", 0.5f, 1f, false, "F2", () => g.renderScale, v => g.renderScale = v),
-            MakeSlider("fpsLimit", "Ограничение FPS (0 = без)", 0f, 240f, true, "F0", () => g.fpsLimit, v => g.fpsLimit = (int)v),
+            MakeSlider("fpsLimit", "Ограничение FPS (0 = без; отключает VSync)", 0f, 240f, true, "F0", () => g.fpsLimit, v => g.fpsLimit = (int)v),
             MakeSlider("quality", "Уровень качества", 0f, Mathf.Max(0, QualitySettings.names.Length - 1), true, "F0", () => g.qualityLevel, v => g.qualityLevel = (int)v),
             MakeSlider("droneFov", "FOV дрона", 70f, 110f, true, "F0", () => g.droneFov, v => g.droneFov = v),
             MakeSlider("droneFarClip", "Дальность прорисовки (дрон)", 500f, 3000f, true, "F0", () => g.droneFarClip, v => g.droneFarClip = v),

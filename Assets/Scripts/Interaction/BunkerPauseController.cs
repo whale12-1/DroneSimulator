@@ -26,6 +26,9 @@ public class BunkerPauseController : MonoBehaviour
         IsPaused = false;
         startTime = Time.unscaledTime;
         GameStateMachine.StateChanged += OnStateChanged;
+
+        // Клики по кнопкам панели паузы ("Продолжить" / "Настройки" / "В главное меню").
+        if (pausePanel != null) UISoundService.Attach(pausePanel);
     }
 
     private void OnDisable()

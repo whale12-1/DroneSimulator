@@ -13,9 +13,9 @@
 ### `MainMenu`
 * ✅ Видео-фон (VideoPlayer → RenderTexture).
 * ✅ Кнопки Play / Settings / Exit.
-* ✅ Полноценная панель настроек (4 вкладки, 43 параметра: 13/10/8/12), сброс и сохранение.
+* ✅ Полноценная панель настроек (4 вкладки, 43 параметра: 13/10/8/12), сброс и сохранение. Проверено в Play Mode 22.11.2026 (см. §7): все 19 параметров «Группы A» применяются, сохраняются и сбрасываются.
 * ✅ Кнопка «Сброс» в настройках (22.11.2026): возвращает дефолты `SettingsData` и оставляет панель открытой. Раньше на кнопке висел persistent `OnClick → MainMenuController.OnBackFromSettings` (работала как крестик), а поле `resetButton` в префабе отсутствовало — код на кнопку не подписывался.
-* ⚠️ Панель выбора миссий присутствует в сцене, но недостижима (см. долг №4).
+* ⚠️ Панель выбора миссий присутствует в сцене, но недостижима (см. §2, раздел «Что недоделано»).
 
 ### `Bunker(main)`
 * ✅ FPS-перемещение и обзор, анимации сидения/печати.
@@ -59,8 +59,9 @@
 ### Сквозные системы
 * ✅ FSM + шина `GameEvents` + единый контракт урона `IDamageable`.
 * ✅ Прогресс: `progress.json`, очки, лучшие времена, повторные прохождения, разблокировки.
-* ✅ Настройки: `settings.json` с версионированием и атомарной записью; применение на каждой сцене. Сброс возвращает дефолты `SettingsData` (включая `fpsMouseSensitivity` = 1.0 — было 1.67) и сразу проставляет `version = SchemaVersion` (3).
-* ✅ Удалены 5 неиспользуемых настроек (22.11.2026): «Туман у дрона», «Дисторсия объектива», «Искажения РЭБ», «Усиление ПНВ» (вкладка «Графика», 17 → 13) и «Уменьшить опасные эффекты» (вкладка «Геймплей», 13 → 12). Из `SettingsData` убраны `graphics.droneFog`, `graphics.droneFogDensity`, `graphics.droneLensDistortion`, `graphics.ewVisualDistortion`, `graphics.nightVisionGain` и `gameplay.reduceDangerousEffects`; `EWReceiver.VisualScale` фиксирован в 1, шум РЭБ рисуется всегда. Старый `settings.json` читается без ошибок (ключи, которых нет в классе, игнорируются `JsonUtility`), `SchemaVersion` = 3 не менялся. Проверено в Play Mode: `MainMenu` и `Bunker(main)` — «Графика» 13 пунктов, «Геймплей» 12, переключение вкладок, изменение настроек и «Сброс» работают без ошибок.
+* ✅ Настройки: `settings.json` с версионированием и атомарной записью; применение на каждой сцене. Сброс возвращает дефолты `SettingsData` (включая `fpsMouseSensitivity` = 1.0 — было 1.67) и сразу проставляет `version = SchemaVersion` (**4**).
+* ✅ Аудит настроек (22.11.2026): `SchemaVersion 4` + `SettingsData.version = 4` (свежий объект не проходит миграцию); разрешение хранится в пикселях (`resolutionWidth/Height`, легаси `resolutionIndex` только для миграции); `windowMode` — единственный источник истины, `fullscreen` — производное зеркало; лимит FPS принудительно отключает VSync; Motion Blur исправлен (была инверсия + нулевая интенсивность) и ограничен бункером (`!SettingsScope.IsMission`); добавлен `Resources/Audio/MainMixer.mixer` (7 шин + Exposed Parameters), `AudioListener` в `MainMenu`, звук видео-фона выведен в шину `Music`, `duckOnMenus` реализован; `showInteractionHints` скрывает и нижнюю подсказку; счётчик FPS работает в `MainMenu`; кнопки меню/паузы/настроек и посадка на стул озвучены процедурными клипами.
+* ✅ Удалены 5 неиспользуемых настроек (22.11.2026): «Туман у дрона», «Дисторсия объектива», «Искажения РЭБ», «Усиление ПНВ» (вкладка «Графика», 17 → 13) и «Уменьшить опасные эффекты» (вкладка «Геймплей», 13 → 12). Из `SettingsData` убраны `graphics.droneFog`, `graphics.droneFogDensity`, `graphics.droneLensDistortion`, `graphics.ewVisualDistortion`, `graphics.nightVisionGain` и `gameplay.reduceDangerousEffects`; `EWReceiver.VisualScale` фиксирован в 1, шум РЭБ рисуется всегда. Старый `settings.json` читается без ошибок (ключи, которых нет в классе, игнорируются `JsonUtility`). Проверено в Play Mode: `MainMenu` и `Bunker(main)` — «Графика» 13 пунктов, «Геймплей» 12, переключение вкладок, изменение настроек и «Сброс» работают без ошибок. (Позже, в аудите настроек 22.11.2026, `SchemaVersion` поднят до 4 — см. §7.)
 * ✅ URP-настройки в рантайме (render scale, тени, MSAA), runtime-Volumes для РЭБ/ПНВ/Motion Blur.
 * ✅ Процедурные звуки (моторы, РЭБ) — без внешних аудио-ассетов.
 * ✅ Счётчик FPS (опционально).
@@ -88,11 +89,13 @@
 
 | # | Проблема | Где | Комментарий |
 |---|---|---|---|
-| 1 | **Инверсия Motion Blur** | `PostFxRouter.cs:49` | `settingsMotionBlur.active = !enabled;` — при включённой настройке эффект выключается, и наоборот |
-| 2 | **Рестарт миссии всегда грузит обучение** | `MissionUIManager.cs:87` | `LoadAsync("PreparingDemo")` вместо `MissionContext.Current.sceneName` |
-| 3 | **Битые кодировки (невалидный UTF-8)** — 7 файлов | `TrainingGate.cs`, `NIghtVisionController.cs`, `HimarsStrike.cs`, `TargetPingSystem.cs`, `VehicleDust.cs`, `WheelRotator.cs`, `ScreenFader.cs` | Русские комментарии и часть `[Header]`-строк нечитаемы; риск дальнейшей порчи при пересохранении |
-| 4 | **Двойное кодирование (mojibake)** | `DamageSystem.cs`, `VehicleSmartAI.cs` | Комментарии вида `РЎРµРЅСЃРѕСЂС‹`; файлы валидны как UTF-8, но текст уже потерян |
-| 5 | **`WindowMode` сбрасывается при миграции** | `SettingsData.cs:124` (`version = 2`) vs `SettingsService.cs:11` (`SchemaVersion = 3`) | Новый `SettingsData` сразу проходит миграцию и переопределяет `windowMode` из `fullscreen` |
+| 1 | **Рестарт миссии всегда грузит обучение** | `MissionUIManager.cs:87` | `LoadAsync("PreparingDemo")` вместо `MissionContext.Current.sceneName` |
+| 2 | **Битые кодировки (невалидный UTF-8)** — 7 файлов | `TrainingGate.cs`, `NIghtVisionController.cs`, `HimarsStrike.cs`, `TargetPingSystem.cs`, `VehicleDust.cs`, `WheelRotator.cs`, `ScreenFader.cs` | Русские комментарии и часть `[Header]`-строк нечитаемы; риск дальнейшей порчи при пересохранении |
+| 3 | **Двойное кодирование (mojibake)** | `DamageSystem.cs`, `VehicleSmartAI.cs` | Комментарии вида `РЎРµРЅСЃРѕСЂС‹`; файлы валидны как UTF-8, но текст уже потерян |
+
+> Исправлено 22.11.2026 (настройки, Группа A): инверсия `MotionBlur` + нулевая интенсивность (`PostFxRouter.ApplyMotionBlur`), сброс `windowMode` миграцией (`SettingsData.version` = 3 vs 2), мёртвые категорийные громкости (нет `MainMixer`), неработающий `duckOnMenus`, подсказка «Встать [Пробел]» при выключенных подсказках, счётчик FPS в меню, лимит FPS при включённом VSync, `ApplyHeavy` на каждом тике слайдеров. Подробности — §7.
+>
+> Нумерация пунктов ниже сохранена исторической (4–5 закрыты), чтобы не ломать ссылки в задачах.
 
 ### 🟠 P1 — архитектурные «протечки» и хрупкость
 
@@ -155,12 +158,13 @@
 4. **Правка UI-префабов.** Editor-билдеры (`MissionSelectPanelBuilder`, `SettingsPanelPrefabBuilder`) могут перезаписать ручные изменения: сначала правьте билдер, потом префаб.
 5. **Кодировки.** Перед массовым переформатированием `.cs` конвертируйте 7 битых файлов в UTF-8, иначе русские комментарии превратятся в мусор безвозвратно (часть данных уже потеряна).
 6. **Новый дрон.** Помимо префаба и `DroneConfig`, его нужно добавить в `MissionDefinition.availableDrones` **и** в `DroneManager.allDronesInScene` конкретной сцены — иначе он не попадёт в `activeSlots`.
+7. **Проверка экранных настроек.** `windowMode`, разрешение и лимит FPS в Editor Play Mode не отражаются в Game view — это ограничение редактора, а не регрессия; проверять их нужно в билде (данные и вызовы проверены в Play Mode, см. §7).
 
 ---
 
 ## 6. Рекомендованный порядок работ
 
-1. **Быстрые победы (P0):** инверсия Motion Blur, `RestartMission`, выравнивание `SchemaVersion`/`SettingsData.version`.
+1. **Быстрые победы (P0):** `RestartMission` (настройки Группы A закрыты — см. §7).
 2. **Гигиена кодировок:** конвертация 7 файлов в UTF-8 (без изобретения нового текста — просто сохранить как UTF-8 с текущими символами, где возможно; где текст потерян — переписать осмысленно).
 3. **Развязка слоёв:** убрать `BunkerStateRestorer` из `SceneLoader` (сделать событие `SceneLoader.SceneReady`), убрать `"PreparingDemo"` из `MissionController` (перенести логику crash-панели в `TrainingManager`), заменить поиск по `"FPV"` на явный `DroneRole`/флаг в `DroneConfig`.
 4. **Единый реестр модальных окон** бункера вместо ручных таймеров (стек окон с приоритетом).
@@ -169,7 +173,32 @@
 
 ---
 
-## 7. Итоговая оценка
+## 7. Настройки: проверенный статус (22.11.2026)
+
+Аудит `SettingsPanel` (43 параметра): **19 — Группа A** (глобальные + `MainMenu`/`Bunker(main)`), **24 — Группа B** (дроны/миссии, в этой задаче не трогались). Проверка выполнена в Play Mode по цепочке `Boot → MainMenu → Bunker(main)`.
+
+Группа A (проверено): режим окна, разрешение, VSync, render scale, лимит FPS, уровень качества, дистанция теней бункера, мягкие тени бункера, постобработка бункера, Motion Blur бункера, чувствительность/инверсия мыши FPS, мастер-громкость, музыка, SFX, UI, duck, подсказки взаимодействия, счётчик FPS.
+
+Что подтверждено фактическим состоянием Unity:
+
+* `Screen` / `SettingsApplier`: выбор режима пишет `windowMode` + зеркало `fullscreen` и обновляет кэш (`lastWindowMode`); разрешение — `resolutionWidth/Height` (`0×0` = «Текущее»); для 640×480 вызывается `Screen.SetResolution(640, 480, mode)` (кэш `lastResolutionWidth/Height` = 640/480).
+* `QualitySettings`: VSync (`vSyncCount` 1↔0), лимит FPS (`targetFrameRate` = 144 при `fpsLimit = 144`, VSync принудительно 0; при 0 — `targetFrameRate = -1`), уровень качества (`GetQualityLevel` 3↔5), lod bias.
+* runtime URP (клон `PC_RPAsset (Runtime)`): `renderScale` (0.6 / 0.85), `shadowDistance` (10/20/25), `m_SoftShadowsSupported` (рефлексия, false/true).
+* `Camera`: `farClipPlane = bunkerFarClip` (80), `renderPostProcessing` ← «Постобработка бункера» (false/true).
+* `PostFxRouter`: `MotionBlur.active/intensity` (включение → `active = true`, `intensity = 0.6`; выключение → `0`); вне бункера (`SettingsScope.IsMission`) эффект не применяется.
+* `AudioMixer` (`MainMixer`): `SetFloat` работает для всех 7 Exposed Parameters; duck-музыка в меню = −9.1 дБ (×0.35), в геймплее = 0 дБ; видео-фон меню играет в шине `Music`; клики UI и «стул» слышны в шинах `UI` / `SFX`.
+* `PlayerController`: `fpsMouseSensitivity` (2.0) и `fpsInvertY` читаются в реальном времени.
+* `InteractionUIController`: выключение подсказок скрывает и центральную, и нижнюю («Встать [Пробел]»).
+* `FpsCounterHud.ShouldDraw()` = true в `MainMenu` и `Gameplay`, false при выключенной настройке.
+* Сохранение/загрузка: `settings.json` (`version: 4`) пишется с новыми полями, после перезапуска Play значения применяются; «Сброс» в `MainMenu` и `Bunker(main)` возвращает дефолты, панель остаётся открытой, строки пересобираются (13 на вкладке «Графика»).
+
+**Ограничения проверки.** В Editor Play Mode `Screen.SetResolution`/`Screen.fullScreenMode` и `Application.targetFrameRate` не отражаются в Game view (проверять нужно в билде; путь данных и вызовы проверены). MCP-скриншоты в Play Mode при нефокусированном редакторе не содержат `OnGUI`/Overlay-UI, поэтому счётчик FPS проверен по `ShouldDraw()` и коду `OnGUI`.
+
+**Отложено (Группа B, не трогали):** `droneFov`, `droneFarClip`, `droneShadowDistance`, `droneInvertY`, `gimbalInvertY`, `stickSpeed`, `centeringSpeed`, `gimbalSpeed`, `throttleSpeed`, `deadZone`, `throttleHold`, `motors`, `ew`, `voice`, `hudTransparency`, `hudScale`, `crosshairSize`, `hudLine`, `targetFrame`, `subtitles`, `subtitleFont`, `shake`, `throttleShake`, `trainingHints`. У `throttleShake` и `trainingHints` **нет потребителей** — чинить вместе с миссиями.
+
+---
+
+## 8. Итоговая оценка
 
 Проект находится в состоянии **играбельного вертикального среза**: полный цикл «меню → бункер → обучение → боевая миссия → дебриф → бункер» работает, прогресс и настройки сохраняются, есть два разных по механике уровня и общая боевая система (физика дрона, урон по модулям, РЭБ, HUD, ПНВ).
 
