@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class TargetLockManager : MonoBehaviour
+public class TargetLockManager : MonoBehaviour, IPrimaryActionHandler
 {
     [Header("Профиль Дрона")]
     [SerializeField] private DroneConfig config;
@@ -12,40 +12,72 @@ public class TargetLockManager : MonoBehaviour
     public TargetObject currentLockedTarget;
 
     private Camera cam;
+    private DroneDropMechanism dropMechanism;
+    private DroneCollision collision;
+
+    public int PrimaryPriority => 30;
+
+    private bool WeaponsReady
+    {
+        get
+        {
+            if (dropMechanism != null && dropMechanism.HasPayload) return true;
+            if (collision != null && collision.CanDetonateManually) return true;
+            return false;
+        }
+    }
 
     private void Awake()
     {
         cam = GetComponent<Camera>();
         if (detector == null) detector = GetComponent<TargetDetector>();
+
+        dropMechanism = GetComponentInParent<DroneDropMechanism>();
+        collision = GetComponentInParent<DroneCollision>();
+    }
+
+    private void OnEnable()
+    {
+        GameInput.RegisterPrimaryHandler(this);
+    }
+
+    private void OnDisable()
+    {
+        GameInput.UnregisterPrimaryHandler(this);
     }
 
     private void Update()
     {
-        // Если конфиг отсутствует или на дроне отключен автозахват — сбрасываем цель и не обрабатываем ввод
-        if (config != null && !config.allowTargetLock)
+        if (config != null && !config.allowTargetLock && currentLockedTarget != null)
         {
-            if (currentLockedTarget != null) currentLockedTarget = null;
-            return;
-        }
-
-        KeyCode lockKey = (config != null) ? config.targetLockKey : KeyCode.Space;
-
-        if (Input.GetKeyDown(lockKey))
-        {
-            if (currentLockedTarget != null)
-            {
-                currentLockedTarget = null; // Сброс цели
-            }
-            else
-            {
-                TryLockTargetInCenter();
-            }
+            currentLockedTarget = null;
         }
     }
 
-    private void TryLockTargetInCenter()
+    public bool WantsPrimaryAction()
     {
-        if (detector == null || detector.detectedTargets.Count == 0) return;
+        if (config != null && !config.allowTargetLock) return false;
+
+        if (currentLockedTarget != null) return !WeaponsReady;
+
+        return FindLockCandidate() != null;
+    }
+
+    public void OnPrimaryAction()
+    {
+        if (currentLockedTarget != null)
+        {
+            currentLockedTarget = null;
+            return;
+        }
+
+        currentLockedTarget = FindLockCandidate();
+    }
+
+    private TargetObject FindLockCandidate()
+    {
+        if (cam == null) return null;
+        if (detector == null || detector.detectedTargets.Count == 0) return null;
 
         TargetObject bestTarget = null;
         float minDistanceToCenter = float.MaxValue;
@@ -74,9 +106,6 @@ public class TargetLockManager : MonoBehaviour
             }
         }
 
-        if (bestTarget != null)
-        {
-            currentLockedTarget = bestTarget;
-        }
+        return bestTarget;
     }
 }

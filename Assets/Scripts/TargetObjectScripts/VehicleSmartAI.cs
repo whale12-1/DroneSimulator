@@ -2,26 +2,26 @@ using UnityEngine;
 
 public class VehicleSmartAI : MonoBehaviour
 {
-    [Header("РЎРµРЅСЃРѕСЂС‹ Рё РЎР»РѕРё")]
+    [Header("Сенсоры и Слои")]
     [SerializeField] private LayerMask droneLayerMask;
     [SerializeField] private float detectionRadius = 150f;
 
-    [Header("РљРѕРјРїРѕРЅРµРЅС‚С‹ Р‘Р°С€РЅРё")]
-    [SerializeField] private Transform turretGimbal; // РЈРєР°Р·С‹РІР°РµРј TurretPivot РёР»Рё GunObj
+    [Header("Компоненты Башни")]
+    [SerializeField] private Transform turretGimbal; // Указываем TurretPivot или GunObj
     [SerializeField] private float turretRotationSpeed = 60f;
 
-    [Header("РћРіСЂР°РЅРёС‡РµРЅРёСЏ РќР°РєР»РѕРЅР° РЎС‚РІРѕР»Р°")]
-    [SerializeField] private float minPitch = -5f;   // РћРїСѓСЃРєР°РЅРёРµ СЃС‚РІРѕР»Р° РІРЅРёР·
-    [SerializeField] private float maxPitch = 70f;  // РџРѕРґСЉРµРј СЃС‚РІРѕР»Р° РІРІРµСЂС… (Сѓ Р‘РўР -80/82 РґРѕ 70В°)
+    [Header("Ограничения Наклона Ствола")]
+    [SerializeField] private float minPitch = -5f;   // Опускание ствола вниз
+    [SerializeField] private float maxPitch = 70f;  // Подъем ствола вверх (у БТР-80/82 до 70°)
 
-    [Header("РЎС‚СЂРµР»СЊР±Р° (Particle System)")]
-    [SerializeField] private ParticleSystem cannonParticleSystem; // РЎРёСЃС‚РµРјР° С‡Р°СЃС‚РёС† С‚СЂР°СЃСЃРµСЂРѕРІ/РїСѓР»СЊ
+    [Header("Стрельба (Particle System)")]
+    [SerializeField] private ParticleSystem cannonParticleSystem; // Система частиц трассеров/пуль
     [SerializeField] private AudioSource shootAudioSource;
-    [SerializeField] private float fireRate = 0.1f;               // РџР°СѓР·Р° РјРµР¶РґСѓ РІС‹СЃС‚СЂРµР»Р°РјРё (0.1 = 600 РІС‹СЃС‚СЂРµР»РѕРІ/РјРёРЅ)
-    [SerializeField] private float maxFireAngle = 10f;              // Р”РѕРїСѓСЃС‚РёРјС‹Р№ СѓРіРѕР» РїРѕРіСЂРµС€РЅРѕСЃС‚Рё РїСЂРёС†РµР»Р° РґР»СЏ РЅР°С‡Р°Р»Р° РѕРіРЅСЏ
-    [SerializeField] private float bulletSpeed = 300f;            // РЎРєРѕСЂРѕСЃС‚СЊ РїСѓР»Рё (РґРѕР»Р¶РЅР° СЃРѕРІРїР°РґР°С‚СЊ СЃ Start Speed РІ ParticleSystem)
+    [SerializeField] private float fireRate = 0.1f;               // Пауза между выстрелами (0.1 = 600 выстрелов/мин)
+    [SerializeField] private float maxFireAngle = 10f;              // Допустимый угол погрешности прицела для начала огня
+    [SerializeField] private float bulletSpeed = 300f;            // Скорость пули (должна совпадать с Start Speed в ParticleSystem)
 
-    [Header("РЎСЂРµРґСЃС‚РІР° Р—Р°С‰РёС‚С‹ (EW / Smoke)")]
+    [Header("Средства Защиты (EW / Smoke)")]
     [SerializeField] private Transform smokeLaunchPoint;
     [SerializeField] private GameObject smokeGrenadePrefab;
     [SerializeField] private float dangerThresholdForSmoke = 75f;
@@ -34,22 +34,22 @@ public class VehicleSmartAI : MonoBehaviour
     {
         FindAndPrioritizeTarget();
 
-        // 1. Р•СЃР»Рё С†РµР»СЊ РќР• РЅР°Р№РґРµРЅР°
+        // 1. Если цель НЕ найдена
         if (currentTarget == null)
         {
-            if (Time.frameCount % 60 == 0) // Р›РѕРі СЂР°Р· РІ СЃРµРєСѓРЅРґСѓ
+            if (Time.frameCount % 60 == 0) // Лог раз в секунду
             {
-                //Debug.LogWarning("[AI Debug] Р¦РµР»СЊ РќР• РЅР°Р№РґРµРЅР°! РџСЂРѕРІРµСЂСЊС‚Рµ LayerMask Рё Collider РЅР° РґСЂРѕРЅРµ.");
+                //Debug.LogWarning("[AI Debug] Цель НЕ найдена! Проверьте LayerMask и Collider на дроне.");
             }
             StopShooting();
             return;
         }
 
-        // 2. Р•СЃР»Рё С†РµР»СЊ РќРђР™Р”Р•РќРђ вЂ” РІС‹РІРѕРґРёРј РёРЅС„Рѕ Рѕ С†РµР»Рё
-        if (Time.frameCount % 30 == 0) // Р›РѕРі СЂР°Р· РІ 0.5 СЃРµРєСѓРЅРґС‹
+        // 2. Если цель НАЙДЕНА — выводим инфо о цели
+        if (Time.frameCount % 30 == 0) // Лог раз в 0.5 секунды
         {
             float dist = Vector3.Distance(transform.position, currentTarget.position);
-            //Debug.Log($"<color=green>[AI Target]</color> Р¦РµР»СЊ Р·Р°С…РІР°С‡РµРЅР°: {currentTarget.name} | Р”РёСЃС‚Р°РЅС†РёСЏ: {dist:F1}Рј");
+            //Debug.Log($"<color=green>[AI Target]</color> Цель захвачена: {currentTarget.name} | Дистанция: {dist:F1}м");
         }
 
         Vector3 predictedTargetPosition = CalculateLeadPosition(currentTarget);
@@ -71,7 +71,7 @@ public class VehicleSmartAI : MonoBehaviour
 
             float distance = Vector3.Distance(transform.position, drone.position);
 
-            // Р‘РµР·РѕРїР°СЃРЅС‹Р№ РїРѕРёСЃРє Rigidbody РЅР° РѕР±СЉРµРєС‚Рµ, СЂРѕРґРёС‚РµР»Рµ РёР»Рё child
+            // Безопасный поиск Rigidbody на объекте, родителе или child
             Rigidbody droneRb = drone.GetComponent<Rigidbody>();
             if (droneRb == null) droneRb = drone.GetComponentInParent<Rigidbody>();
             if (droneRb == null) droneRb = drone.GetComponentInChildren<Rigidbody>();
@@ -102,7 +102,7 @@ public class VehicleSmartAI : MonoBehaviour
         Vector3 targetPos = target.position;
         Vector3 targetVelocity = Vector3.zero;
 
-        // РС‰РµРј Rigidbody РЅР° СЃР°РјРѕРј РѕР±СЉРµРєС‚Рµ, Сѓ СЂРѕРґРёС‚РµР»РµР№ РёР»Рё РІ РґРѕС‡РµСЂРЅРёС… СЌР»РµРјРµРЅС‚Р°С…
+        // Ищем Rigidbody на самом объекте, у родителей или в дочерних элементах
         Rigidbody rb = target.GetComponent<Rigidbody>();
         if (rb == null) rb = target.GetComponentInParent<Rigidbody>();
         if (rb == null) rb = target.GetComponentInChildren<Rigidbody>();
@@ -125,28 +125,28 @@ public class VehicleSmartAI : MonoBehaviour
         Vector3 dirToTarget = targetPosition - turretGimbal.position;
         if (dirToTarget.sqrMagnitude < 0.001f) return;
 
-        // 1. Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕРµ РЅР°РїСЂР°РІР»РµРЅРёРµ (Yaw) Р±РµР· Y-РєРѕРјРїРѕРЅРµРЅС‚С‹
+        // 1. Горизонтальное направление (Yaw) без Y-компоненты
         Vector3 horizontalDir = dirToTarget;
         horizontalDir.y = 0f;
 
         if (horizontalDir.sqrMagnitude < 0.001f) return;
 
-        // РџРѕРІРѕСЂРѕС‚ Р±Р°С€РЅРё РїРѕ РіРѕСЂРёР·РѕРЅС‚Сѓ
+        // Поворот башни по горизонту
         Quaternion targetYawRotation = Quaternion.LookRotation(horizontalDir, Vector3.up);
 
-        // РљРѕРјРїРµРЅСЃР°С†РёСЏ СЃРґРІРёРіР° РѕСЃРµР№ 3D-РјРѕРґРµР»Рё (-90 РіСЂР°РґСѓСЃРѕРІ РїРѕ Y)
+        // Компенсация сдвига осей 3D-модели (-90 градусов по Y)
         targetYawRotation *= Quaternion.Euler(0f, -90f, 0f);
 
-        // 2. Р Р°СЃС‡РµС‚ СѓРіР»Р° РЅР°РєР»РѕРЅР° СЃС‚РІРѕР»Р° РїРѕ РІС‹СЃРѕС‚Рµ (Pitch)
+        // 2. Расчет угла наклона ствола по высоте (Pitch)
         float distanceHorizontal = horizontalDir.magnitude;
-        // РџРѕР»РѕР¶РёС‚РµР»СЊРЅС‹Р№ СѓРіРѕР» РїРѕРґРЅРёРјР°РµС‚ СЃС‚РІРѕР» Рє С†РµР»Рё
+        // Положительный угол поднимает ствол к цели
         float targetPitchAngle = Mathf.Atan2(dirToTarget.y, distanceHorizontal) * Mathf.Rad2Deg;
         targetPitchAngle = Mathf.Clamp(targetPitchAngle, minPitch, maxPitch);
 
-        // 3. РќР°РєР»Р°РґС‹РІР°РµРј РЅР°РєР»РѕРЅ РІРѕРєСЂСѓРі РѕСЃРё Vector3.forward (С‚Р°Рє РєР°Рє РїРѕСЃР»Рµ СЂР°Р·РІРѕСЂРѕС‚Р° -90В° РёРјРµРЅРЅРѕ РѕРЅР° РѕС‚РІРµС‡Р°РµС‚ Р·Р° Pitch)
+        // 3. Накладываем наклон вокруг оси Vector3.forward (так как после разворота -90° именно она отвечает за Pitch)
         Quaternion targetFullRotation = targetYawRotation * Quaternion.AngleAxis(targetPitchAngle, Vector3.forward);
 
-        // 4. РџР»Р°РІРЅРѕ РїРѕРІРѕСЂР°С‡РёРІР°РµРј Р±Р°С€РЅСЋ Рє С†РµР»Рё
+        // 4. Плавно поворачиваем башню к цели
         turretGimbal.rotation = Quaternion.RotateTowards(
             turretGimbal.rotation,
             targetFullRotation,
@@ -158,20 +158,20 @@ public class VehicleSmartAI : MonoBehaviour
     {
         if (cannonParticleSystem == null || turretGimbal == null) return;
 
-        // 1. Р’РµРєС‚РѕСЂ РЅР°РїСЂР°РІР»РµРЅРёСЏ СЃС‚РІРѕР»Р° Р‘РўР  РІ РјРёСЂРѕРІС‹С… РєРѕРѕСЂРґРёРЅР°С‚Р°С…
+        // 1. Вектор направления ствола БТР в мировых координатах
         Vector3 fireDirection = (turretGimbal.rotation * Vector3.right).normalized;
         Vector3 fireOrigin = cannonParticleSystem.transform.position;
         Vector3 dirToTarget = (targetPosition - fireOrigin).normalized;
 
-        // РћС‚СЂРёСЃРѕРІРєР° РѕС‚Р»Р°РґРѕС‡РЅС‹С… Р»СѓС‡РµР№ РІ РѕРєРЅРµ Scene
-        Debug.DrawRay(fireOrigin, fireDirection * 100f, Color.red);   // РљСЂР°СЃРЅС‹Р№: СЃС‚РІРѕР»
-        Debug.DrawRay(fireOrigin, dirToTarget * 100f, Color.green);  // Р—РµР»РµРЅС‹Р№: С†РµР»СЊ
+        // Отрисовка отладочных лучей в окне Scene
+        Debug.DrawRay(fireOrigin, fireDirection * 100f, Color.red);   // Красный: ствол
+        Debug.DrawRay(fireOrigin, dirToTarget * 100f, Color.green);  // Зеленый: цель
 
         float angleToTarget = Vector3.Angle(fireDirection, dirToTarget);
 
         if (Time.frameCount % 15 == 0)
         {
-            //Debug.Log($"[AIM ANGLE] РЈРіРѕР»: {angleToTarget:F1}В° | РџРѕСЂРѕРі: {maxFireAngle}В°");
+            //Debug.Log($"[AIM ANGLE] Угол: {angleToTarget:F1}° | Порог: {maxFireAngle}°");
         }
 
         if (angleToTarget <= maxFireAngle)
@@ -180,11 +180,11 @@ public class VehicleSmartAI : MonoBehaviour
             {
                 //Debug.Log("<color=red>[EMIT BULLET!]</color>");
 
-                // 2. РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕ Р·Р°РґР°РµРј РїРѕР·РёС†РёСЋ Рё РІРµРєС‚РѕСЂ СЃРєРѕСЂРѕСЃС‚Рё С‡Р°СЃС‚РёС†С‹ РІ РјРёСЂРѕРІС‹С… РєРѕРѕСЂРґРёРЅР°С‚Р°С…
+                // 2. Принудительно задаем позицию и вектор скорости частицы в мировых координатах
                 ParticleSystem.EmitParams emitParams = new ParticleSystem.EmitParams
                 {
                     position = fireOrigin,
-                    velocity = fireDirection * bulletSpeed // РџСѓР»СЏ РїРѕР»РµС‚РёС‚ РЎРўР РћР“Рћ РІРґРѕР»СЊ РєСЂР°СЃРЅРѕРіРѕ Р»СѓС‡Р°
+                    velocity = fireDirection * bulletSpeed // Пуля полетит СТРОГО вдоль красного луча
                 };
 
                 cannonParticleSystem.Emit(emitParams, 1);
@@ -222,7 +222,7 @@ public class VehicleSmartAI : MonoBehaviour
     private void DeploySmokeScreen()
     {
         smokeDeployed = true;
-        //Debug.Log("[AI] РћРїР°СЃРЅРѕСЃС‚СЊ РїРѕРґСЂС‹РІР°! РћС‚СЃС‚СЂРµР» Р°СЌСЂРѕР·РѕР»СЊРЅРѕР№ РґС‹РјРѕРІРѕР№ Р·Р°РІРµСЃС‹.");
+        //Debug.Log("[AI] Опасность подрыва! Отстрел аэрозольной дымовой завесы.");
 
         if (smokeGrenadePrefab != null && smokeLaunchPoint != null)
         {

@@ -17,6 +17,27 @@ public class MissionController : MonoBehaviour
     private float startTime;
     private bool isEnded;
 
+    public MissionDefinition Mission => mission;
+
+    public int DestroyedTargets => destroyedTargets;
+
+    public int TargetCount => mission != null ? mission.targetCount : 0;
+
+    public bool IsEnded => isEnded;
+
+    public float ElapsedTime => Mathf.Max(0f, Time.time - startTime);
+
+    public float TimeLimit => mission != null ? mission.timeLimit : 0f;
+
+    public float TimeRemaining
+    {
+        get
+        {
+            if (mission == null || mission.timeLimit <= 0f) return -1f;
+            return Mathf.Max(0f, mission.timeLimit - ElapsedTime);
+        }
+    }
+
     private void Awake()
     {
         if (GameStateMachine.Current == GameState.Loading)

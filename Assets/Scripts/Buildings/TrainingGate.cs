@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class TrainingGate : MonoBehaviour
 {
-    // Статическое событие, чтобы менеджер обучения мог на него подписаться
+    // РЎС‚Р°С‚РёС‡РµСЃРєРѕРµ СЃРѕР±С‹С‚РёРµ, С‡С‚РѕР±С‹ РјРµРЅРµРґР¶РµСЂ РѕР±СѓС‡РµРЅРёСЏ РјРѕРі РЅР° РЅРµРіРѕ РїРѕРґРїРёСЃР°С‚СЊСЃСЏ
     public static event System.Action OnGatePassed;
 
     private bool isPassed = false;
@@ -18,15 +18,15 @@ public class TrainingGate : MonoBehaviour
     {
         if (isPassed) return;
 
-        // Проверяем, что пролетел именно дрон
+        // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РїСЂРѕР»РµС‚РµР» РёРјРµРЅРЅРѕ РґСЂРѕРЅ
         if (other.CompareTag("Drone") || other.GetComponentInParent<DroneFlightController>() != null)
         {
             isPassed = true;
             OnGatePassed?.Invoke();
 
-            // Меняем цвет на зеленый для визуального фидбека
+            // РњРµРЅСЏРµРј С†РІРµС‚ РЅР° Р·РµР»РµРЅС‹Р№ РґР»СЏ РІРёР·СѓР°Р»СЊРЅРѕРіРѕ С„РёРґР±РµРєР°
             if (meshRenderer != null)
-                meshRenderer.material.color = new Color(0.2f, 1f, 0.2f, 0.5f); // Полупрозрачный зеленый
+                meshRenderer.material.color = new Color(0.2f, 1f, 0.2f, 0.5f); // РџРѕР»СѓРїСЂРѕР·СЂР°С‡РЅС‹Р№ Р·РµР»РµРЅС‹Р№
         }
     }
 }

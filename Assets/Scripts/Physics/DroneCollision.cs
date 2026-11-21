@@ -2,7 +2,7 @@ using System.Linq;
 using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody))]
-public class DroneCollision : MonoBehaviour
+public class DroneCollision : MonoBehaviour, IPrimaryActionHandler
 {
     [Header("Профиль Дрона")]
     [SerializeField] private DroneConfig config;
@@ -10,6 +10,10 @@ public class DroneCollision : MonoBehaviour
     private bool isExploded;
     private DroneFlightController flightController;
     private DroneMotors motors;
+
+    public int PrimaryPriority => 10;
+
+    public bool CanDetonateManually => !isExploded && (config == null || config.allowManualDetonation);
 
     public WarheadType CurrentWarhead => config != null ? config.warheadType : WarheadType.HEAT;
     public float DirectDamage => config != null ? config.directDamage : 250f;
@@ -23,17 +27,25 @@ public class DroneCollision : MonoBehaviour
         motors = GetComponent<DroneMotors>();
     }
 
-    private void Update()
+    private void OnEnable()
     {
-        if (isExploded) return;
+        GameInput.RegisterPrimaryHandler(this);
+    }
 
-        bool allowDetonate = config == null || config.allowManualDetonation;
-        KeyCode detonateKey = config != null ? config.detonateKey : KeyCode.Space;
+    private void OnDisable()
+    {
+        GameInput.UnregisterPrimaryHandler(this);
+    }
 
-        if (allowDetonate && Input.GetKeyDown(detonateKey))
-        {
-            Explode(transform.position);
-        }
+    public bool WantsPrimaryAction()
+    {
+        return CanDetonateManually;
+    }
+
+    public void OnPrimaryAction()
+    {
+        if (!CanDetonateManually) return;
+        Explode(transform.position);
     }
 
     private void OnCollisionEnter(Collision collision)

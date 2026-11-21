@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 public class DroneManager : MonoBehaviour
 {
@@ -135,11 +137,18 @@ public class DroneManager : MonoBehaviour
     private void Update()
     {
         // Динамическое переключение по клавишам 1-9
-        for (int i = 0; i < activeSlots.Count; i++)
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null)
         {
-            if (Input.GetKeyDown(KeyCode.Alpha1 + i))
+            int slotCount = Mathf.Min(activeSlots.Count, 9);
+
+            for (int i = 0; i < slotCount; i++)
             {
-                SelectDroneByIndex(i);
+                KeyControl digitControl = keyboard[(Key)((int)Key.Digit1 + i)];
+                if (digitControl != null && digitControl.wasPressedThisFrame)
+                {
+                    SelectDroneByIndex(i);
+                }
             }
         }
 
@@ -208,7 +217,7 @@ public class DroneManager : MonoBehaviour
     // --- Логика отслеживания смертей ---
     private void OnDroneDestroyed(Vector3 pos, MonoBehaviour destroyedDroneScript)
     {
-        GameObject destroyedObj = destroyedDroneScript.gameObject;
+        GameObject destroyedObj = destroyedDroneScript != null ? destroyedDroneScript.gameObject : null;
 
         // Обнуляем ссылку в слоте
         var slot = activeSlots.Find(s => s.droneObject == destroyedObj);
@@ -218,10 +227,47 @@ public class DroneManager : MonoBehaviour
         }
 
         int alive = GetAliveDronesCount();
-        if (alive > 0)
+        if (alive <= 0)
         {
-            Debug.Log($"<color=orange>[DroneManager]</color> Дрон уничтожен! Осталось: {alive}.");
+            currentActiveIndex = -1;
+            return;
         }
+
+        Debug.Log($"<color=orange>[DroneManager]</color> Дрон уничтожен! Осталось: {alive}.");
+
+        bool activeDroneAlive = currentActiveIndex >= 0
+                                && currentActiveIndex < activeSlots.Count
+                                && activeSlots[currentActiveIndex].droneObject != null;
+        if (activeDroneAlive) return;
+
+        for (int i = 0; i < activeSlots.Count; i++)
+        {
+            if (activeSlots[i].droneObject == null) continue;
+
+            SelectDroneByIndex(i);
+            Debug.Log($"<color=orange>[DroneManager]</color> Активный борт потерян — автопереключение на борт {i + 1}.");
+            return;
+        }
+    }
+
+    public int ActiveSlotCount => activeSlots.Count;
+
+    public int AliveDronesCount => GetAliveDronesCount();
+
+    public int ActiveDroneNumber
+    {
+        get
+        {
+            if (currentActiveIndex < 0 || currentActiveIndex >= activeSlots.Count) return -1;
+            if (activeSlots[currentActiveIndex].droneObject == null) return -1;
+            return currentActiveIndex + 1;
+        }
+    }
+
+    public GameObject GetActiveDrone()
+    {
+        if (currentActiveIndex < 0 || currentActiveIndex >= activeSlots.Count) return null;
+        return activeSlots[currentActiveIndex].droneObject;
     }
 
     public int GetAliveDronesCount()

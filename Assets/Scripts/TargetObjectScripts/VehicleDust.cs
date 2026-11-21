@@ -2,10 +2,10 @@ using UnityEngine;
 
 public class VehicleDust : MonoBehaviour
 {
-    [Header("Ссылки")]
+    [Header("РЎСЃС‹Р»РєРё")]
     [SerializeField] private ParticleSystem dustParticles;
 
-    [Header("Настройки")]
+    [Header("РќР°СЃС‚СЂРѕР№РєРё")]
     [SerializeField] private float minSpeedForDust = 0.5f;
     [SerializeField] private float maxEmissionRate = 30f;
 
@@ -20,7 +20,7 @@ public class VehicleDust : MonoBehaviour
             emissionModule = dustParticles.emission;
             lastPosition = transform.position;
 
-            // Отключаем Play On Awake и глушим пыль на старте
+            // РћС‚РєР»СЋС‡Р°РµРј Play On Awake Рё РіР»СѓС€РёРј РїС‹Р»СЊ РЅР° СЃС‚Р°СЂС‚Рµ
             var main = dustParticles.main;
             main.playOnAwake = false;
             dustParticles.Stop();
@@ -31,11 +31,11 @@ public class VehicleDust : MonoBehaviour
     {
         if (dustParticles == null) return;
 
-        // Вычисляем скорость
+        // Р’С‹С‡РёСЃР»СЏРµРј СЃРєРѕСЂРѕСЃС‚СЊ
         float currentSpeed = Vector3.Distance(transform.position, lastPosition) / Time.deltaTime;
         lastPosition = transform.position;
 
-        // Если машина едет
+        // Р•СЃР»Рё РјР°С€РёРЅР° РµРґРµС‚
         if (currentSpeed > minSpeedForDust)
         {
             if (!isDustPlaying)
@@ -44,18 +44,18 @@ public class VehicleDust : MonoBehaviour
                 isDustPlaying = true;
             }
 
-            // Плавно наращиваем плотность пыли
+            // РџР»Р°РІРЅРѕ РЅР°СЂР°С‰РёРІР°РµРј РїР»РѕС‚РЅРѕСЃС‚СЊ РїС‹Р»Рё
             float normalizedSpeed = Mathf.Clamp01(currentSpeed / 15f);
             var rate = emissionModule.rateOverTime;
             rate.constant = Mathf.Lerp(5f, maxEmissionRate, normalizedSpeed);
             emissionModule.rateOverTime = rate;
         }
-        // Если машина остановилась
+        // Р•СЃР»Рё РјР°С€РёРЅР° РѕСЃС‚Р°РЅРѕРІРёР»Р°СЃСЊ
         else
         {
             if (isDustPlaying)
             {
-                dustParticles.Stop(); // Пыль догорит и исчезнет
+                dustParticles.Stop(); // РџС‹Р»СЊ РґРѕРіРѕСЂРёС‚ Рё РёСЃС‡РµР·РЅРµС‚
                 isDustPlaying = false;
             }
         }

@@ -2,20 +2,20 @@ using UnityEngine;
 
 public class WheelRotator : MonoBehaviour
 {
-    [Header("Настройки")]
+    [Header("РќР°СЃС‚СЂРѕР№РєРё")]
     [SerializeField] private Transform[] wheels;
     [SerializeField] private float wheelRadius = 0.5f;
     [SerializeField] private Vector3 rotationAxis = Vector3.right;
 
     private Vector3 lastPosition;
-    private Transform[] wheelPivots; // Здесь будут храниться наши новые центры вращения
+    private Transform[] wheelPivots; // Р—РґРµСЃСЊ Р±СѓРґСѓС‚ С…СЂР°РЅРёС‚СЊСЃСЏ РЅР°С€Рё РЅРѕРІС‹Рµ С†РµРЅС‚СЂС‹ РІСЂР°С‰РµРЅРёСЏ
 
     private void Start()
     {
         lastPosition = transform.position;
         wheelPivots = new Transform[wheels.Length];
 
-        // АВТОМАТИЧЕСКАЯ ПОЧИНКА ПИВОТОВ
+        // РђР’РўРћРњРђРўРР§Р•РЎРљРђРЇ РџРћР§РРќРљРђ РџРР’РћРўРћР’
         for (int i = 0; i < wheels.Length; i++)
         {
             if (wheels[i] == null) continue;
@@ -23,13 +23,13 @@ public class WheelRotator : MonoBehaviour
             Renderer rend = wheels[i].GetComponentInChildren<Renderer>();
             if (rend == null) continue;
 
-            // 1. Создаем пустышку для правильного вращения
+            // 1. РЎРѕР·РґР°РµРј РїСѓСЃС‚С‹С€РєСѓ РґР»СЏ РїСЂР°РІРёР»СЊРЅРѕРіРѕ РІСЂР°С‰РµРЅРёСЏ
             GameObject pivotObj = new GameObject($"Pivot_{wheels[i].name}");
 
-            // 2. Ставим ее ровно в визуальный центр колеса
+            // 2. РЎС‚Р°РІРёРј РµРµ СЂРѕРІРЅРѕ РІ РІРёР·СѓР°Р»СЊРЅС‹Р№ С†РµРЅС‚СЂ РєРѕР»РµСЃР°
             pivotObj.transform.position = rend.bounds.center;
 
-            // 3. Делаем ее родителем для колеса (сохраняя его мировую позицию)
+            // 3. Р”РµР»Р°РµРј РµРµ СЂРѕРґРёС‚РµР»РµРј РґР»СЏ РєРѕР»РµСЃР° (СЃРѕС…СЂР°РЅСЏСЏ РµРіРѕ РјРёСЂРѕРІСѓСЋ РїРѕР·РёС†РёСЋ)
             pivotObj.transform.SetParent(wheels[i].parent, true);
             wheels[i].SetParent(pivotObj.transform, true);
 
@@ -48,7 +48,7 @@ public class WheelRotator : MonoBehaviour
         {
             if (wheelPivots[i] != null)
             {
-                // Теперь мы вращаем пустышку, которая стоит ровно в центре!
+                // РўРµРїРµСЂСЊ РјС‹ РІСЂР°С‰Р°РµРј РїСѓСЃС‚С‹С€РєСѓ, РєРѕС‚РѕСЂР°СЏ СЃС‚РѕРёС‚ СЂРѕРІРЅРѕ РІ С†РµРЅС‚СЂРµ!
                 wheelPivots[i].Rotate(rotationAxis, rotationAmount, Space.Self);
             }
         }

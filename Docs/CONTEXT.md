@@ -30,15 +30,14 @@ Unity 6.6;
 
 C#-скрипты сохранены в UTF-8 без BOM;
 
-используется смешанный ввод:
+используется новый Input System:
+действия дрона идут через статический адаптер GameInput (Assets/Scripts/Input/GameInput.cs) и карту Drone из Assets/Input/InputSystem_Actions.inputactions;
 
-новый Input System;
+прямое чтение Keyboard.current / Mouse.current осталось только в UI- и interaction-скриптах (Esc, E, клики, выбор борта 1–9);
 
-прямое чтение Keyboard.current / Mouse.current;
+старого Input.GetKey / Input.GetKeyDown / Input.GetAxis в Assets/Scripts больше нет (было 10 файлов, осталось 0);
 
-старый Input.GetKey / Input.GetKeyDown;
-
-старый ProjectSettings/InputManager.asset.
+старый ProjectSettings/InputManager.asset больше не используется, но остаётся включённым (activeInputHandler = Both).
 
 При работе с проектом:
 
@@ -298,9 +297,11 @@ ScriptableObject-описаний миссий;
 
 Текущая конфигурация миссий
 Ассеты миссий: Assets/Resources/Missions/ (Mission1, Mission2); реестр: Assets/Resources/MissionRegistry.asset.
-- Mission1 — «Тренировочная миссия» (id: training_mission) → сцена Assets/Scenes/PreparingDemo.unity, Default Drone: SmallFpvHeatConfig.
-- Mission2 — «Первая миссия» (id: mission_1) → сцена Assets/Scenes/FirstMission(Forest).unity, Default Drone: MavicReconConfig (разведчик).
-Mission2 открывается после Mission1 (prerequisite = Mission1). Обе сцены добавлены в Build Settings.
+- Mission1 — «Тренировочная миссия» (id: training_mission) → сцена Assets/Scenes/PreparingDemo.unity, Default Drone: MavicReconConfig (разведывательный борт с гимбалом). Доступные борта (availableDrones): MavicReconConfig и SmallFpvHeatConfig — стартовый борт разведчик, ударный FPV берётся вторым.
+- Mission2 — «Первая миссия» (id: mission_1) → сцена Assets/Scenes/FirstMission(Forest).unity, Default Drone: MavicReconConfig (разведчик). Доступные борта: MavicReconConfig + 4 × SmallFpvHeatConfig (в сцене Forest столько же ударных префабов в пуле DroneManager).
+Mission2 открывается после Mission1: массив prerequisites у Mission2 содержит ссылку на Mission1 (проверено по ассету; отдельный пункт аудита «prerequisites пуст» не подтвердился).
+Обе сцены добавлены в Build Settings. В Build Settings всего 5 сцен: Boot, MainMenu, Bunker(main), PreparingDemo, FirstMission(Forest). Сцены SampleScene и TerrainDemoScene из Build Settings удалены (мусор в билде).
+Mission3 (id: mission_3) лежит в Assets/Resources/Missions/, но у неё пустые sceneName и defaultDrone, в MissionRegistry она не входит и не используется.
 Сцена Assets/Scenes/FirstMission(SpizjenyiVarik).unity есть в проекте, но пока не привязана к миссии.
 
 Сцена PreparingDemo настроена на завершение миссии и показ дебрифинга:
@@ -591,6 +592,10 @@ Assets/Scripts/Settings/HudStyleService.cs — резолвер стиля HUD: 
 прицела, толщина линий, показ рамки захвата; Begin()/End() для GUI.matrix.
 
 7.3 Звук
+Assets/Resources/Audio/MainMixer.mixer — микшер проекта (создаётся из меню Tools/DroneSimulator/Impact/3).
+Иерархия групп: Master → { Music, SFX → { DroneMotors, EW }, UI, Voice }. Expose-параметры (имена совпадают
+с константами AudioBus): MasterVolume, MusicVolume, SfxVolume, MotorsVolume, EwVolume, UiVolume, VoiceVolume.
+Громкость всех групп выставлена в 0 дБ в стартовом снапшоте Snapshot, вид микшера содержит все 7 групп.
 Assets/Scripts/Settings/AudioBus.cs — загружает Resources/Audio/MainMixer, раздаёт группы
 Master / Music / SFX / DroneMotors / EW / UI, переводит линейную громкость в дБ (0 → −80 дБ).
 Assets/Scripts/Settings/AudioApplier.cs — применяет 7 ползунков; если микшера нет, работает fallback
@@ -600,6 +605,9 @@ Assets/Scripts/Core/EffectService.cs — пул из 16 AudioSource (DontDestroy
 Assets/Scripts/Audio/DroneMotorAudio.cs — гул моторов (процедурный луп, если клип не назначен),
 громкость и питч от DroneMotors.CurrentThrust01 и isMotorStarted.
 Assets/Scripts/Audio/EWAudio.cs — треск помех, громкость от EWReceiver.jamIntensity.
+Префабы дронов (Assets/Prefabs/Drones/): на корне Audio Source (DroneMotors) + DroneMotorAudio,
+на камере Audio Source (2D, EW) + EWAudio; ссылки на DroneMotors / DroneFlightController / EWReceiver назначены.
+Взрыв: Assets/Audio/SFX/Explosion.wav (процедурный синтез), назначен в explosionSound всех трёх конфигов дронов.
 
 7.4 Графика (URP)
 Assets/Scripts/Settings/GraphicsApplier.cs — на старте создаёт рантайм-клон активного URP-ассета
@@ -639,15 +647,19 @@ Assets/Scripts/Camera/DroneCameraModule.cs — gimbalSpeed и gimbalInvertY из
 Assets/Scripts/Camera/FPVCameraShake.cs — амплитуды тряски умножаются на gameplay.cameraShakeIntensity;
 при 0 камера возвращается в исходную позу.
 
-7.7 Что нужно сделать руками в редакторе (однократно)
-1) Аудиомикшер: Assets/Resources/Audio/MainMixer.mixer с группами Master → { Music, SFX →
-{ DroneMotors, EW }, UI }. Обязательно Expose параметры Volume и переименовать их в
-MasterVolume, MusicVolume, SfxVolume, MotorsVolume, EwVolume, UiVolume (опционально VoiceVolume).
-Пока микшера нет, игра работает: общая громкость идёт через AudioListener.volume, категорийные
-ползунки молчат, в консоли один warning [AudioBus].
-2) Префабы дронов: на корень — Audio Source + Drone Motor Audio; на камеру дрона (где EWReceiver) —
-Audio Source (2D) + EW Audio.
-3) URP-клон в редакторе создавать не нужно: он делается в рантайме.
+7.7 Что раньше делалось руками, а теперь автоматизировано
+Раньше эти шаги требовали ручной работы в редакторе. Сейчас они выполняются Editor-скриптами
+из меню Tools/DroneSimulator (см. раздел 8):
+1) Аудиомикшер Assets/Resources/Audio/MainMixer.mixer с группами Master → { Music, SFX →
+{ DroneMotors, EW }, UI, Voice } и Expose-параметрами MasterVolume, MusicVolume, SfxVolume,
+MotorsVolume, EwVolume, UiVolume, VoiceVolume — создаётся скриптом AudioMixerBuilder
+(микшер уже лежит в проекте).
+2) Audio Source + DroneMotorAudio на корень и Audio Source (2D) + EWAudio на камеру дрона —
+расставляет скрипт DroneAudioBinder на всех префабах Assets/Prefabs/Drones/ (уже расставлено).
+3) Префабы взрыва и бомбы, а также звук взрыва — создаёт скрипт ImpactVfxBuilder.
+4) URP-клон в редакторе создавать не нужно: он делается в рантайме.
+Если микшера нет, игра по-прежнему работает: общая громкость идёт через AudioListener.volume,
+категорийные ползунки молчат, в консоли один warning [AudioBus].
 
 7.8 Что пока не подключено
 droneFog (туман миссии), droneLensDistortion (нужен целевой параметр), duckOnMenus (приглушение в меню),
@@ -655,7 +667,101 @@ trainingHints, osdLevel, showSubtitlesOnPause, gimbalAutoCenter, ewMotionComfort
 (используется только как «0 = выключить пост-эффекты»), nightVisionColor (работает, но без строки в UI).
 Моно-режим и «Чувствительность мыши (дрон)» удалены из UI (поля в SettingsData остались).
 
-8. Назначение этих документов
+8. Единая палитра интерфейса (терминальный стиль)
+Весь UI проекта приведён к одной палитре. Источник истины — статический класс
+Assets/Scripts/UI/UIColorPalette.cs (пространство имён Assembly-CSharp, обращается как UIColorPalette).
+
+Цвета палитры:
+- PanelBackground #1E2024, alpha 0.90 — фон панелей и карточек;
+- PanelSurface #2A2D33, alpha 0.90 — вложенные поверхности (панель в панели, баннер, тайл);
+- PanelHeader #17191C, alpha 0.95 — шапки панелей;
+- Overlay #000000, alpha 0.62 — затемнение под модальным окном, слой «ЗАБЛОКИРОВАНО»;
+- Accent #D94A4A — кнопки действия (обычная кнопка = акцентный красный);
+- AccentHover #E46363 и AccentPressed #A93737 — состояния кнопки;
+- Success #73CC6B — успех (заголовок «МИССИЯ ВЫПОЛНЕНА», выполненная цель);
+- Failure #E67373 — провал (заголовок «МИССИЯ ПРОВАЛЕНА», заблокированная миссия);
+- TextPrimary #FFFFFF — основной текст;
+- TextSecondary #A0A5B0 — подписи, подсказки, вторичный текст;
+- Divider #FFFFFF alpha 0.16 — разделители на тёмном фоне.
+
+Хелперы класса: FromHex, WithAlpha, Lighten, Darken, IsAcidic, SemanticiseSurface, SemanticiseText.
+SemanticiseText / SemanticiseSurface заменяют «кислотные» цвета (насыщенность ≥ 0.45 и яркость ≥ 0.45)
+на ближайший цвет палитры: зелёный → Success, красный → Failure/Accent, синий → TextSecondary.
+
+Кто использует палитру:
+- DebriefController — цвет заголовка результата (Success / Failure) вместо Color.green / Color.red;
+- префабы Assets/Prefabs/UI/SettingsPanel.prefab, MissionSelectPanel.prefab, MissionCard.prefab;
+- сцены Assets/Scenes/Bunker(main).unity, PreparingDemo.unity, FirstMission(Forest).unity;
+- сериализованные поля цветов: MissionDetailsPanel (completedColor / pendingColor / lockedColor),
+  SettingsPanel (selectedTabColor / normalTabColor), SettingsListBuilder (labelColor / trackColor /
+  fillColor / handleColor / checkColor).
+
+Применение и проверка — меню Tools/DroneSimulator/UI: «1. Apply Terminal Palette» перекрашивает префабы и
+сцены по правилам (кнопка → Accent, панель → PanelBackground/PanelSurface, шапка → PanelHeader,
+затемнение → Overlay, текст → TextPrimary/TextSecondary, кислотные цвета → семантика палитры) и пишет
+полный отчёт в Logs/ui_theme_report.txt; «2. Open Palette Report» выводит отчёт в консоль.
+Правила описаны в Assets/Scripts/Editor/UIThemeApplicator.cs.
+
+8.1 Глобальный цвет шрифта (исправлено)
+До этой итерации почти весь текст в игре (меню, бункер, миссии, пауза, дебрифинг) оставался
+ядовито-зелёным, хотя UI уже был перекрашен по палитре. Причина была не в компонентах, а в материале
+шрифта: у встроенного саб-ассета «LiberationSans SDF Material» (Assets/UnityTechnologies/ParticlePack/
+TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset, guid 8f586378b4e144a9851e7b34d9b748ee,
+fileID 2180264) параметр _FaceColor равнялся r0.387 g0.925 b0.052. Шейдер TMP_SDF считает
+faceColor = _FaceColor × цвет вершины, поэтому все TMP-тексты с белым цветом вершины рисовались
+кислотно-зелёными.
+
+Что сделано (Editor-скрипт Assets/Scripts/Editor/TmpColorFixer.cs, меню
+Tools/DroneSimulator/Text/1. Fix TMP Green Text):
+- _FaceColor принудительно выставлен в Color.white у материала шрифта LiberationSans SDF Material и у всех
+  остальных материалов TMP-шейдеров (включая пресеты Outline / Drop Shadow и инстансы материалов);
+- во всех префабах Assets/Prefabs и в сценах Bunker(main), MainMenu, PreparingDemo, FirstMission(Forest),
+  Boot у каждого TMP_Text / TextMeshPro / TextMeshProUGUI проверен fontSharedMaterial (зелёный
+  _FaceColor → белый) и сериализованные цвета: m_fontColor, m_fontColor32, m_faceColor,
+  m_underlineColor, m_strikethroughColor и четыре угла m_fontColorGradient;
+- кислотный зелёный заменяется на UIColorPalette.TextPrimary (белый), а для семантических элементов
+  (success/completed/«выполн»/«успех» → Success, fail/locked → Failure); цвета палитры считаются
+  целевыми и не перекрашиваются, альфа исходного цвета сохраняется, устаревшие кэши
+  m_fontColor32 / m_faceColor синхронизируются с актуальным цветом — теперь сериализованные данные
+  совпадают с тем, что рисуется;
+- изменённые префабы и сцены пересохранены, отчёт пишется в Logs/tmp_color_fix_report.txt
+  (пункт меню «Text/2. Open TMP Color Report» выводит его в консоль).
+
+Итог: весь текст в игре соответствует единой палитре — белый (TextPrimary), серый (TextSecondary) и
+акцентные цвета (Accent / Success / Failure). Скрипты палитры (UIThemeApplicator, UIColorPalette) не
+менялись. Шаг входит в общую кнопку Tools/DroneSimulator/Run Full Stabilization (шаг 9).
+
+9. Инструменты стабилизации (Editor)
+Все правки этого этапа автоматизированы и запускаются из меню Tools/DroneSimulator.
+Главная кнопка — Tools/DroneSimulator/Run Full Stabilization (StabilizationMaster.cs): последовательно
+выполняет все девять шагов.
+
+Пошагово:
+- Stabilization/1. Reset TMP Font Materials (ProjectStabilizer.cs) — ищет TMP-тексты, у которых
+  sharedMaterial отличается от дефолтного материала шрифта, возвращает дефолт, чистит массивы
+  материалов и удаляет запечённый инстанс материала из сцены;
+- Stabilization/2. Fix Crash Panel Typo (ProjectStabilizer.cs) — правит «Вы рызбились» → «Вы разбились»;
+- Stabilization/3. Validate Mission Drone Links (ProjectStabilizer.cs) — проверяет, что в
+  availableDrones всех ассетов миссий лежат только DroneConfig, и что defaultDrone — DroneConfig;
+- Stabilization/4. Clean Build Settings (ProjectStabilizer.cs) — убирает SampleScene и TerrainDemoScene
+  и явно перезаписывает ProjectSettings/EditorBuildSettings.asset (Unity не сохраняет этот файл сама);
+- Impact/1. Build Explosion And Bomb (ImpactVfxBuilder.cs) — процедурный префаб взрыва (вспышка + дым),
+  префаб бомбы, материалы и текстуры частиц, WAV-звук взрыва, назначение в конфиги дронов;
+- Impact/2. Attach Drone Audio Sources (DroneAudioBinder.cs) — AudioSource + DroneMotorAudio на корень,
+  AudioSource + EWAudio на камеру для всех префабов дронов;
+- Impact/3. Build Audio Mixer (AudioMixerBuilder.cs) — создаёт/дополняет MainMixer.mixer (внутренний
+  AudioMixerController Unity через рефлексию): группы, громкости в снапшоте, Expose-параметры, вид микшера;
+- Impact/4. Verify Audio Mixer (AudioMixerBuilder.cs) — проверяет, что ресурс загружается, группы находятся
+  и Expose-параметры записаны в ассет;
+- UI/1. Apply Terminal Palette (UIThemeApplicator.cs) — перекраска префабов и сцен по палитре;
+- Text/1. Fix TMP Green Text (TmpColorFixer.cs) — глобальная починка цвета текста: принудительный
+  белый _FaceColor у материала шрифта «LiberationSans SDF Material» и у всех TMP-материалов, чистка
+  зелёных переопределений (m_fontColor, m_fontColor32, m_faceColor, подчёркивание/зачёркивание, градиент)
+  и проверка fontSharedMaterial у всех TMP_Text / TextMeshPro / TextMeshProUGUI в префабах Assets/Prefabs
+  и сценах Bunker(main), MainMenu, PreparingDemo, FirstMission(Forest), Boot; отчёт —
+  Logs/tmp_color_fix_report.txt; пункт «Text/2. Open TMP Color Report» выводит отчёт в консоль.
+
+10. Назначение этих документов
 Эти документы предназначены для передачи контекста в будущие сессии DSH.
 
 Использование:
@@ -670,5 +776,90 @@ SETTINGS_DESIGN.md — дизайн и обоснование системы н�
 детали реализации см. раздел 7 этого файла и раздел 5.12 ARCHITECTURE.md).
 
 Перед технической задачей сначала определить нужную систему по INDEX.md, затем свериться с соответствующим разделом ARCHITECTURE.md.
+
+11. Кодировки, HUD миссии, гейтинг и Input System (реализовано)
+Этот раздел описывает итерацию, закрывшую пункты аудита по кодировкам, внутримиссионному HUD,
+гейтингу миссий и переводу ввода дрона на новый Input System.
+
+11.1 Кодировки скриптов (закрыто)
+Все C#-скрипты проекта — UTF-8 без BOM, битой кириллицы в Header-атрибутах больше нет.
+- 6 файлов были в Windows-1251 и пересохранены в UTF-8: TrainingManager.cs, TrainingGate.cs,
+  HimarsStrike.cs, TargetPingSystem.cs, VehicleDust.cs, WheelRotator.cs.
+- 2 файла с двойной кодировкой (mojibake) вылечены обратным проходом cp1251 → UTF-8:
+  Assets/Scripts/TargetObjectScripts/VehicleSmartAI.cs и Assets/Scripts/Core/DamageSystem.cs
+  (заголовки инспектора снова читаемы: [Header("Сенсоры и Слои")] и т. д.).
+- Процедура сохранена как скрипт Tools/FixScriptEncodings.ps1 (запуск:
+  powershell -NoProfile -ExecutionPolicy Bypass -File Tools\FixScriptEncodings.ps1). Скрипт
+  идемпотентен: cp1251-файлы перекодируются, а mojibake лечится только при валидном round-trip;
+  исходные байты складываются в Logs/encoding_backup/.
+
+11.2 Гейтинг миссий (закрыто)
+- Mission2 (Assets/Resources/Missions/Mission2.asset) в массиве prerequisites ссылается на
+  Mission1.asset (guid 61426ee32a5eb854cae5384762b6c235): вторая миссия заблокирована, пока
+  не пройдена тренировка. Пункт аудита «prerequisites пуст» был основан на устаревших данных.
+- Проверка автоматизирована: Tools/DroneSimulator/Missions/1. Validate Mission Gating
+  (Assets/Scripts/Editor/MissionGateValidator.cs). Инструмент печатает содержимое prerequisites и
+  симулирует сохранение в памяти (без записи progress.json): без пройденной Mission1
+  ProgressService.IsUnlocked(Mission2) = False, с пройденной — True.
+- Состояние «ЗАБЛОКИРОВАНО» на карточке миссии и в панели деталей берётся из того же
+  ProgressService.IsUnlocked, дополнительных правок UI не потребовалось.
+
+11.3 HUD миссии (MissionHud)
+Скрипт Assets/Scripts/UI/MissionHud.cs, объект MissionHud (дочерний к Canvas) в сценах
+PreparingDemo и FirstMission(Forest); ссылки droneManager и missionController назначены
+Editor-скриптом Tools/DroneSimulator/UI/2. Add Mission HUD (Assets/Scripts/Editor/MissionHudBinder.cs).
+HUD — IMGUI-плашка в левом нижнем углу и показывает:
+- активный борт (N из M) и число живых бортов (DroneManager.ActiveDroneNumber / ActiveSlotCount /
+  AliveDronesCount);
+- боезапас (только если у активного борта есть DroneDropMechanism с зарядом: AmmoCount);
+- прогресс целей «Уничтожено X / Y» (MissionController.DestroyedTargets / TargetCount);
+- таймер: обратный отсчёт «ДО КОНЦА» при timeLimit > 0 (краснеет на последних 30 с), иначе
+  прошедшее время миссии «ВРЕМЯ».
+Стиль единый: цвета из UIColorPalette, масштаб/прозрачность/толщина — из HudStyleService
+(Begin/End вокруг GUI.matrix, ApplyAlpha на фон и текст). Плашка уважает MissionUIManager.IsHudHidden
+(пауза, крушение, дебрифинг) и SceneLoader.IsLoading (экран «LOADING...»).
+MissionController получил публичные свойства только для чтения для HUD: Mission, DestroyedTargets,
+TargetCount, IsEnded, ElapsedTime, TimeLimit, TimeRemaining; DroneManager — ActiveSlotCount,
+AliveDronesCount, ActiveDroneNumber, GetActiveDrone().
+
+11.4 Input System: карта Drone, адаптер GameInput, RebindService и UI привязки
+Карта Drone добавлена в Assets/Input/InputSystem_Actions.inputactions (12 действий, 26 привязок):
+- Throttle (W/S), Yaw (A/D), Pitch (Up/Down), Roll (Left/Right) — 1D-оси;
+- Gimbal (R/F/Q/E) — 2D-вектор; Zoom (Z/X) — 1D-ось;
+- PrimaryAction (Пробел) — контекстное действие: захват цели, сброс бомбы, детонация;
+- NightVision (N), MotorStart (W);
+- служебные действия, сохранившие прежние возможности: HoverToggle (H), AngleToggle (M),
+  GimbalReset (C).
+Адаптер Assets/Scripts/Input/GameInput.cs — статический класс, который строит такой же
+InputActionAsset в коде (ассет лежит вне Resources, поэтому в рантайме источником истины служит код),
+включает карту, применяет сохранённые переназначения и отдаёт значения через свойства:
+ThrottleAxis / YawAxis / PitchAxis / RollAxis / GimbalAxis, ZoomStep, PrimaryActionPressedThisFrame,
+MotorStartPressedThisFrame, NightVisionPressedThisFrame, HoverTogglePressedThisFrame,
+AngleTogglePressedThisFrame, GimbalResetPressedThisFrame. Совпадение кода и ассета проверяет
+Tools/DroneSimulator/Input/1. Validate Drone Input Map (Assets/Scripts/Editor/InputMapValidator.cs).
+Контекстная логика Пробела сохранена, но конфликт аудита C7 устранён: GameInput собирает подписчиков
+интерфейса IPrimaryActionHandler и отдаёт нажатие ровно одному из них по приоритету.
+Приоритеты: захват цели (30) → сброс бомбы (20) → детонация (10).
+- Разведчик без оружия: Пробел ставит/снимает захват.
+- Если в прицеле есть захватываемая цель: первый Пробел — захват, следующий — сброс (если есть заряд)
+  или детонация; при уже захваченной цели и готовом оружии захват нажатие не забирает.
+- Если цель не в прицеле: Пробел сразу сбрасывает бомбу (если есть) или подрывает борт.
+RebindService (Assets/Scripts/Input/RebindService.cs) переназначает клавиши и хранит их в
+SettingsData.controls.keyBindings: элемент списка KeyBinding.actionId вида «Throttle:2»
+(действие + индекс привязки), KeyBinding.bindingJson — путь контрола («<Keyboard>/k»).
+ApplySavedBindings() накатывает оверрайды при старте GameInput, TryAssignKey() назначает клавишу
+и пишет в настройки, ResetBinding()/ResetAllBindings() возвращают дефолт, FindConflict() предупреждает
+о дублях в консоли. В панели настроек на вкладке «Управление» появились строки кликабельных клавиш
+(новый тип строки SettingType.Key, компонент Assets/Scripts/UI/KeyBindingRow.cs): клик — «Нажмите
+клавишу», Esc — отмена, Backspace/Delete — сброс к дефолту, конфликты пишутся в консоль.
+На GameInput переведены: DroneFlightController (газ/стики/зависание/режим углов/запуск моторов),
+DroneCameraModule (гимбал и центрирование), FPVZoom (зум), TargetLockManager, DroneCollision,
+DroneDropMechanism (трое — через IPrimaryActionHandler), NIghtVisionController, FPVCameraShake (тряска
+от газа), TrainingManager (шаги обучения реагируют на действия, а не на клавиши). DroneManager
+переключает борта 1–9 через Keyboard.current нового Input System. Легаси Input.* в Assets/Scripts
+больше не используется.
+Поля DroneConfig.detonateKey / targetLockKey / zoomInKey / zoomOutKey / nvToggleKey и поле
+DroneDropMechanism.dropKey больше не читаются (клавиши глобальные, из настроек); данные в ассетах
+оставлены как есть, физика дрона не менялась.
 
 См. также: ARCHITECTURE.md, INDEX.md, SETTINGS_DESIGN.md.

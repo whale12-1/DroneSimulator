@@ -59,17 +59,18 @@ public class DroneCameraModule : MonoBehaviour
     {
         float speed = GimbalSpeed;
         float pitchSign = GimbalInvertY ? -1f : 1f;
+        Vector2 gimbalAxis = GameInput.GimbalAxis;
 
         // R / F — Наклон Вверх / Вниз (Pitch)
-        if (Input.GetKey(KeyCode.R)) currentGimbalPitch -= speed * Time.deltaTime * pitchSign;
-        if (Input.GetKey(KeyCode.F)) currentGimbalPitch += speed * Time.deltaTime * pitchSign;
+        if (gimbalAxis.y > 0f) currentGimbalPitch -= speed * Time.deltaTime * pitchSign;
+        if (gimbalAxis.y < 0f) currentGimbalPitch += speed * Time.deltaTime * pitchSign;
 
         // Q / E — Поворот Влево / Вправо (Yaw)
-        if (Input.GetKey(KeyCode.Q)) currentGimbalYaw -= speed * Time.deltaTime;
-        if (Input.GetKey(KeyCode.E)) currentGimbalYaw += speed * Time.deltaTime;
+        if (gimbalAxis.x < 0f) currentGimbalYaw -= speed * Time.deltaTime;
+        if (gimbalAxis.x > 0f) currentGimbalYaw += speed * Time.deltaTime;
 
         // Сброс камеры в центр по нажатию 'C'
-        if (Input.GetKeyDown(KeyCode.C))
+        if (GameInput.GimbalResetPressedThisFrame)
         {
             ResetGimbalToDefault();
         }

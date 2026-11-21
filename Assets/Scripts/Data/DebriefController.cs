@@ -55,12 +55,12 @@ public class DebriefController : MonoBehaviour
         if (result == MissionResult.Success)
         {
             titleText.text = "МИССИЯ ВЫПОЛНЕНА";
-            titleText.color = Color.green;
+            titleText.color = UIColorPalette.Success;
         }
         else
         {
             titleText.text = "МИССИЯ ПРОВАЛЕНА";
-            titleText.color = Color.red;
+            titleText.color = UIColorPalette.Failure;
         }
 
         int score = ProgressService.ComputeScore(mission, result, MissionContext.LastTimeElapsed, MissionContext.LastTargetsDestroyed);
