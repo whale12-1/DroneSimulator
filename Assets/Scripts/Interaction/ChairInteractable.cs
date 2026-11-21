@@ -8,6 +8,7 @@ public class ChairInteractable : MonoBehaviour, IInteractable
     [SerializeField] private PlayerController playerController;
     [SerializeField] private Collider chairCollider;
     [SerializeField] private InteractionUIController uiController;
+    [SerializeField] private float maxInteractDistance = 0.8f;
 
     private CharacterController characterController;
     private bool isSitting;
@@ -18,7 +19,27 @@ public class ChairInteractable : MonoBehaviour, IInteractable
     }
 
     public string GetInteractionPrompt() => isSitting ? "Встать [Пробел]" : "Сесть [E]";
-    public bool CanInteract(GameObject interactor) => true;
+
+    public bool CanInteract(GameObject interactor)
+    {
+        if (isSitting) return true;
+        if (interactor == null) return false;
+
+        if (chairCollider == null) chairCollider = GetComponent<Collider>();
+
+        Vector3 playerPosition = interactor.transform.position;
+        Vector3 nearestPoint = chairCollider != null
+            ? chairCollider.ClosestPoint(playerPosition)
+            : transform.position;
+
+        // Стул ниже уровня глаз, поэтому сравниваем только горизонтальную дистанцию:
+        // 3D-расстояние от корня капсулы искажалось бы из-за высоты камеры.
+        Vector2 offset = new Vector2(
+            playerPosition.x - nearestPoint.x,
+            playerPosition.z - nearestPoint.z);
+
+        return offset.sqrMagnitude <= maxInteractDistance * maxInteractDistance;
+    }
 
     public void Interact(GameObject interactor)
     {

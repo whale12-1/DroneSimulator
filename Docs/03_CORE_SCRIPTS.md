@@ -84,7 +84,7 @@
 | `PlayerController` | FPS-движение (WASD), мышь-обзор, гравитация, аниматор, режим «сидит», применение настроек мыши | `CharacterController`, `Animator`, `SettingsService` |
 | `CameraFollowHead` | Позиционирует камеру у кости головы с офсетом | `Transform headBone` |
 | `PlayerInteractionDetector` | Raycast из камеры (3 м, слой), подсказка, `E` — взаимодействие | `IInteractable`, `InteractionUIController` |
-| `ChairInteractable` | Сесть/встать: телепорт, отключение `CharacterController`/коллайдера, анимация сидения, `Space` — встать | `PlayerController`, `InteractionUIController` |
+| `ChairInteractable` | Сесть/встать: телепорт, отключение `CharacterController`/коллайдера, анимация сидения, `Space` — встать; подсказка/посадка только при приближении на `maxInteractDistance` (0.8 м по горизонтали до ближайшей точки коллайдера) | `PlayerController`, `InteractionUIController` |
 | `ComputerInteractable` | Вход в компьютер (только сидя); дергает `ComputerUIController.ToggleDesktop()` | `PlayerController`, `ComputerUIController` |
 | `ComputerUIController` | Анимация открытия «рабочего стола» (scale 0.1→1, alpha 0→1), `timeScale = 0`, закрытие по `E`/`Esc` | `CanvasGroup`, `PlayerController`, `MissionMenuController` |
 | `DesktopIcon` | Иконка «Миссии» → `MissionMenuController.OpenMissionMenu()` | `MissionMenuController` |
