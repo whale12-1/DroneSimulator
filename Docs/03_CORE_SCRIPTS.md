@@ -62,7 +62,7 @@
 | `MissionCardView` | Карточка миссии: превью, имя, метаданные, оверлей блокировки, бейдж выполнения, рамка выбора | `MissionDefinition`, `MissionText` |
 | `MissionDetailsPanel` | Правая панель деталей: баннер, статус, награда, описание, статистика, цели, техника, кнопка «Запустить» | `MissionDefinition`, `ProgressService`, `MissionText` |
 | `MissionText` (static) | Склонения/форматирование: «N целей», длительность `mm:ss`, роль дрона | `MissionDefinition`, `DroneConfig` |
-| `SettingsPanel` | Панель настроек: 4 вкладки (Графика/Управление/Аудио/Геймплей), сброс, нормализация Z | `SettingsService`, `SettingsListBuilder`, `SettingsApplier` |
+| `SettingsPanel` | Панель настроек: 4 вкладки (Графика/Управление/Аудио/Геймплей), сброс (`ResetSettings` → `SettingsService.ResetAll` + пересборка строк), нормализация Z, fallback-поиск кнопок `CloseButton`/`ResetButton` по имени | `SettingsService`, `SettingsListBuilder`, `SettingsApplier` |
 | `SettingsListBuilder` | Процедурная генерация строк настроек (слайдер/тумблер/дропдаун), `SliderReleaseNotifier` | `SettingDescriptor`, `SliderReleaseNotifier` |
 | `SliderReleaseNotifier` | Сообщает «отпустил ползунок» для настроек, применяемых по отпусканию | `Slider` |
 | `ScreenFader` | Затемнение экрана с текстом (титры глав обучения) | `CanvasGroup`, `TMP_Text` |
@@ -70,8 +70,9 @@
 
 **Особенности:**
 
-* `SettingsPanel.Awake()` вызывает `NormalizeZ()` — принудительно сбрасывает `localPosition.z` в 0 с подробным комментарием: у Overlay-канваса `GraphicRaycaster` не попадает в UI, смещённый по Z, и клики перестают работать (`SettingsPanel.cs:79-92`). Это костыль вокруг «кривого» префаба/сцены.
+* `SettingsPanel.Awake()` вызывает `NormalizeZ()` — принудительно сбрасывает `localPosition.z` в 0 с подробным комментарием: у Overlay-канваса `GraphicRaycaster` не попадает в UI, смещённый по Z, и клики перестают работать (`SettingsPanel.cs:122-135`). Это костыль вокруг «кривого» префаба/сцены.
 * `SettingsPanel.Start()` вызывает `SettingsService.EnsureInstance()` — панель может сама создать сервис, если открыта не из `Boot`.
+* Исправлено (22.11.2026): кнопка «Сброс» теперь действительно сбрасывает настройки в обеих сценах. Причины бага: (1) в `SettingsPanel.prefab` поле `resetButton` не сериализовано, поэтому `Start()` не подписывался на кнопку; (2) на сценовых кнопках `ResetButton` висел persistent-вызов `MainMenuController.OnBackFromSettings` — в `MainMenu` он закрывал панель, в `Bunker` имел `m_Target: {fileID: 0}` и ничего не делал. Решение: `ResolveMissingReferences()` ищет `ResetButton`/`CloseButton` по имени (`GetComponentsInChildren<Button>(true)`), `Start()` подписывает `ResetSettings` кодом идемпотентно (`RemoveListener` + `AddListener`); persistent-вызовы удалены из `MainMenu.unity` и `Bunker(main).unity`. `ResetSettings()` вызывает `SettingsService.ResetAll()`, затем `SelectTab(currentTab)` — строки пересобираются из нового `Data`, поэтому слайдеры/тумблеры показывают дефолты сразу, а панель остаётся открытой.
 * `MissionDetailsPanel` содержит 20+ сериализованных UI-ссылок и много логики форматирования; это самый «толстый» UI-скрипт.
 
 ---
@@ -185,7 +186,7 @@
 
 | Скрипт | Ответственность |
 |---|---|
-| `SettingsService` (singleton) | Загрузка/миграция/сохранение `settings.json`, `MarkDirty()` (дебаунс 0.5 с), `ApplyAll/ApplyInstant/ApplyHeavy`, `ResetAll`, `SetMasterVolume/SetSfxVolume/SetQuality/SetFullscreen`, повторное применение при `sceneLoaded` |
+| `SettingsService` (singleton) | Загрузка/миграция/сохранение `settings.json`, `MarkDirty()` (дебаунс 0.5 с), `ApplyAll/ApplyInstant/ApplyHeavy`, `ResetAll` (новый `SettingsData`, проставляет `version = SchemaVersion` и сбрасывает кэш режима окна через `SettingsApplier.ResetScreenCache()`), `SetMasterVolume/SetSfxVolume/SetQuality/SetFullscreen`, повторное применение при `sceneLoaded` |
 | `AudioBus` (static) | `Resources.Load<AudioMixer>("Audio/MainMixer")`, группы `Master/Music/SFX/DroneMotors/EW/UI`, `SetVolume(param, linear)` с переводом в дБ |
 | `AudioApplier` (static) | Применение громкостей; fallback на `AudioListener.volume` при отсутствии микшера |
 | `GraphicsApplier` (static) | Runtime-клон URP-ассета: `renderScale`, тени, MSAA, soft shadows; `SettingsScope` выбирает «бункерный»/«дроновый» shadow distance |

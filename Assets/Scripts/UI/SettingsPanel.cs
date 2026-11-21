@@ -24,15 +24,26 @@ public class SettingsPanel : UIScreen
         // поэтому инстанс, смещённый по Z (в MainMenu он был на -429), полностью
         // перестаёт принимать клики: кнопки и ползунки видимы, но не нажимаются.
         NormalizeZ();
+        ResolveMissingReferences();
     }
 
     private void Start()
     {
         SettingsService.EnsureInstance();
+        ResolveMissingReferences();
 
         if (closeButton != null) closeButton.onClick.AddListener(Hide);
 
-        if (resetButton != null) resetButton.onClick.AddListener(ResetSettings);
+        if (resetButton != null)
+        {
+            // Снимаем возможную прежнюю подписку, чтобы сброс не срабатывал дважды.
+            resetButton.onClick.RemoveListener(ResetSettings);
+            resetButton.onClick.AddListener(ResetSettings);
+        }
+        else
+        {
+            Debug.LogWarning("[SettingsPanel] Кнопка ResetButton не найдена в иерархии панели — сброс настроек недоступен.", this);
+        }
 
         if (tabButtons != null)
         {
@@ -68,12 +79,44 @@ public class SettingsPanel : UIScreen
 
     public void ResetSettings()
     {
+        // Панель может быть открыта в сцене, запущенной без Boot (например, прямой запуск Bunker).
+        SettingsService.EnsureInstance();
+
         SettingsService service = SettingsService.Instance;
-        if (service == null) return;
+        if (service == null)
+        {
+            Debug.LogError("[SettingsPanel] SettingsService недоступен — сброс настроек невозможен.", this);
+            return;
+        }
 
         service.ResetAll();
 
-        if (listBuilder != null) listBuilder.Build(GetDescriptors(currentTab));
+        // ResetAll() заменяет Data целиком, поэтому строки нужно собрать заново:
+        // дескрипторы хранят замыкания на старые объекты graphics/controls/audio/gameplay.
+        if (tabButtons != null && tabButtons.Length > 0) SelectTab(currentTab);
+        else if (listBuilder != null) listBuilder.Build(GetDescriptors(currentTab));
+
+        Debug.Log("[SettingsPanel] Настройки сброшены к значениям по умолчанию.", this);
+    }
+
+    // В префабе SettingsPanel.prefab кнопка сброса не сериализована (её добавляют
+    // в инстансы сцен). Поэтому ссылки ищем по имени, если инспектор их не назначил.
+    private void ResolveMissingReferences()
+    {
+        if (listBuilder == null) listBuilder = GetComponentInChildren<SettingsListBuilder>(true);
+        if (closeButton == null) closeButton = FindButton("CloseButton");
+        if (resetButton == null) resetButton = FindButton("ResetButton");
+    }
+
+    private Button FindButton(string buttonName)
+    {
+        Button[] buttons = GetComponentsInChildren<Button>(true);
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            if (buttons[i] != null && buttons[i].name == buttonName) return buttons[i];
+        }
+
+        return null;
     }
 
     private void NormalizeZ()

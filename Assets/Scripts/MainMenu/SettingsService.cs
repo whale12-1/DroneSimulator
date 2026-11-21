@@ -141,6 +141,8 @@ public class SettingsService : MonoBehaviour
     public void ResetAll()
     {
         Data = new SettingsData();
+        Data.version = SchemaVersion;
+        SettingsApplier.ResetScreenCache();
         ApplyAll();
         MarkDirty();
     }

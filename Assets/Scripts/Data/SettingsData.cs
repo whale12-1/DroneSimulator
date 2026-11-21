@@ -73,8 +73,8 @@ namespace DroneSimulator.Settings
     [System.Serializable]
     public class ControlSettings
     {
-        public float fpsMouseSensitivity = 1.67f;
-        public float droneMouseSensitivity = 1.67f;
+        public float fpsMouseSensitivity = 1f;
+        public float droneMouseSensitivity = 1f;
         public bool fpsInvertY = false;
         public bool droneInvertY = false;
         public bool gimbalInvertY = false;

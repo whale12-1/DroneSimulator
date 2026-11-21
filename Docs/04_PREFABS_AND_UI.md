@@ -172,7 +172,9 @@ SettingsPanel [CanvasGroup, SettingsPanel, SettingsListBuilder]
 ├─ ScrollView
 │   ├─ Viewport / Content ← SettingsListBuilder.content (строки генерируются)
 │   └─ Scrollbar Vertical / Sliding Area / Handle
-└─ ResetButton            ← resetButton
+└─ (ResetButton добавляется в инстансах сцен MainMenu/Bunker;
+   в префабе его нет, поле resetButton не сериализовано —
+   SettingsPanel ищет кнопку по имени)
 ```
 
 Строки настроек **не хранятся в префабе** — они создаются кодом `SettingsListBuilder.Build(descriptors)` по `List<SettingDescriptor>`. `SettingsPanel` формирует 4 набора дескрипторов:
