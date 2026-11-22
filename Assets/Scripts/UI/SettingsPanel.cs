@@ -6,6 +6,14 @@ using UnityEngine.UI;
 
 public class SettingsPanel : UIScreen
 {
+    // Сколько секунд «Подтвердить?» ждёт повторного клика по «Сброс».
+    private const float ResetConfirmSeconds = 3f;
+
+    // Панель закрылась (X, Esc или вызов Hide из паузы). MainMenuController
+    // подписан на событие, поэтому возврат главной панели не зависит от
+    // persistent-вызова в сцене.
+    public event System.Action Closed;
+
     [SerializeField] private Button[] tabButtons;
     [SerializeField] private SettingsListBuilder listBuilder;
     [SerializeField] private Button closeButton;
@@ -16,6 +24,12 @@ public class SettingsPanel : UIScreen
     [SerializeField] private Color normalTabColor = new Color(0.55f, 0.57f, 0.6f, 1f);
 
     private int currentTab;
+
+    // Двухшаговое подтверждение «Сброс» → «Подтвердить?»: текст меняется на самой
+    // кнопке, её размеры (168×44) и вёрстка шапки не затрагиваются.
+    private TMP_Text resetLabel;
+    private string resetLabelDefault = "Сброс";
+    private float resetConfirmDeadline = -1f;
 
     public bool IsOpen { get; private set; }
 
@@ -38,9 +52,13 @@ public class SettingsPanel : UIScreen
 
         if (resetButton != null)
         {
+            resetLabel = resetButton.GetComponentInChildren<TMP_Text>(true);
+            if (resetLabel != null) resetLabelDefault = resetLabel.text;
+
             // Снимаем возможную прежнюю подписку, чтобы сброс не срабатывал дважды.
             resetButton.onClick.RemoveListener(ResetSettings);
-            resetButton.onClick.AddListener(ResetSettings);
+            resetButton.onClick.RemoveListener(OnResetClicked);
+            resetButton.onClick.AddListener(OnResetClicked);
         }
         else
         {
@@ -75,13 +93,58 @@ public class SettingsPanel : UIScreen
 
         base.Show();
         IsOpen = true;
+
+        // В бункере настройки — ещё одно модальное окно: координатор сам решит,
+        // держать ли timeScale = 0 (под ними открыта пауза) или вернуть управление.
+        BunkerModalStack.NotifySettingsChanged(this);
+
         SelectTab(currentTab);
     }
 
     public override void Hide()
     {
+        bool wasOpen = IsOpen;
+
         IsOpen = false;
         base.Hide();
+
+        // Раскрытый дропдаун не должен «запоминаться» до следующего открытия панели,
+        // а недожатое подтверждение сброса — висеть на кнопке.
+        if (listBuilder != null) listBuilder.CollapseDropdown();
+        CancelResetConfirmation();
+
+        BunkerModalStack.NotifySettingsChanged(this);
+
+        if (wasOpen) Closed?.Invoke();
+    }
+
+    private void Update()
+    {
+        if (resetConfirmDeadline < 0f) return;
+        if (Time.unscaledTime < resetConfirmDeadline) return;
+
+        // 3 секунды без подтверждения — возвращаем «Сброс».
+        CancelResetConfirmation();
+    }
+
+    // Первый клик только взводит подтверждение, второй (в течение 3 с) выполняет сброс.
+    public void OnResetClicked()
+    {
+        if (resetConfirmDeadline > 0f && Time.unscaledTime <= resetConfirmDeadline)
+        {
+            CancelResetConfirmation();
+            ResetSettings();
+            return;
+        }
+
+        resetConfirmDeadline = Time.unscaledTime + ResetConfirmSeconds;
+        if (resetLabel != null) resetLabel.text = "Подтвердить?";
+    }
+
+    private void CancelResetConfirmation()
+    {
+        resetConfirmDeadline = -1f;
+        if (resetLabel != null) resetLabel.text = resetLabelDefault;
     }
 
     public void ResetSettings()

@@ -92,6 +92,12 @@ public class MissionDetailsPanel : MonoBehaviour
 
         if (emptyState != null) emptyState.SetActive(true);
         if (contentRoot != null) contentRoot.SetActive(false);
+
+        // Пока миссия не выбрана, красная кнопка не должна выглядеть рабочей:
+        // клик по ней раньше молча ничего не делал.
+        if (launchLabel != null) launchLabel.text = "ВЫБЕРИТЕ ОПЕРАЦИЮ";
+        if (launchButton != null) launchButton.interactable = false;
+
         if (group != null)
         {
             group.alpha = 1f;
@@ -199,8 +205,21 @@ public class MissionDetailsPanel : MonoBehaviour
     {
         Color color = isCompleted ? completedColor : new Color(1f, 1f, 1f, 0.22f);
         SetGoal(0, MissionText.Objective(mission), color);
-        SetGoal(1, "Не потерять все борта", color);
+        SetGoal(1, DroneLossGoal(mission), color);
         SetGoal(2, $"Лимит времени: {MissionText.TimeLimit(mission.timeLimit)}", color);
+    }
+
+    // «Не потерять все борта» верно не для всех миссий: в обучении TrainingManager
+    // выдаёт новый борт после потери, и такая цель вводит игрока в заблуждение.
+    // Отдельного флага в MissionDefinition нет, поэтому отличаем по сцене — так же,
+    // как это уже делает MissionController (технический долг, см. Docs/05).
+    private static string DroneLossGoal(MissionDefinition mission)
+    {
+        bool training = mission != null
+            && !string.IsNullOrEmpty(mission.sceneName)
+            && mission.sceneName.IndexOf("PreparingDemo", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        return training ? "Борт можно заменить после потери" : "Не потерять все борта";
     }
 
     private void SetGoal(int index, string text, Color color)

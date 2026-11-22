@@ -59,13 +59,14 @@ Canvas (Overlay)
  │   ├─ SettingsButton → MainMenuController.OnOpenSettings()
  │   └─ ExitButton     → MainMenuController.OnExit()
  ├─ SettingsPanel      [prefab instance — модальное окно 1400x920 + затемнение]
- ├─ MissionSelectPanel [prefab instance — НЕ открывается из меню, но оформлен в общем стиле]
  └─ VideoBackground (VideoPlayer → MenuVideoRT)
 EventSystem
 MenuCamera
 ```
 
 > С 22.11.2026 `SettingsPanel` — модальное окно по центру (`Scrim` + `Plate` 1400×920 + рамка с красными угловыми скобками). Главное меню (`MainPanel`) остаётся эталоном стиля и не меняется.
+>
+> С 22.11.2026 (Fix-QA) инстанс `MissionSelectPanel` из `MainMenu` **удалён**: панель ниоткуда не открывалась (мёртвый UI), а `MainMenuController` больше не держит поле `missionSelect`. Панель выбора миссий осталась только в `Bunker(main)`.
 
 ### 2.3 `Bunker(main)`
 
@@ -212,7 +213,7 @@ SettingsPanel [Image = Scrim (0,0,0,0.62), CanvasGroup, SettingsPanel]
 
 ## 4. Логика «окон» в бункере
 
-Одновременно живут **четыре независимых слоя модальности**, все ставят `Time.timeScale = 0`:
+Четыре слоя модальности:
 
 | Слой | Кто открывает | Кто закрывает | Признак «открыто» |
 |---|---|---|---|
@@ -221,7 +222,15 @@ SettingsPanel [Image = Scrim (0,0,0,0.62), CanvasGroup, SettingsPanel]
 | ComputerOS | `ComputerInteractable` (сидя, `E`) | `E` / `Esc` | `ComputerUIController.IsOpen` |
 | Меню миссий | `DesktopIcon`, `BunkerStateRestorer` | `BackButton`, `Esc` | `MissionMenuController.IsOpen` |
 
-Чтобы `Esc` не закрывал сразу всё, в коде расставлены «окна блокировки» по 0.2 с (`lastOpenTime`, `lastCloseTime`, `LastClosedTime`). Дополнительно (22.11.2026): пока `ComputerUIController.IsOpen == true`, игрок **не может встать со стула** — `ChairInteractable.IsStandUpBlocked` блокирует `Пробел`; `Esc`/`E` закрывают рабочий стол, и только после этого вставание разблокируется. Порядок проверок в `BunkerPauseController.Update()`:
+**С 22.11.2026 `Time.timeScale` и `Cursor` принадлежат координатору `BunkerModalStack`** (`Assets/Scripts/Interaction/BunkerModalStack.cs`), а не отдельным окнам:
+
+* окна регистрируются в `Awake` (`Register`) и снимаются в `OnDestroy` (`Unregister`); `SettingsPanel` сообщает о себе через `NotifySettingsChanged`;
+* `AnyOpen` = `computer.IsOpen || missionMenu.IsOpen || pause.IsOpen || settings.IsOpen` (уничтоженные объекты считаются закрытыми, состояние не протекает между сценами);
+* `Apply()` после каждого изменения: открыто хотя бы одно окно → `timeScale = 0`, `Cursor.None` + visible; иначе → `timeScale = 1`, `Cursor.Locked` + hidden.
+
+Поэтому закрытие панели миссий больше не зависит от того, открыт ли за ней рабочий стол: если ОС открыт — остаётся `timeScale = 0`, если нет — управление сразу возвращается игроку. `PlayerInteractionDetector` при `AnyOpen` скрывает подсказку и не рейкастит.
+
+Чтобы `Esc` не закрывал сразу всё, в коде остались «окна блокировки» по 0.2 с (`lastOpenTime`, `lastCloseTime`, `LastClosedTime`). Дополнительно (22.11.2026): пока `ComputerUIController.IsOpen == true`, игрок **не может встать со стула** — `ChairInteractable.IsStandUpBlocked` блокирует `Пробел`; `Esc`/`E` закрывают рабочий стол, и только после этого вставание разблокируется. Порядок проверок в `BunkerPauseController.Update()`:
 
 ```
 restorer.IsRestoring                        → выйти
@@ -235,7 +244,22 @@ restorer.IsRestoring                        → выйти
    иначе OpenPause()
 ```
 
-Это самая хрупкая часть UI-логики бункера: любое новое модальное окно нужно вписать в этот список, иначе `Esc` начнёт закрывать два окна сразу.
+Это по-прежнему самая хрупкая часть UI-логики бункера, но теперь у неё два обязательных правила: новое модальное окно нужно (1) вписать в список проверок `Esc` и (2) зарегистрировать в `BunkerModalStack` — иначе `timeScale`/курсор не будут учитывать его при закрытии остальных окон.
+
+### 4.1 Что изменилось в этапах Fix-QA (22.11.2026)
+
+| Место | Было | Стало |
+|---|---|---|
+| Модалки бункера | каждое окно само ставило `timeScale`/курсор | единый `BunkerModalStack.Apply()` |
+| `MissionMenuController.CloseMissionMenu()` | не восстанавливал состояние (предполагал открытый ОС) | `Apply()`: ОС открыт → 0, иначе 1 + захват курсора |
+| `ComputerUIController.CloseDesktop()` | безусловно `timeScale = 1` + lock | `Apply()` (учитывает другие окна) |
+| `PlayerInteractionDetector` | подсказка висела поверх терминала, рейкаст при `timeScale = 0` | `AnyOpen` → `HideHint()` + выход |
+| Панель миссий | первый `Esc` закрывал только детали | один `Esc` = «НАЗАД» |
+| Открытие панели миссий | ничего не выбрано | автовыбор первой доступной миссии |
+| Пустая панель деталей | кнопка «ЗАПУСТИТЬ» выглядела рабочей | `interactable = false`, «ВЫБЕРИТЕ ОПЕРАЦИЮ» |
+| Настройки | сброс с одного клика, дропдаун «запоминался» | «Сброс» → «Подтвердить?» (3 с), `CollapseDropdown()` при закрытии |
+| `MainMenu` | `MissionSelectPanel` (мёртвый UI) | удалён из сцены; `missionSelect` убран из `MainMenuController` |
+| `ExitButton` | выход с одного клика | «Выход» → «Выйти?» (3 с, `Esc` отменяет) |
 
 ---
 

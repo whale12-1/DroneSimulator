@@ -121,6 +121,17 @@ public class SettingsListBuilder : MonoBehaviour
         UISoundService.Attach(content.gameObject);
     }
 
+    // Свёрнутый список должен оставаться свёрнутым: expandedId живёт на компоненте
+    // и раньше переживал закрытие панели, поэтому при следующем открытии настроек
+    // дропдаун был уже развёрнут и сдвигал строки.
+    public void CollapseDropdown()
+    {
+        if (string.IsNullOrEmpty(expandedId)) return;
+
+        expandedId = null;
+        if (lastDescriptors != null) Build(lastDescriptors);
+    }
+
     public void Clear()
     {
         if (content == null) return;

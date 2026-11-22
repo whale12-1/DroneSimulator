@@ -27,10 +27,20 @@ public class MissionMenuController : MonoBehaviour
             backButton.onClick.AddListener(CloseMissionMenu);
         }
 
-        if (GameStateMachine.Current == GameState.Boot)
-            GameStateMachine.TransitionTo(GameState.MainMenu);
+        // Состояние FSM доводит до Gameplay BunkerStateRestorer: бункер можно
+        // запустить напрямую из редактора, и самовольный переход Boot → MainMenu
+        // оставлял паузу недоступной.
+        BunkerModalStack.Register(this);
+
+        // Клики по «Назад»/«ЗАПУСТИТЬ МИССИЮ» (карточки подписываются после Populate).
+        UISoundService.Attach(gameObject);
 
         HidePanel();
+    }
+
+    private void OnDestroy()
+    {
+        BunkerModalStack.Unregister(this);
     }
 
     private void Update()
@@ -41,12 +51,8 @@ public class MissionMenuController : MonoBehaviour
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null || !keyboard.escapeKey.wasPressedThisFrame) return;
 
-        if (missionSelect != null && missionSelect.IsDetailsOpen)
-        {
-            missionSelect.CloseDetails();
-            return;
-        }
-
+        // Один Esc закрывает всю панель, как кнопка «НАЗАД». Раньше при открытых
+        // деталях первый Esc закрывал только их, и это выглядело как «Esc не работает».
         CloseMissionMenu();
     }
 
@@ -65,6 +71,11 @@ public class MissionMenuController : MonoBehaviour
 
     public void OpenMissionMenu()
     {
+        // Повторный вызов (двойной клик по иконке, повторный вход из ресторера)
+        // раньше пересобирал карточки: старые ещё жили до конца кадра, и на один
+        // кадр в списке оказывалось по две копии каждой миссии.
+        if (IsOpen) return;
+
         if (missionSelect == null)
         {
             Debug.LogError("[MissionMenuController] Поле missionSelect не назначено.");
@@ -79,6 +90,9 @@ public class MissionMenuController : MonoBehaviour
 
         missionSelect.Populate(registry, StartMission);
 
+        // Карточки создаются в Populate — подписываем их на звук клика.
+        UISoundService.Attach(gameObject);
+
         if (GameStateMachine.CanTransitionTo(GameState.MissionSelect))
             GameStateMachine.TransitionTo(GameState.MissionSelect);
 
@@ -86,9 +100,9 @@ public class MissionMenuController : MonoBehaviour
         lastOpenTime = Time.unscaledTime;
         ShowPanel();
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-        Time.timeScale = 0f;
+        // Время и курсор выставляет общий координатор: он учитывает остальные
+        // открытые окна (например, рабочий стол, поверх которого мы открылись).
+        BunkerModalStack.Apply();
     }
 
     public void CloseMissionMenu()
@@ -102,6 +116,10 @@ public class MissionMenuController : MonoBehaviour
 
         if (GameStateMachine.CanTransitionTo(GameState.Gameplay))
             GameStateMachine.TransitionTo(GameState.Gameplay);
+
+        // Если за панелью остался открытый рабочий стол — timeScale останется 0,
+        // если нет — управление вернётся игроку (раньше здесь оставался «замороженный» кадр).
+        BunkerModalStack.Apply();
     }
 
     private void StartMission(MissionDefinition mission)

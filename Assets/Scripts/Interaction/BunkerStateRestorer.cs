@@ -17,13 +17,37 @@ public class BunkerStateRestorer : MonoBehaviour
 
     private void Start()
     {
-        if (GameStateMachine.Current == GameState.Loading && GameStateMachine.CanTransitionTo(GameState.Gameplay))
-            GameStateMachine.TransitionTo(GameState.Gameplay);
+        EnsureGameplayState();
 
         if (!MissionContext.ReturnedFromMission)
             return;
 
         StartCoroutine(RestoreStateRoutine());
+    }
+
+    // Бункер можно запустить Play-кнопкой напрямую из редактора, минуя Boot и
+    // MainMenu. Тогда FSM остаётся в Boot/MainMenu, пауза (BunkerPauseController
+    // требует Gameplay/Paused) не открывается, а рестарт позы после миссии
+    // не может перейти Loading → Gameplay. Доводим состояние до Gameplay
+    // по допустимым переходам матрицы FSM.
+    private static void EnsureGameplayState()
+    {
+        GameState state = GameStateMachine.Current;
+
+        if (state == GameState.Boot && GameStateMachine.CanTransitionTo(GameState.MainMenu))
+        {
+            GameStateMachine.TransitionTo(GameState.MainMenu);
+            state = GameStateMachine.Current;
+        }
+
+        if (state == GameState.MainMenu && GameStateMachine.CanTransitionTo(GameState.Loading))
+        {
+            GameStateMachine.TransitionTo(GameState.Loading);
+            state = GameStateMachine.Current;
+        }
+
+        if (state == GameState.Loading && GameStateMachine.CanTransitionTo(GameState.Gameplay))
+            GameStateMachine.TransitionTo(GameState.Gameplay);
     }
 
     private IEnumerator RestoreStateRoutine()

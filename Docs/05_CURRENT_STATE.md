@@ -16,7 +16,7 @@
 * ✅ Полноценная панель настроек (4 вкладки, 43 параметра: 13/10/8/12), сброс и сохранение. Проверено в Play Mode 22.11.2026 (см. §7): все 19 параметров «Группы A» применяются, сохраняются и сбрасываются.
 * ✅ Кнопка «Сброс» в настройках (22.11.2026): возвращает дефолты `SettingsData` и оставляет панель открытой. Раньше на кнопке висел persistent `OnClick → MainMenuController.OnBackFromSettings` (работала как крестик), а поле `resetButton` в префабе отсутствовало — код на кнопку не подписывался. С 22.11.2026 `ResetButton` перенесён в `SettingsPanel.prefab`, сценовые дубликаты удалены.
 * ✅ Единый тактический стиль UI (22.11.2026): `SettingsPanel` — модальное окно 1400×920 (затемнение + металлическая плашка + рамка с красными угловыми скобками), TMP `LiberationSans SDF` во всех строках, HUF-слайдеры/тумблеры/дропдауны, красный `#DB143D` для сброса/закрытия, активная вкладка белая с красной полосой. Исправлены наложение списка на вкладки (16 px), невидимая активная вкладка, огромная пустая колонка между подписью и контролом, синие/зелёные контролы, «толстый» текст 30 px на кнопке «Сброс».
-* ⚠️ Панель выбора миссий присутствует в сцене, но недостижима (см. §2, раздел «Что недоделано»); оформлена в общем стиле префаба.
+* ✅ (22.11.2026) Панель выбора миссий **удалена из сцены** как мёртвый UI: инстанс `MissionSelectPanel` не открывался ниоткуда, поле `missionSelect` убрано из `MainMenuController`. Панель миссий осталась только в `Bunker(main)`.
 
 ### `Bunker(main)`
 * ✅ FPS-перемещение и обзор, анимации сидения/печати.
@@ -33,6 +33,7 @@
 * ✅ Меню миссий с карточками, деталями, статусами, наградой, статистикой и блокировкой по пререквизитам.
 * ✅ Единый тактический стиль UI бункера (22.11.2026): `MissionSelectPanel` — непрозрачный терминал с рамкой, **вертикальным списком карточек 840×150** (было горизонтальная лента 400×400), детали 860×814, красный `#DB143D` у «Назад»/«Запустить»; `PausePanel` — модалка 560×620 с металлическими кнопками 460×60, красным выходом и футером-подсказкой; подсказки взаимодействия — компактные белые надписи 20/18 px с обводкой `Outline`, без плашек (`InteractionHint` на 75 % высоты, `SittingHint` у нижнего края — см. §9.5); `ComputerOS` — металлическая иконка «МИССИИ» 160×160 + декоративные шапка/футер терминала (логика ввода и `Time.timeScale` не менялись). Удалены просвечивание рабочего стола сквозь меню миссий, тёмный заголовок на светлом фоне, «вымытая» полупрозрачная плашка списка и внутренние линии спрайтов-плашек поверх текста. Невидимость карточек списка исправлена отдельно — см. §9.6.
 * ✅ Пауза (`Esc`), настройки, выход в главное меню.
+* ✅ (22.11.2026) Единый координатор модальных окон `BunkerModalStack`: `Time.timeScale` и курсор больше не правятся каждым окном по отдельности; закрытие панели миссий без открытого ОС возвращает управление, прямой старт `Bunker(main)` доводит FSM до `Gameplay` (пауза работает).
 * ✅ Кнопка «Сброс» в настройках паузы (22.11.2026): работает и мгновенно обновляет строки. Раньше persistent `OnClick` имел `m_Target: {fileID: 0}` (вызов не выполнялся), а `resetButton` не был назначен — теперь кнопка ищется по имени и подписывается кодом. Сама кнопка живёт в `SettingsPanel.prefab`, сценовый дубликат удалён.
 * ✅ Возврат из миссии с восстановлением позы за компьютером (`BunkerStateRestorer`).
 * ⚠️ Окна «Магазин» и «Карта миссий» в `InteractionUIController` — пустые контейнеры без контента.
@@ -109,12 +110,12 @@
 | 9 | `MissionController` — одновременно «исполнитель» и «таймер», а директора обходят его через `CompleteMission` + флаг `autoComplete` | `MissionController.cs:13`, `:145` |
 | 10 | Дублирование сценария победы/поражения между директором и `MissionController.LateUpdate` | `AmbushMissionDirector.cs:93-111`, `MissionController.cs:130-139` |
 | 11 | `BunkerPauseController` — god object (10 ссылок), вручную включает/выключает компоненты | `BunkerPauseController.cs:6-15`, `:179-204` |
-| 12 | Хрупкая логика `Esc` на таймерах 0.2 / 0.25 с | `BunkerPauseController.cs:68-81`, `ComputerUIController.cs:27-30` |
+| 12 | Хрупкая логика `Esc` на таймерах 0.2 / 0.25 с — **частично закрыто 22.11.2026**: `timeScale`/курсор централизованы в `BunkerModalStack`, таймеры оставлены как защита от двойного `Esc` | `BunkerPauseController.cs`, `ComputerUIController.cs`, `MissionMenuController.cs` |
 | 13 | Смешение двух Input API в одном проекте | `DroneFlightController`, `TrainingManager`, `NightVisionController` — старый; UI — новый |
 | 14 | ПНВ через рефлексию приватного поля URP + магическое имя фичи | `NIghtVisionController.cs:22-48` |
 | 15 | `PostFxRouter.Bind(NightVisionController)` — мёртвая ветка (вызов закомментирован) | `PostFxRouter.cs:39-43` |
 | 16 | `SettingsPanel.NormalizeZ()` — костыль под «съехавший» по Z префаб | `SettingsPanel.cs:79-92` |
-| 17 | `MissionMenuController.Awake()` правит FSM из `Boot` | `MissionMenuController.cs:30-31` |
+| 17 | ~~`MissionMenuController.Awake()` правит FSM из `Boot`~~ — ✅ **закрыто 22.11.2026**: переход удалён, состояние доводит `BunkerStateRestorer.EnsureGameplayState()` | `BunkerStateRestorer.cs` |
 | 18 | `MissionMenuController.FindBackButton()` ищет по имени, иначе берёт первый `Button` | `MissionMenuController.cs:53-64` |
 | 19 | `BunkerStateRestorer` ждёт анимацию фиксированные 2 с | `BunkerStateRestorer.cs:44` |
 | 20 | `SceneLoader` ждёт фиксированные 1.5 с после загрузки | `SceneLoader.cs:10` |
@@ -129,8 +130,8 @@
 | 24 | `GameEvents.ClearAll()` не вызывается нигде | `GameEvents.cs:25` |
 | 25 | `GameSession` — мёртвый singleton | `MainMenu/GameSession.cs` |
 | 26 | `Bootstrapper.missionRegistry` — поле без использования | `Bootstrapper.cs:6` |
-| 27 | `MainMenuController.registry` нужен только для логов; `OnBackFromMissions()` недостижим | `MainMenuController.cs:7`, `:91` |
-| 28 | `MissionSelectPanel` в `MainMenu` — мёртвый UI | сцена `MainMenu.unity` |
+| 27 | `MainMenuController.registry` нужен только для логов — **частично закрыто 22.11.2026**: недостижимый `OnBackFromMissions()` удалён | `MainMenuController.cs` |
+| 28 | ~~`MissionSelectPanel` в `MainMenu` — мёртвый UI~~ — ✅ **закрыто 22.11.2026**: инстанс удалён из сцены | сцена `MainMenu.unity` |
 | 29 | Подробные `Debug.Log` в рабочих путях | `ChairInteractable.cs:50,71,78,81,99`, `DroneManager`, `VehicleSmartAI` |
 | 30 | `VehicleSmartAI` рисует `Debug.DrawRay` каждый кадр | `VehicleSmartAI.cs:167-168` |
 | 31 | `TrainingManager` удаляет все `ParticleSystem` вне Canvas и глушит аудио при смене главы | `TrainingManager.cs:185-195` |
@@ -368,6 +369,60 @@
 2. `DesktopSweep`: `size 473.55`, `pivot (0.5, 0.5)`, мировой центр `(1572, 543)`; радиус луча 234 px против 238.5 px обода.
 3. Пластина: внутри круга `maxChroma = 4`; в зоне бывшего текста нет пикселей > 60 (mean 9.9 против 9.8 у чистого фона); буквы и красные дуги на месте.
 4. Консоль Unity — 0 ошибок; `git status` — только `Bunker(main).unity`, папка текстур, editor-скрипт и `Docs/`; `Temp/UIAudit/` удалён.
+
+---
+
+## 10. Fix-QA: исправления по результатам сквозного аудита (22.11.2026)
+
+Аудит цикла `Boot → MainMenu → Settings → Bunker(main) → Pause → ComputerOS → MissionSelectPanel → MainMenu → Bunker(main)` выявил 2 критичных, 13 средних и 14 мелких дефектов. Исправления выполнены четырьмя этапами, каждый — с проверкой в Play Mode.
+
+### 10.1 Что исправлено
+
+| ID | Проблема | Исправление | Файлы |
+|---|---|---|---|
+| **K1** | Прямой старт `Bunker(main)` оставлял FSM в `MainMenu`: `Esc` не открывал паузу, `BunkerStateRestorer` не мог довести `Loading → Gameplay` | `EnsureGameplayState()`: `Boot → MainMenu → Loading → Gameplay` по матрице FSM; самовольный переход из `MissionMenuController.Awake()` удалён | `BunkerStateRestorer.cs`, `MissionMenuController.cs` |
+| **K2** | `CloseMissionMenu()` не восстанавливал `timeScale`/курсор → «замороженная» игра без модалки | Координатор `BunkerModalStack` (`AnyOpen` + `Apply()`) стал единственным владельцем `Time.timeScale` и `Cursor` | **новый** `BunkerModalStack.cs`, `MissionMenuController.cs`, `ComputerUIController.cs`, `BunkerPauseController.cs`, `SettingsPanel.cs` |
+| **M1** | Подсказки взаимодействия висели поверх терминала, рейкаст крутился при `timeScale = 0` | `PlayerInteractionDetector`: при `BunkerModalStack.AnyOpen` → `HideHint()` и выход из `Update()` | `PlayerInteractionDetector.cs` |
+| **M2** | `FindAnyObjectByType<MissionMenuController>` каждый кадр при открытом ОС | Ссылка кэшируется в `Awake`, в `Update` — только чтение; `ToggleDesktop` использует кэш | `ComputerUIController.cs` |
+| **M3** | «ЗАПУСТИТЬ МИССИЮ» активна до выбора миссии | `ShowEmpty()`: `launchButton.interactable = false`, подпись «ВЫБЕРИТЕ ОПЕРАЦИЮ» | `MissionDetailsPanel.cs` |
+| **M4** | При открытии панели миссий ничего не выбрано | `SelectDefaultMission()` — первая доступная миссия выделяется сразу, правая панель показывает брифинг | `MissionSelectScreen.cs` |
+| **M5** | Первый `Esc` закрывал только детали (выглядело как «Esc не работает») | Один `Esc` закрывает всю панель, как «НАЗАД» | `MissionMenuController.cs` |
+| **M6** | Битые сериализованные ссылки в `Bunker(main)` (`chairCollider`, `registry`, `playerController`) | Ссылки назначены в сцене (фолбэки в коде остались как страховка) | `Bunker(main).unity` |
+| **M9** | `OpenMissionMenu()` без guard'а + отложенный `Destroy` → 4 карточки на кадр | `if (IsOpen) return;` и отвязка карточек от `Content` до `Destroy` | `MissionMenuController.cs`, `MissionSelectScreen.cs` |
+| **M10** | Раскрытый дропдаун «запоминался» между открытиями панели | `SettingsListBuilder.CollapseDropdown()` вызывается из `SettingsPanel.Hide()` | `SettingsListBuilder.cs`, `SettingsPanel.cs` |
+| **M11** | «Сброс» срабатывал с одного клика и без подтверждения | Двухшаговый сброс: «Сброс» → «Подтвердить?» (3 с), размеры кнопки не менялись | `SettingsPanel.cs` |
+| **M13** | Возврат `MainPanel` зависел от persistent-вызова в сцене | Событие `SettingsPanel.Closed` + подписка `MainMenuController` (работает и по `X`, и по `Esc`) | `SettingsPanel.cs`, `MainMenuController.cs` |
+| **m4** | Панель миссий и иконка «МИССИИ» без звуков клика | `UISoundService.Attach` для панели (в `Awake` и после `Populate`) и `DesktopIcon` | `MissionMenuController.cs`, `DesktopIcon.cs` |
+| **m7** | Мёртвый `MissionSelectPanel` в `MainMenu` | Инстанс удалён из сцены, поле `missionSelect` и недостижимый `OnBackFromMissions()` убраны из кода | `MainMenu.unity`, `MainMenuController.cs` |
+| **m9** | Три объекта с именем `Content` | Переименованы в `SettingsContent`, `MissionListContent`, `DetailsContent` (ссылки — через `[SerializeField]`, поиск по имени не используется) | `Bunker(main).unity` |
+| **m11** | Цель «Не потерять все борта» неверна для обучения | Для `PreparingDemo` выводится «Борт можно заменить после потери» (по `sceneName`, `.asset`-файлы не менялись) | `MissionDetailsPanel.cs` |
+| **m13** | Выход из игры без подтверждения | Двухшаговое «Выход» → «Выйти?» (3 с, `Esc` отменяет), затем `Quit()` | `MainMenuController.cs` |
+
+### 10.2 Сознательно не менялось
+
+* **M7** — пауза со стула (`Esc` сидя игнорируется) оставлена как есть по решению дизайна.
+* **M8** — `ShopWindow` / `InteractionUIController.CloseShop()` не тронуты.
+* **M12** — `SceneLoader.postLoadDelay = 1.5 с` оставлен: задержка скрывает телепортацию на стул после миссии.
+* Остальные мелкие пункты (`m1` позиции подсказок, `m2` `Cursor.visible`, `m3` hover-звуки, `m5` превью миссий, `m6` скролл настроек, `m8` магазин, `m10` подписи «только для миссий», `m12` логи, `m14` разрешение в редакторе) — без изменений.
+
+### 10.3 Проверка (Play Mode, 22.11.2026)
+
+| Сценарий | Результат |
+|---|---|
+| Прямой старт `Bunker(main)` | `state = Gameplay`, `timeScale = 1`, `Cursor.Locked`, `Esc` открывает паузу |
+| Панель миссий без ОС (закрытие) | `timeScale = 1`, курсор захвачен, `AnyOpen = false` |
+| Панель миссий поверх ОС (закрытие) | `timeScale = 0`, ОС остаётся открытым |
+| Открытие терминала | центральная подсказка `alpha = 0`; после закрытия снова `alpha = 1` |
+| Панель миссий | автовыбор «Тренировки», 2 карточки, `goal1 = «Борт можно заменить после потери»`, у заблокированной — «Не потерять все борта» + `interactable = false` |
+| `Esc` в панели миссий | закрывает всё за одно нажатие, возврат на рабочий стол |
+| Двойной `OpenMissionMenu()` в одном кадре | 2 карточки (раньше 4) |
+| Настройки: дропдаун | после закрытия по `X` и повторного открытия строк 13 (свёрнут) |
+| Настройки: «Сброс» | 1-й клик — «Подтвердить?» (значения не меняются), 2-й — дефолты, панель открыта |
+| Настройки: `X` / `Esc` | `MainPanel.alpha = 1`, панель закрыта |
+| Выход из игры | 1-й клик — «Выйти?», `Esc` отменяет, таймаут 3 с возвращает «Выход», 2-й клик завершает Play |
+| `MainMenu` без `MissionSelectPanel` | сцена чистая, `Play/Settings/Exit` работают |
+| Полный цикл `MainMenu → Bunker → Pause → Settings → ComputerOS → MissionSelect → MainMenu → Bunker` | без ошибок, без дублей синглтонов (`SceneLoader/SettingsService/Pause/Computer = 1`) |
+| Консоль Unity | 0 ошибок проекта (только известный внешний warning VideoPlayer `Color primaries`) |
 
 
 

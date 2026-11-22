@@ -21,6 +21,16 @@ public class BunkerPauseController : MonoBehaviour
     private bool computerWasOpen;
     private float startTime;
 
+    private void Awake()
+    {
+        BunkerModalStack.Register(this);
+    }
+
+    private void OnDestroy()
+    {
+        BunkerModalStack.Unregister(this);
+    }
+
     private void OnEnable()
     {
         IsPaused = false;
@@ -98,9 +108,9 @@ public class BunkerPauseController : MonoBehaviour
 
         IsPaused = false;
 
-        Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        // Общий координатор: если поверх паузы случайно осталось другое окно,
+        // timeScale не разморозится, пока оно не закрыто.
+        BunkerModalStack.Apply();
 
         if (GameStateMachine.CanTransitionTo(GameState.Gameplay))
             GameStateMachine.TransitionTo(GameState.Gameplay);
@@ -151,9 +161,7 @@ public class BunkerPauseController : MonoBehaviour
 
         IsPaused = true;
 
-        Time.timeScale = 0f;
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        BunkerModalStack.Apply();
 
         if (GameStateMachine.CanTransitionTo(GameState.Paused))
             GameStateMachine.TransitionTo(GameState.Paused);
