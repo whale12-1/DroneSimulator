@@ -17,6 +17,10 @@ public class InterceptorHUD : MonoBehaviour
     [SerializeField] private float leadReticleSize = 16f;
 
     private Texture2D pixelTexture;
+    private GUIStyle hudStyle;
+
+    // Переиспользуемый буфер: Physics.OverlapSphere без NonAlloc аллоцирует Collider[] каждый вызов.
+    private readonly Collider[] targetBuffer = new Collider[32];
 
     private void Awake()
     {
@@ -27,16 +31,23 @@ public class InterceptorHUD : MonoBehaviour
         pixelTexture = new Texture2D(1, 1);
         pixelTexture.SetPixel(0, 0, Color.white);
         pixelTexture.Apply();
+
+        // GUIStyle создаётся один раз, а не на каждый OnGUI-проход.
+        hudStyle = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold };
+        hudStyle.normal.textColor = hudColor;
     }
 
     private Transform GetNearestDroneInView()
     {
-        Collider[] targets = Physics.OverlapSphere(transform.position, autoLockDistance, droneLayer);
+        int detectedCount = Physics.OverlapSphereNonAlloc(transform.position, autoLockDistance, targetBuffer, droneLayer);
         Transform bestTarget = null;
         float closestDist = Mathf.Infinity;
 
-        foreach (Collider col in targets)
+        for (int i = 0; i < detectedCount; i++)
         {
+            Collider col = targetBuffer[i];
+            if (col == null) continue;
+
             Transform root = col.transform.root;
 
             // Игнорируем дрон, на котором висит сам HUD
@@ -67,8 +78,9 @@ public class InterceptorHUD : MonoBehaviour
         if (cam == null || droneRigidbody == null) return;
 
         GUI.color = hudColor;
-        GUIStyle style = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold };
-        style.normal.textColor = hudColor;
+        // Цвет обновляем без создания нового объекта, масштаб шрифта фиксирован.
+        hudStyle.normal.textColor = hudColor;
+        GUIStyle style = hudStyle;
 
         // 1. Верхний OSD-блок
         float ownSpeedKmH = droneRigidbody.linearVelocity.magnitude * 3.6f;

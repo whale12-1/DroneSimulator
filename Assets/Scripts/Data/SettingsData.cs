@@ -35,7 +35,7 @@ namespace DroneSimulator.Settings
         public int droneDefaultZoomIndex = 0;
         public float droneZoomSpeed = 10f;
         public float droneFarClip = 2000f;
-        public float droneShadowDistance = 300f;
+        public float droneShadowDistance = 250f;
         public float droneLodBias = 1.5f;
         public bool droneFog = true;
         public float droneFogDensity = 0.01f;

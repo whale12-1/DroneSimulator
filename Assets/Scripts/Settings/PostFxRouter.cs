@@ -46,7 +46,7 @@ public class PostFxRouter : MonoBehaviour
     {
         if (settingsMotionBlur == null) return;
 
-        settingsMotionBlur.active = !enabled;
+        settingsMotionBlur.active = enabled;
         settingsMotionBlur.intensity.overrideState = true;
         settingsMotionBlur.intensity.value = 0f;
     }
@@ -77,7 +77,9 @@ public class PostFxRouter : MonoBehaviour
         CreateVolume("PostFX_EW", ewProfile, EwPriority);
 
         VolumeProfile nvProfile = CreateProfile("PostFX_NV_Runtime");
-        nvColorAdjustments = nvProfile.Add<ColorAdjustments>(true);
+        // Не переопределяем Color Adjustments сцен, пока ночное видение выключено:
+        // иначе приоритет 20 этого профиля затирает contrast/saturation/postExposure.
+        nvColorAdjustments = nvProfile.Add<ColorAdjustments>(false);
         CreateVolume("PostFX_NV", nvProfile, NvPriority);
 
         VolumeProfile settingsProfile = CreateProfile("PostFX_Settings_Runtime");

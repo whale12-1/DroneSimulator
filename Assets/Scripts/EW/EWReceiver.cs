@@ -17,6 +17,10 @@ public class EWReceiver : MonoBehaviour
     private Color32[] noisePixels;
     private int noiseResolution;
 
+    // Шум генерируем по таймеру в Update, а не каждый GUI-проход.
+    private const float NoiseRefreshInterval = 1f / 12f;
+    private float nextNoiseRefreshTime;
+
     private float baseFov;
     private float settingsVisualScale = 1f;
     private float externalVisualScale = 1f;
@@ -55,6 +59,36 @@ public class EWReceiver : MonoBehaviour
         CalculateJammingLevel();
         ApplyPostProcessing();
         ApplyFrameJitter();
+        UpdateNoiseTexture();
+    }
+
+    /// <summary>
+    /// Перегенерация шума вынесена из OnGUI: CPU-цикл по пикселям + Apply() на каждый
+    /// GUI-проход (2 раза за кадр) давал постоянные просадки. Теперь — не чаще 12 раз/сек.
+    /// </summary>
+    private void UpdateNoiseTexture()
+    {
+        if (Time.unscaledTime < nextNoiseRefreshTime) return;
+        nextNoiseRefreshTime = Time.unscaledTime + NoiseRefreshInterval;
+
+        if (!ShouldGenerateNoise()) return;
+
+        EnsureNoiseTexture();
+        GenerateNoiseTexture();
+    }
+
+    /// <summary>
+    /// Повторяет условия отрисовки из OnGUI, чтобы не тратить CPU на невидимый шум.
+    /// </summary>
+    private bool ShouldGenerateNoise()
+    {
+        if (dangerousEffectsReduced) return false;
+        if (VisualScale <= 0.001f) return false;
+        if (SceneLoader.Instance != null && SceneLoader.Instance.IsLoading) return false;
+        if (MissionUIManager.IsHudHidden) return false;
+
+        float noiseThreshold = config != null ? config.ewNoiseThreshold : 0.05f;
+        return jamIntensity >= noiseThreshold;
     }
 
     private void RefreshVisualProfile()
@@ -70,7 +104,7 @@ public class EWReceiver : MonoBehaviour
             settingsVisualScale = Mathf.Clamp01(graphics.ewVisualDistortion);
             postFxAllowed = graphics.ewPostFxQuality > 0;
 
-            int resolution = Mathf.Clamp(graphics.ewNoiseResolution, 32, 512);
+            int resolution = Mathf.Clamp(graphics.ewNoiseResolution, 32, 128);
             if (resolution != noiseResolution)
             {
                 noiseResolution = resolution;
@@ -86,7 +120,7 @@ public class EWReceiver : MonoBehaviour
         if (noiseTexture != null) return;
 
         if (noiseResolution <= 0)
-            noiseResolution = config != null ? Mathf.Clamp(config.noiseTextureResolution, 32, 512) : 128;
+            noiseResolution = config != null ? Mathf.Clamp(config.noiseTextureResolution, 32, 128) : 128;
 
         RebuildNoiseTexture();
     }
@@ -186,8 +220,8 @@ public class EWReceiver : MonoBehaviour
         float noiseThreshold = config != null ? config.ewNoiseThreshold : 0.05f;
         if (jamIntensity < noiseThreshold) return;
 
-        EnsureNoiseTexture();
-        GenerateNoiseTexture();
+        // Текстура уже обновлена в Update (не чаще 12 раз/сек) — здесь только отрисовка.
+        if (noiseTexture == null) return;
 
         float noiseOpacity = config != null ? config.staticNoiseOpacity : 0.85f;
         GUI.color = new Color(1f, 1f, 1f, jamIntensity * noiseOpacity * scale);
@@ -218,6 +252,7 @@ public class EWReceiver : MonoBehaviour
         }
 
         noiseTexture.SetPixels32(noisePixels);
-        noiseTexture.Apply();
+        // Мипы не пересчитываем: текстура растягивается на весь экран и обновляется 12 раз/сек.
+        noiseTexture.Apply(false);
     }
 }

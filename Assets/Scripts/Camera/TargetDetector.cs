@@ -6,21 +6,41 @@ public class TargetDetector : MonoBehaviour
     [SerializeField] private DroneConfig config;
     [SerializeField] private LayerMask obstacleMask;
 
+    // FindObjectsByType слишком дорог для вызова каждый кадр: кэшируем список целей.
+    private const float TargetCacheRefreshInterval = 0.5f;
+
     public List<TargetObject> detectedTargets = new List<TargetObject>();
+
+    private TargetObject[] cachedTargets = System.Array.Empty<TargetObject>();
+    private float nextCacheRefreshTime;
 
     private void Update()
     {
         if (config == null) return;
+
+        if (Time.time >= nextCacheRefreshTime)
+        {
+            nextCacheRefreshTime = Time.time + TargetCacheRefreshInterval;
+            RefreshTargetCache();
+        }
+
         ScanForTargets();
+    }
+
+    private void RefreshTargetCache()
+    {
+        cachedTargets = FindObjectsByType<TargetObject>(FindObjectsInactive.Exclude);
     }
 
     private void ScanForTargets()
     {
         detectedTargets.Clear();
-        TargetObject[] allTargets = FindObjectsByType<TargetObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
 
-        foreach (var target in allTargets)
+        for (int i = 0; i < cachedTargets.Length; i++)
         {
+            TargetObject target = cachedTargets[i];
+            if (target == null) continue;
+
             Vector3 dirToTarget = (target.TargetPosition - transform.position).normalized;
             float distanceToTarget = Vector3.Distance(transform.position, target.TargetPosition);
 
