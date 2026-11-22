@@ -101,8 +101,14 @@ public static class HorizonMeshGenerator
                 float height = field.HeightWithBorder(worldX, worldZ, out border) - 0.12f;
                 int index = r * columns + j;
 
+                // Near the seam the normals are flattened toward up: the ring must be lit
+                // like the almost flat Terrain edge instead of turning into a dark band.
+                Vector3 normal = field.Normal(worldX, worldZ, epsilon);
+                float flatten = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(120f, 520f, border));
+                normal = Vector3.Normalize(Vector3.Lerp(normal, Vector3.up, flatten * 0.65f));
+
                 vertices[index] = new Vector3(offset.x, height, offset.y);
-                normals[index] = field.Normal(worldX, worldZ, epsilon);
+                normals[index] = normal;
                 uvs[index] = new Vector2(border / 1000f, 0f);
                 if (borderColors != null && borderColors.Length > 0)
                 {

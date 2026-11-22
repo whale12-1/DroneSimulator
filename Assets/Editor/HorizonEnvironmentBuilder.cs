@@ -138,11 +138,14 @@ public static class HorizonEnvironmentBuilder
         report.AppendLine("[Terrain border colours]");
         Color[] borderColors = HorizonTerrainBorderColor.SampleBorderColors(
             terrain, field.Center, innerHalf, 512, report);
+        Color soilColor;
+        Color grassColor;
+        HorizonTerrainBorderColor.FindBaseColors(terrain, 24, out soilColor, out grassColor, report);
         Color hazeColor = SampleSkyHorizonColor(report);
 
         report.AppendLine("[Textures] macro fields " + MacroTextureSize + "x" + MacroTextureSize);
         Color32[] macroPixels = HorizonFieldMapGenerator.CreateFieldMap(
-            MacroTextureSize, field.Center, OuterRadius * 2f, Seed);
+            MacroTextureSize, field.Center, OuterRadius * 2f, Seed, soilColor, grassColor);
         HorizonTextureGenerator.WriteTextureAsset(MacroTexturePath, macroPixels, MacroTextureSize, MacroTextureSize);
         HorizonTextureGenerator.ConfigureTexture(MacroTexturePath, true, MacroTextureSize,
             TextureWrapMode.Clamp, 4, false, 0.5f);
@@ -182,10 +185,10 @@ public static class HorizonEnvironmentBuilder
         groundMaterial.SetFloat("_DetailTilingA", 96f);
         groundMaterial.SetFloat("_DetailTilingB", 13f);
         groundMaterial.SetFloat("_DetailTilingC", 3.1f);
-        groundMaterial.SetFloat("_DetailStrengthA", 0.30f);
-        groundMaterial.SetFloat("_DetailStrengthB", 0.16f);
-        groundMaterial.SetFloat("_DetailStrengthC", 0.10f);
-        groundMaterial.SetFloat("_SlopeDarken", 0.40f);
+        groundMaterial.SetFloat("_DetailStrengthA", 0.04f);
+        groundMaterial.SetFloat("_DetailStrengthB", 0.02f);
+        groundMaterial.SetFloat("_DetailStrengthC", 0.01f);
+        groundMaterial.SetFloat("_SlopeDarken", 0.12f);
         Color hazeLinear = hazeColor.linear;
         hazeLinear = new Color(hazeLinear.r * 0.94f, hazeLinear.g * 0.94f, hazeLinear.b * 0.94f, 1f);
 

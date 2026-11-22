@@ -27,12 +27,12 @@ Shader "DroneSimulator/HorizonFields"
         _DetailTilingA("Detail Tiling A (meters)", Float) = 96
         _DetailTilingB("Detail Tiling B (meters)", Float) = 13
         _DetailTilingC("Detail Tiling C (meters)", Float) = 3.1
-        _DetailStrengthA("Detail Strength A", Range(0.0, 1.0)) = 0.30
-        _DetailStrengthB("Detail Strength B", Range(0.0, 1.0)) = 0.16
-        _DetailStrengthC("Detail Strength C", Range(0.0, 1.0)) = 0.10
+        _DetailStrengthA("Detail Strength A", Range(0.0, 1.0)) = 0.04
+        _DetailStrengthB("Detail Strength B", Range(0.0, 1.0)) = 0.02
+        _DetailStrengthC("Detail Strength C", Range(0.0, 1.0)) = 0.01
 
         [Header(Relief)]
-        _SlopeDarken("Slope Darken", Range(0.0, 1.0)) = 0.40
+        _SlopeDarken("Slope Darken", Range(0.0, 1.0)) = 0.12
 
         [Header(Seam Blend)]
         _NearColor("Near Seam Tint", Color) = (1, 1, 1, 1)
@@ -159,15 +159,15 @@ Shader "DroneSimulator/HorizonFields"
 
             half3 albedo = macro * _BaseColor.rgb * saturate(detail);
 
-            // No slope darkening on the first 150 m of the seam: the main Terrain edge
-            // must not turn into a dark band against the fields.
-            half slopeGuard = smoothstep(150.0, 320.0, input.borderDistance);
+            // Gentle slope shading: the flat plain must not turn into a dark strip just
+            // behind the seam. Near the border the term is fully suppressed.
+            half slopeGuard = smoothstep(150.0, 600.0, input.borderDistance);
             albedo *= 1.0 - (_SlopeDarken * slopeGuard * slope);
 
             // The mesh carries the real Terrain border layer colour in vertex colour, so
             // the ring continues the visible soil/grass instead of a generic tone. The
             // transition to fields is noise-warped over ~130-310 m.
-            half nearVariation = (detailC * 2.0 - 1.0) * 0.30 + (detailB * 2.0 - 1.0) * 0.18;
+            half nearVariation = (detailC * 2.0 - 1.0) * 0.05 + (detailB * 2.0 - 1.0) * 0.03;
             half3 nearTerrain = saturate(input.borderColor * _NearColor.rgb) * saturate(1.0 + nearVariation);
             half nearEnd = max(80.0, _NearBlendEnd + (detailB * 2.0 - 1.0) * 90.0);
             half nearBlend = 1.0 - smoothstep(_NearBlendStart, nearEnd, input.borderDistance);

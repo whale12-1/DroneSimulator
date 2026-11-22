@@ -1,52 +1,36 @@
 using UnityEngine;
 
 // CPU generators for the two horizon textures:
-//   * Macro map (sRGB): an organic, domain-warped land-cover mosaic - irregular dark
-//     ploughed patches, brown dry grass/stubble, muted grey-olive meadow and soft
-//     forest massifs. No rectangular field grid and no sharp hedge lines.
+//   * Macro map (sRGB): organic mixing of the two real Terrain layer colours - the
+//     dark plough soil and the dark olive grass. Grass gathers under/around the
+//     silhouette forest, open land stays soil; only a few percent of micro-noise.
 //   * Detail map (linear, tileable): multi-octave micro noise used at three world
 //     scales by HorizonFields.shader so the far ground never looks "soapy".
 public static class HorizonFieldMapGenerator
 {
-    // Muted, overcast palette close to the main terrain's dark soil and olive grass.
-    static readonly Color PloughDark = new Color(0.205f, 0.172f, 0.145f);
-    static readonly Color WetSoil = new Color(0.262f, 0.224f, 0.182f);
-    static readonly Color DryGrass = new Color(0.360f, 0.338f, 0.268f);
-    static readonly Color Meadow = new Color(0.295f, 0.315f, 0.235f);
-    static readonly Color DarkOlive = new Color(0.228f, 0.265f, 0.185f);
-    static readonly Color ForestColor = new Color(0.108f, 0.132f, 0.098f);
-
-    public static Color32[] CreateFieldMap(int size, Vector2 center, float span, int seed)
+    // The macro map is built ONLY from the two real Terrain layer colours (soil and
+    // grass) passed in by the builder - no other crops, no cold grey-green, no black
+    // forest patches. The forest silhouette mesh supplies the dark cover instead.
+    public static Color32[] CreateFieldMap(
+        int size, Vector2 center, float span, int seed, Color soilColor, Color grassColor)
     {
         Color32[] pixels = new Color32[size * size];
         float halfSpan = span * 0.5f;
 
-        // Coarse organic grids: domain-warped land cover, forest massifs and slow tone.
+        // Coarse organic grids: the very same forest score used by the tree placement
+        // (so grass sits under and around the silhouette forest), plus a slow meadow
+        // mask that adds a few soft grassy patches to the open land.
         const int Grid = 513;
-        float[] land = new float[Grid * Grid];
         float[] forest = new float[Grid * Grid];
-        float[] tone = new float[Grid * Grid];
+        float[] meadow = new float[Grid * Grid];
         for (int gy = 0; gy < Grid; gy++)
         {
             float wz = center.y - halfSpan + span * gy / (Grid - 1f);
             for (int gx = 0; gx < Grid; gx++)
             {
                 float wx = center.x - halfSpan + span * gx / (Grid - 1f);
-
-                // Domain warp: low-frequency offsets bend every following octave, which
-                // turns the grid-like value noise into irregular natural patches.
-                float qx = HorizonNoise.Fbm(wx / 2600f, wz / 2600f, 3, seed + 301) - 0.5f;
-                float qz = HorizonNoise.Fbm(wx / 2600f + 5.2f, wz / 2600f + 1.3f, 3, seed + 307) - 0.5f;
-                float rx = HorizonNoise.Fbm(wx / 950f + qx * 2.6f, wz / 950f + qz * 2.6f, 3, seed + 311) - 0.5f;
-                float rz = HorizonNoise.Fbm(wx / 950f + 3.7f + qx * 2.6f, wz / 950f + 4.9f + qz * 2.6f, 3, seed + 313) - 0.5f;
-
-                float large = HorizonNoise.Fbm(wx / 2300f + rx * 1.8f, wz / 2300f + rz * 1.8f, 4, seed + 317);
-                float medium = HorizonNoise.Fbm(wx / 780f + rx * 1.2f, wz / 780f + rz * 1.2f, 3, seed + 319);
-                land[gy * Grid + gx] = Mathf.Clamp01(0.5f + (large * 0.68f + medium * 0.32f - 0.5f) * 2.1f);
-
-                forest[gy * Grid + gx] = HorizonNoise.Fbm(
-                    wx / 1450f + rx * 2.2f, wz / 1450f + rz * 2.2f, 4, seed + 331);
-                tone[gy * Grid + gx] = HorizonNoise.Fbm(wx / 5400f, wz / 5400f, 2, seed + 337);
+                forest[gy * Grid + gx] = ForestScore(wx, wz, seed);
+                meadow[gy * Grid + gx] = HorizonNoise.Fbm(wx / 1300f, wz / 1300f, 3, seed + 341);
             }
         }
 
@@ -61,31 +45,41 @@ public static class HorizonFieldMapGenerator
                 float wx = center.x - halfSpan + (x + 0.5f) * pixelSize;
                 float gxf = Mathf.Clamp((wx - (center.x - halfSpan)) / span, 0f, 1f) * (Grid - 1);
 
-                float landValue = BilinearGrid(land, Grid, gxf, gyf);
-                float forestValue = BilinearGrid(forest, Grid, gxf, gyf);
-                float toneValue = BilinearGrid(tone, Grid, gxf, gyf);
+                float forestScore = BilinearGrid(forest, Grid, gxf, gyf);
+                float meadowScore = BilinearGrid(meadow, Grid, gxf, gyf);
 
-                Color color = LandColor(landValue);
-                color *= 0.93f + HorizonNoise.Hash(
-                    Mathf.FloorToInt(wx / 17f), Mathf.FloorToInt(wz / 17f), seed + 461) * 0.14f;
-                color *= 0.97f + HorizonNoise.Hash(
-                    Mathf.FloorToInt(wx / 43f), Mathf.FloorToInt(wz / 43f), seed + 463) * 0.06f;
-                color *= 0.92f + toneValue * 0.16f;
-
-                float forestBlend = Mathf.SmoothStep(0f, 1f,
-                    Mathf.InverseLerp(0.52f, 0.64f, forestValue + (toneValue - 0.5f) * 0.10f));
-                if (forestBlend > 0.001f)
+                // Grass dominates under/around forest masses and soft edges; the open
+                // plain stays soil with occasional low-contrast meadow patches.
+                float grass = SmoothStep01(Mathf.InverseLerp(0.44f, 0.58f, forestScore));
+                float meadowBlend = SmoothStep01(Mathf.InverseLerp(0.54f, 0.66f, meadowScore)) * 0.22f;
+                if (meadowBlend > grass)
                 {
-                    float mottling = 0.90f + HorizonNoise.Hash(
-                        Mathf.FloorToInt(wx / 15f), Mathf.FloorToInt(wz / 15f), seed + 467) * 0.20f;
-                    color = Color.Lerp(color, ForestColor * mottling, forestBlend);
+                    grass = meadowBlend;
                 }
+
+                Color color = Color.Lerp(soilColor, grassColor, grass);
+
+                // Only +/-4% local brightness variation here (the shader adds a few
+                // more percent), so the ground never turns into dark blotches.
+                color *= 0.98f + HorizonNoise.Hash(
+                    Mathf.FloorToInt(wx / 17f), Mathf.FloorToInt(wz / 17f), seed + 461) * 0.04f;
+                color *= 0.99f + HorizonNoise.Hash(
+                    Mathf.FloorToInt(wx / 43f), Mathf.FloorToInt(wz / 43f), seed + 463) * 0.02f;
 
                 pixels[y * size + x] = color;
             }
         }
 
         return pixels;
+    }
+
+    // Must match HorizonMeshGenerator.OrganicScore so the grass patches sit exactly
+    // under the silhouette forest belts and their edges.
+    static float ForestScore(float x, float z, int seed)
+    {
+        float cluster = HorizonNoise.Fbm(x / 620f, z / 620f, 3, seed + 201);
+        float belt = HorizonNoise.Fbm(x / 2500f, z / 820f, 3, seed + 211);
+        return cluster * 0.62f + belt * 0.38f;
     }
 
     static float BilinearGrid(float[] grid, int resolution, float x, float y)
@@ -99,24 +93,6 @@ public static class HorizonFieldMapGenerator
         float bottom = Mathf.Lerp(grid[y0 * resolution + x0], grid[y0 * resolution + x0 + 1], fx);
         float top = Mathf.Lerp(grid[(y0 + 1) * resolution + x0], grid[(y0 + 1) * resolution + x0 + 1], fx);
         return Mathf.Lerp(bottom, top, fy);
-    }
-
-    static Color LandColor(float value)
-    {
-        float t = Mathf.Clamp01(value);
-        if (t < 0.28f)
-        {
-            return Color.Lerp(PloughDark, WetSoil, SmoothStep01(t / 0.28f));
-        }
-        if (t < 0.45f)
-        {
-            return Color.Lerp(WetSoil, DryGrass, SmoothStep01((t - 0.28f) / 0.17f));
-        }
-        if (t < 0.60f)
-        {
-            return Color.Lerp(DryGrass, Meadow, SmoothStep01((t - 0.45f) / 0.15f));
-        }
-        return Color.Lerp(Meadow, DarkOlive, SmoothStep01((t - 0.60f) / 0.40f));
     }
 
     static float SmoothStep01(float value)
