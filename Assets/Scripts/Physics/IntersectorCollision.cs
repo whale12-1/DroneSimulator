@@ -26,9 +26,6 @@ public class InterceptorCollision : MonoBehaviour
     private DroneFlightController flightController;
     private DroneMotors motors;
 
-    // Переиспользуемый буфер: Physics.OverlapSphere без NonAlloc аллоцирует Collider[] каждый кадр.
-    private readonly Collider[] proximityBuffer = new Collider[16];
-
     public DroneConfig Config => droneConfig;
     public WarheadType CurrentWarhead => droneConfig != null ? droneConfig.warheadType : fallbackWarheadType;
     public float SplashRadius => droneConfig != null ? droneConfig.splashRadius : fallbackSplashRadius;
@@ -48,12 +45,9 @@ public class InterceptorCollision : MonoBehaviour
 
     private void CheckProximityFuse()
     {
-        int detectedCount = Physics.OverlapSphereNonAlloc(transform.position, triggerDistance, proximityBuffer, targetLayer);
-
-        for (int i = 0; i < detectedCount; i++)
+        Collider[] targets = Physics.OverlapSphere(transform.position, triggerDistance, targetLayer);
+        foreach (var col in targets)
         {
-            Collider col = proximityBuffer[i];
-            if (col == null) continue;
             if (col.transform.root == transform.root) continue;
             Explode(transform.position);
             return;

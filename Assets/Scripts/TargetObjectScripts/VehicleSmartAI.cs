@@ -30,26 +30,9 @@ public class VehicleSmartAI : MonoBehaviour
     private bool smokeDeployed = false;
     private float nextFireTime = 0f;
 
-    // Переиспользуемый буфер: Physics.OverlapSphere без NonAlloc аллоцирует Collider[] каждый кадр.
-    private readonly Collider[] overlapBuffer = new Collider[16];
-    private const int ScanIntervalFrames = 5;
-    private int scanFrameOffset;
-
-    private void Awake()
-    {
-        // Разносим сканирование разных машин по кадрам, чтобы они не искали цель в один кадр.
-        // GetInstanceID() в Unity 6.6 помечен как ошибка компиляции; маска вместо Abs —
-        // чтобы int.MinValue не вызвал OverflowException.
-        scanFrameOffset = (GetHashCode() & 0x7FFFFFFF) % ScanIntervalFrames;
-    }
-
     private void Update()
     {
-        // Поиск цели — раз в ScanIntervalFrames кадров на каждую машину (смещение по InstanceID).
-        if (Time.frameCount % ScanIntervalFrames == scanFrameOffset)
-        {
-            FindAndPrioritizeTarget();
-        }
+        FindAndPrioritizeTarget();
 
         // 1. Если цель НЕ найдена
         if (currentTarget == null)
@@ -77,27 +60,21 @@ public class VehicleSmartAI : MonoBehaviour
 
     private void FindAndPrioritizeTarget()
     {
-        int detectedCount = Physics.OverlapSphereNonAlloc(transform.position, detectionRadius, overlapBuffer, droneLayerMask);
+        Collider[] detectedDrones = Physics.OverlapSphere(transform.position, detectionRadius, droneLayerMask);
 
         float highestDangerScore = -1f;
         Transform mostDangerousDrone = null;
 
-        for (int i = 0; i < detectedCount; i++)
+        foreach (Collider droneCol in detectedDrones)
         {
-            Collider droneCol = overlapBuffer[i];
-            if (droneCol == null) continue;
-
             Transform drone = droneCol.transform;
 
             float distance = Vector3.Distance(transform.position, drone.position);
 
             // Безопасный поиск Rigidbody на объекте, родителе или child
-            Rigidbody droneRb;
-            if (!drone.TryGetComponent(out droneRb))
-            {
-                droneRb = drone.GetComponentInParent<Rigidbody>();
-                if (droneRb == null) droneRb = drone.GetComponentInChildren<Rigidbody>();
-            }
+            Rigidbody droneRb = drone.GetComponent<Rigidbody>();
+            if (droneRb == null) droneRb = drone.GetComponentInParent<Rigidbody>();
+            if (droneRb == null) droneRb = drone.GetComponentInChildren<Rigidbody>();
 
             float approachSpeed = 0f;
             if (droneRb != null)
@@ -126,12 +103,9 @@ public class VehicleSmartAI : MonoBehaviour
         Vector3 targetVelocity = Vector3.zero;
 
         // Ищем Rigidbody на самом объекте, у родителей или в дочерних элементах
-        Rigidbody rb;
-        if (!target.TryGetComponent(out rb))
-        {
-            rb = target.GetComponentInParent<Rigidbody>();
-            if (rb == null) rb = target.GetComponentInChildren<Rigidbody>();
-        }
+        Rigidbody rb = target.GetComponent<Rigidbody>();
+        if (rb == null) rb = target.GetComponentInParent<Rigidbody>();
+        if (rb == null) rb = target.GetComponentInChildren<Rigidbody>();
 
         if (rb != null)
         {

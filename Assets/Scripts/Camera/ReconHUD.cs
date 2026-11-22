@@ -13,10 +13,6 @@ public class ReconHUD : MonoBehaviour
     private Camera cam;
     private Texture2D pixelTexture;
 
-    // GUIStyle и буфер точек создаются один раз, а не на каждый OnGUI-проход.
-    private GUIStyle hudStyle;
-    private readonly Vector3[] screenPoints = new Vector3[8];
-
     private void Awake()
     {
         cam = GetComponent<Camera>();
@@ -27,8 +23,6 @@ public class ReconHUD : MonoBehaviour
         pixelTexture = new Texture2D(1, 1);
         pixelTexture.SetPixel(0, 0, Color.white);
         pixelTexture.Apply();
-
-        hudStyle = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold };
     }
 
     private void OnGUI()
@@ -50,8 +44,8 @@ public class ReconHUD : MonoBehaviour
         LayerMask lrfMask = (config != null) ? config.lrfMask : (LayerMask)(~0);
 
         GUI.color = HudStyleService.ApplyAlpha(hudColor);
-        hudStyle.normal.textColor = HudStyleService.Opaque(hudColor);
-        GUIStyle style = hudStyle;
+        GUIStyle style = new GUIStyle { fontSize = 12, fontStyle = FontStyle.Bold };
+        style.normal.textColor = HudStyleService.Opaque(hudColor);
 
         // 1. Лазерный дальномер (LRF) по центру камеры
         Ray lrfRay = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
@@ -89,6 +83,7 @@ public class ReconHUD : MonoBehaviour
             {
                 Bounds bounds = targetRenderer.bounds;
 
+                Vector3[] screenPoints = new Vector3[8];
                 screenPoints[0] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.min.y, bounds.min.z));
                 screenPoints[1] = cam.WorldToScreenPoint(new Vector3(bounds.max.x, bounds.min.y, bounds.min.z));
                 screenPoints[2] = cam.WorldToScreenPoint(new Vector3(bounds.min.x, bounds.max.y, bounds.min.z));

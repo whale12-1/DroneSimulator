@@ -12,28 +12,13 @@ public class TargetLockManager : MonoBehaviour, IPrimaryActionHandler
     public TargetObject currentLockedTarget;
 
     private Camera cam;
-    private DroneDropMechanism dropMechanism;
-    private DroneCollision collision;
 
     public int PrimaryPriority => 30;
-
-    private bool WeaponsReady
-    {
-        get
-        {
-            if (dropMechanism != null && dropMechanism.HasPayload) return true;
-            if (collision != null && collision.CanDetonateManually) return true;
-            return false;
-        }
-    }
 
     private void Awake()
     {
         cam = GetComponent<Camera>();
         if (detector == null) detector = GetComponent<TargetDetector>();
-
-        dropMechanism = GetComponentInParent<DroneDropMechanism>();
-        collision = GetComponentInParent<DroneCollision>();
     }
 
     private void OnEnable()
@@ -44,11 +29,14 @@ public class TargetLockManager : MonoBehaviour, IPrimaryActionHandler
     private void OnDisable()
     {
         GameInput.UnregisterPrimaryHandler(this);
+
+        // При выключении камеры/смене дрона захват не должен «висеть» на следующей машине
+        currentLockedTarget = null;
     }
 
     private void Update()
     {
-        if (config != null && !config.allowTargetLock && currentLockedTarget != null)
+        if (currentLockedTarget != null && config != null && !config.allowTargetLock)
         {
             currentLockedTarget = null;
         }
@@ -58,20 +46,29 @@ public class TargetLockManager : MonoBehaviour, IPrimaryActionHandler
     {
         if (config != null && !config.allowTargetLock) return false;
 
-        if (currentLockedTarget != null) return !WeaponsReady;
+        // Если цель уже захвачена, нажатие обязано обработать именно этот компонент:
+        // Пробел по той же цели снимает захват, по другой цели — переключает на неё.
+        // Иначе боевые обработчики (сброс боеприпаса / подрыв) «съедают» повторный Пробел.
+        if (currentLockedTarget != null) return true;
 
+        // Без захвата забираем действие только если под прицелом реально есть цель,
+        // чтобы на ударных дронах Пробел продолжал работать как сброс/подрыв.
         return FindLockCandidate() != null;
     }
 
     public void OnPrimaryAction()
     {
-        if (currentLockedTarget != null)
+        TargetObject candidate = FindLockCandidate();
+
+        // Если навёлся на другую цель — сразу переключаем лок на неё
+        if (candidate != null && candidate != currentLockedTarget)
         {
-            currentLockedTarget = null;
+            currentLockedTarget = candidate;
             return;
         }
 
-        currentLockedTarget = FindLockCandidate();
+        // Если нажали пробел по той же цели или в пустоту — снимаем захват
+        currentLockedTarget = null;
     }
 
     private TargetObject FindLockCandidate()
