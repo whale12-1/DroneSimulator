@@ -85,7 +85,7 @@
 | `ComputerOS` | `ComputerUIController` (+ `CanvasGroup`, `RectTransform`) | Анимированное окно «рабочего стола» |
 | `Btn_Missions` | `DesktopIcon` + `Button` | Иконка «Миссии» на рабочем столе |
 | `MissionSelectPanel` (prefab instance) | `MissionSelectScreen`, `MissionMenuController` | Меню выбора миссий внутри ОС |
-| `InteractionCanvas` | `InteractionUIController` | Подсказки по центру/снизу, окна «магазин» и «карта миссий» |
+| `InteractionCanvas` | `InteractionUIController` | Подсказки взаимодействия (компактные надписи на 75 % высоты и у нижнего края, без плашек), окна «магазин» и «карта миссий» |
 | `PauseManager` | `BunkerPauseController` | Пауза по `Esc`, настройки, выход в главное меню |
 | `SettingsPanel` (prefab instance) | `SettingsPanel` | Настройки в паузе |
 | `Canvas`, `EventSystem` | — | UI |
