@@ -82,8 +82,9 @@
 | `Main Camera` | `Camera`, `CameraFollowHead` | Камера следует за костью головы (`Swat.fbx`) |
 | `Chair_Blocker` | `ChairInteractable` (+ `Collider`) | Сесть/встать, телепорт на `sitPosition` / `standPosition` (вставание — **справа** от стула) |
 | `Interact_OperatorTerminal` | `ComputerInteractable` | Вход в компьютер (только сидя) |
-| `ComputerOS` | `ComputerUIController` (+ `CanvasGroup`, `RectTransform`) | Анимированное окно «рабочего стола» |
-| `Btn_Missions` | `DesktopIcon` + `Button` | Иконка «Миссии» на рабочем столе |
+| `ComputerOS` | `ComputerUIController`, `Image` (пластина фона) (+ `CanvasGroup`, `RectTransform`) | Анимированное окно «рабочего стола»; фон — `Textures/DesktopBackground/DesktopBackground_plate.png` |
+| `DesktopSweep` | `Image` (лепесток радара), `DesktopRadarSweep` | Дочерний слой фона (индекс 0): вращающийся сектор радара, крутится и при `Time.timeScale = 0` |
+| `Btn_Missions` | `DesktopIcon` + `Button` | Иконка «Миссии» на рабочем столе (в свободной левой зоне фона) |
 | `MissionSelectPanel` (prefab instance) | `MissionSelectScreen`, `MissionMenuController` | Меню выбора миссий внутри ОС |
 | `InteractionCanvas` | `InteractionUIController` | Подсказки взаимодействия (компактные надписи на 75 % высоты и у нижнего края, без плашек), окна «магазин» и «карта миссий» |
 | `PauseManager` | `BunkerPauseController` | Пауза по `Esc`, настройки, выход в главное меню |
@@ -97,9 +98,9 @@
 * `MissionMenuController` — выбор и запуск миссии;
 * `ComputerUIController` — открытие/закрытие ОС и таймскейл.
 
-**Скрипты (13 привязок):** `PlayerController`, `PlayerInteractionDetector`, `CameraFollowHead`, `ChairInteractable`, `ComputerInteractable`, `ComputerUIController`, `DesktopIcon`, `MissionMenuController`, `MissionSelectScreen`, `InteractionUIController`, `BunkerPauseController`, `BunkerStateRestorer`, `SettingsPanel`.
+**Скрипты (14 привязок):** `PlayerController`, `PlayerInteractionDetector`, `CameraFollowHead`, `ChairInteractable`, `ComputerInteractable`, `ComputerUIController`, `DesktopIcon`, `DesktopRadarSweep`, `MissionMenuController`, `MissionSelectScreen`, `InteractionUIController`, `BunkerPauseController`, `BunkerStateRestorer`, `SettingsPanel`.
 
-**Ассеты:** `Bunker(main)/LightingData.asset`, `Models/Player/Swat.fbx`, `Models/Player/PlayerAnimator.controller` (параметры `Speed`, `Direction`, `Strafe`, `IsGrounded`, `IsSitting`, `IsTyping`, состояние `SitIdle`), `Materials/Soldier_body1.mat`, `Soldier_head6.mat`, `Textures/comp.png`.
+**Ассеты:** `Bunker(main)/LightingData.asset`, `Models/Player/Swat.fbx`, `Models/Player/PlayerAnimator.controller` (параметры `Speed`, `Direction`, `Strafe`, `IsGrounded`, `IsSitting`, `IsTyping`, состояние `SitIdle`), `Materials/Soldier_body1.mat`, `Soldier_head6.mat`, `Textures/DesktopBackground/DesktopBackground_plate.png` (статичная пластина рабочего стола), `Textures/DesktopBackground/DesktopBackground_sweep.png` (вращаемый лепесток радара).
 
 **Вход:** из `MainMenu` (Play) и из `Debrief` («Вернуться на базу»).
 **Выход:** `MissionMenuController.StartMission` → сцена миссии; `BunkerPauseController.ExitToMainMenu` → `MainMenu`.
