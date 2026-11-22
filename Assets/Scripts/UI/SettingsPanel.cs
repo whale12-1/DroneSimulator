@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DroneSimulator.Settings;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,9 +10,10 @@ public class SettingsPanel : UIScreen
     [SerializeField] private SettingsListBuilder listBuilder;
     [SerializeField] private Button closeButton;
     [SerializeField] private Button resetButton;
+    [SerializeField] private ScrollRect listScroll;
     [SerializeField] private bool hideOnStart = true;
-    [SerializeField] private Color selectedTabColor = new Color(0.3f, 0.5f, 0.8f, 1f);
-    [SerializeField] private Color normalTabColor = new Color(0.16f, 0.17f, 0.19f, 1f);
+    [SerializeField] private Color selectedTabColor = new Color(1f, 1f, 1f, 1f);
+    [SerializeField] private Color normalTabColor = new Color(0.55f, 0.57f, 0.6f, 1f);
 
     private int currentTab;
 
@@ -97,9 +99,6 @@ public class SettingsPanel : UIScreen
         // Звуки интерфейса вешаются на кнопки панели (клик, сброс, закрытие, вкладки).
         UISoundService.Attach(gameObject);
 
-        // Звуки интерфейса вешаются на кнопки панели (клик, сброс, закрытие, вкладки).
-        UISoundService.Attach(gameObject);
-
         service.ResetAll();
 
         // ResetAll() заменяет Data целиком, поэтому строки нужно собрать заново:
@@ -110,11 +109,12 @@ public class SettingsPanel : UIScreen
         Debug.Log("[SettingsPanel] Настройки сброшены к значениям по умолчанию.", this);
     }
 
-    // В префабе SettingsPanel.prefab кнопка сброса не сериализована (её добавляют
-    // в инстансы сцен). Поэтому ссылки ищем по имени, если инспектор их не назначил.
+    // Кнопки CloseButton/ResetButton входят в префаб, но ссылки всё равно ищем
+    // по имени, если инспектор их не назначил (страховка для старых инстансов).
     private void ResolveMissingReferences()
     {
         if (listBuilder == null) listBuilder = GetComponentInChildren<SettingsListBuilder>(true);
+        if (listScroll == null) listScroll = GetComponentInChildren<ScrollRect>(true);
         if (closeButton == null) closeButton = FindButton("CloseButton");
         if (resetButton == null) resetButton = FindButton("ResetButton");
     }
@@ -152,16 +152,41 @@ public class SettingsPanel : UIScreen
 
         for (int i = 0; i < tabButtons.Length; i++)
         {
-            if (tabButtons[i] == null) continue;
-            ColorBlock cb = tabButtons[i].colors;
-            cb.normalColor = i == index ? selectedTabColor : normalTabColor;
-            cb.selectedColor = cb.normalColor;
-            cb.highlightedColor = cb.normalColor;
-            cb.pressedColor = cb.normalColor;
-            tabButtons[i].colors = cb;
+            Button tab = tabButtons[i];
+            if (tab == null) continue;
+
+            bool isSelected = i == index;
+
+            // ColorTint применяется только при смене состояния Selectable, поэтому
+            // цвет вкладки задаём напрямую: иначе активная вкладка визуально не отличалась.
+            if (tab.targetGraphic is Image image)
+                image.color = isSelected ? selectedTabColor : normalTabColor;
+
+            ColorBlock cb = tab.colors;
+            cb.normalColor = Color.white;
+            cb.selectedColor = Color.white;
+            cb.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+            cb.pressedColor = new Color(0.82f, 0.82f, 0.82f, 1f);
+            cb.disabledColor = new Color(0.45f, 0.45f, 0.45f, 0.6f);
+            cb.colorMultiplier = 1f;
+            cb.fadeDuration = 0.1f;
+            tab.colors = cb;
+
+            TMP_Text label = tab.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                label.color = isSelected ? Color.white : new Color(1f, 1f, 1f, 0.72f);
+                label.fontStyle = isSelected ? FontStyles.Bold : FontStyles.Normal;
+            }
+
+            Transform accent = tab.transform.Find("Accent");
+            if (accent != null) accent.gameObject.SetActive(isSelected);
         }
 
         if (listBuilder != null) listBuilder.Build(GetDescriptors(index));
+
+        if (listScroll == null) listScroll = GetComponentInChildren<ScrollRect>(true);
+        if (listScroll != null) listScroll.verticalNormalizedPosition = 1f;
     }
 
     private List<SettingDescriptor> GetDescriptors(int tab)

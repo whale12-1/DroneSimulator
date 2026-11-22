@@ -58,31 +58,41 @@ Canvas (Overlay)
  │   ├─ PlayButton     → MainMenuController.OnOpenMissions()
  │   ├─ SettingsButton → MainMenuController.OnOpenSettings()
  │   └─ ExitButton     → MainMenuController.OnExit()
- ├─ SettingsPanel      [prefab instance]
- ├─ MissionSelectPanel [prefab instance — НЕ открывается из меню]
+ ├─ SettingsPanel      [prefab instance — модальное окно 1400x920 + затемнение]
+ ├─ MissionSelectPanel [prefab instance — НЕ открывается из меню, но оформлен в общем стиле]
  └─ VideoBackground (VideoPlayer → MenuVideoRT)
 EventSystem
 MenuCamera
 ```
 
+> С 22.11.2026 `SettingsPanel` — модальное окно по центру (`Scrim` + `Plate` 1400×920 + рамка с красными угловыми скобками). Главное меню (`MainPanel`) остаётся эталоном стиля и не меняется.
+
 ### 2.3 `Bunker(main)`
 
 ```
 Canvas (Overlay)
- ├─ InteractionCanvas  [InteractionUIController]
- │    ├─ hintGroup / hintText              — подсказка по центру
- │    ├─ sittingHintGroup / sittingHintText — «Встать [Пробел]»
- │    ├─ shopGroup                         — окно «Магазин»
- │    └─ missionBoardGroup                 — окно «Карта миссий»
- ├─ ComputerOS        [ComputerUIController, CanvasGroup]  ← «рабочий стол» ОС
- │    └─ Btn_Missions [DesktopIcon]
- │         └─ MissionSelectPanel [MissionSelectScreen + MissionMenuController]
- ├─ PausePanel        [BunkerPauseController.pausePanel]
- │    ├─ «Продолжить»     → Resume()
- │    ├─ «Настройки»      → OpenSettings() → SettingsPanel.Show()
- │    └─ «В главное меню» → ExitToMainMenu()
- ├─ SettingsPanel     [prefab instance]
- └─ settingsNotice    — заглушка, если SettingsPanel не назначена
+ ├─ InteractionHint  [CanvasGroup + Plate/Image + Label/TMP + Accent]
+ │     — центральная подсказка «Сесть [E] / Войти в систему [E]»
+ ├─ SittingHint      [CanvasGroup + Plate/Image + Label/TMP + Accent]
+ │     — нижняя подсказка «Встать [Пробел]»
+ ├─ ShopWindow       [CanvasGroup] — окно «Магазин» (контента нет)
+ ├─ ComputerOS       [ComputerUIController, CanvasGroup] ← «рабочий стол» ОС
+ │    ├─ TerminalHeader (56 px, «ОПЕРАТОР · РАБОЧИЙ СТОЛ» / «СИСТЕМА: ОНЛАЙН»)
+ │    ├─ Btn_Missions [DesktopIcon] — металлическая плитка 160×160, иконка HUF #15 + «МИССИИ»
+ │    └─ TerminalFooter (48 px, «ВЫБЕРИТЕ РАЗДЕЛ» / «Esc / E — выйти»)
+ ├─ MissionSelectPanel [MissionSelectScreen + MissionMenuController]
+ │    ├─ Frame (тонкий контур + красные угловые скобки)
+ │    ├─ Header (Title / Subtitle / TotalScore / Rule / BackButton)
+ │    ├─ Scroll View (вертикальный список карточек 840×150)
+ │    └─ MissionDetailsPanel (860×814, баннер/статус/статистика/цели/LaunchButton)
+ ├─ PausePanel       [BunkerPauseController.pausePanel]
+ │    ├─ Plate 560×620 (Scrim + Frame + Title/Subtitle/AccentRule)
+ │    ├─ resume   «Продолжить»     → Resume()
+ │    ├─ settings «Настройки»      → OpenSettings() → SettingsPanel.Show()
+ │    ├─ exit     «Выйти в главное меню» → ExitToMainMenu()   (красная)
+ │    ├─ Footer   «Esc — продолжить · E — терминал»
+ │    └─ SettingsNotice — заглушка, если SettingsPanel не назначена
+ └─ SettingsPanel    [prefab instance — модальное окно, см. §3.3]
 ```
 
 ### 2.4 `PreparingDemo` / `FirstMission(Forest)`
@@ -110,74 +120,81 @@ EventSystem
 ### 3.1 `MissionSelectPanel.prefab`
 
 ```
-MissionSelectPanel [CanvasGroup, MissionSelectScreen, MissionMenuController]
-├─ Header
-│   ├─ Title
-│   ├─ Subtitle                     ← headerSubtitleLabel
-│   ├─ TotalScore                   ← totalScoreLabel
-│   └─ BackButton                   ← backButton (MissionMenuController)
-├─ ScrollView
-│   ├─ Viewport
-│   │   └─ Content                  ← cardsContainer (карточки создаются в рантайме)
-│   │       └─ (MissionCard instances)
-│   ├─ Scrollbar Vertical / Sliding Area / Handle
-│   └─ Scrollbar Horizontal
-└─ MissionDetailsPanel [MissionDetailsPanel]
-    ├─ Banner / BannerCode
-    ├─ StatusIcon / StatusLabel
-    ├─ Title / Description / Note
-    ├─ RewardLabel
+MissionSelectPanel [Image (непрозрачный PanelFill), CanvasGroup, MissionSelectScreen, MissionMenuController]
+├─ Frame (FrameTop/Bottom/Left/Right + CornerTL/TR/BL/BR — красные скобки)
+├─ Header (1760×110, верх 40)
+│   ├─ Title           32 Bold, белый
+│   ├─ Subtitle        ← headerSubtitleLabel (13)
+│   ├─ TotalScore      ← totalScoreLabel (15, справа)
+│   ├─ Rule            2 px
+│   └─ BackButton      160×56, HUF #1 + AccentRed ← backButton
+├─ Scroll View (x 80…940, y 186…1000, вертикальный ScrollRect)
+│   ├─ Viewport (840×814, RectMask2D)
+│   │   └─ Content (VLG + CSF)      ← cardsContainer (карточки создаются в рантайме)
+│   │       └─ (MissionCard 840×150, spacing 12)
+│   └─ Scrollbar Vertical (8 px, HUF #28)
+└─ MissionDetailsPanel [MissionDetailsPanel]  (860×814)
+    ├─ Banner (812×150) / BannerCode / TechLine
+    ├─ StatusIcon / StatusLabel / RewardLabel
+    ├─ Title / Description
     ├─ StatsLabel
-    │   ├─ TimeTile → Value
-    │   ├─ ScoreTile → Value
-    │   ├─ CompletionsTile → Value
-    │   └─ TargetsTile → Value
-    ├─ GoalsLabel
+    │   ├─ TimeTile (394×72) → Label / Value
+    │   ├─ ScoreTile          → Label / Value
+    │   ├─ CompletionsTile    → Label / Value
+    │   └─ TargetsTile        → Label / Value
+    ├─ Note / GoalsLabel
     │   ├─ GoalLine0 / GoalMarker0
     │   ├─ GoalLine1 / GoalMarker1
     │   └─ GoalLine2 / GoalMarker2
-    ├─ TechLine
     ├─ EmptyState
-    └─ LaunchButton / Label          ← launchButton, launchLabel
+    └─ LaunchButton (812×64, AccentRed) / Label ← launchButton, launchLabel
 ```
 
 `MissionSelectScreen.Populate()` очищает `Content` и инстанцирует `MissionCard` на каждую миссию; флаги «открыта/пройдена» карточка получает аргументами (`ProgressService.IsUnlocked/IsCompleted`).
 
+> С 22.11.2026 `Content` — вертикальный список (`VerticalLayoutGroup` + `ContentSizeFitter`), карточки 840×150, `cardsContainer` указывает на `Scroll View/Viewport/Content`. Горизонтальный `Scrollbar Horizontal` удалён. Все размеры рассчитаны на Canvas 1920×1080.
+
 ### 3.2 `MissionCard.prefab`
 
 ```
-MissionCard [Button, MissionCardView]
-├─ Preview (Image)          ← previewImage
-├─ Top / Bottom / Left / Right (декор)
-├─ NameText (TMP)           ← nameLabel
-├─ MetaText (TMP)           ← metaText
-├─ Check                    ← completedBadge
-├─ LockedOverlay            ← lockedOverlay
-├─ SelectedFrame            ← selectedFrame
-└─ Image / Caption          (фон/подпись)
+MissionCard [Image (flat 0.10/0.11/0.12), Button, LayoutElement 840×150, MissionCardView]
+├─ Preview (Image 200×126, слева)       ← previewImage
+├─ NameText (TMP 22 Bold)               ← nameLabel
+├─ MetaText (TMP 14, TextSecondary)     ← metaText
+├─ isCompleted (HUF #20, 28×28)          ← completedBadge
+├─ LockedOverlay (0.72 scrim)
+│   ├─ Image (HUF #50, 40×48)
+│   └─ Caption (TMP 13 Bold «ЗАБЛОКИРОВАНО»)
+└─ SelectedFrame (3 px, AccentRed)       ← selectedFrame
 ```
+
+> Плитка карточки — плоская заливка: спрайт `#12` при растяжении 840×150 давал внутренние линии поверх превью и текста.
 
 ### 3.3 `SettingsPanel.prefab`
 
 ```
-SettingsPanel [CanvasGroup, SettingsPanel, SettingsListBuilder]
-├─ Header
-│   ├─ Title
-│   └─ CloseButton        ← closeButton
-├─ Tabs
-│   ├─ Tab_Graphics       ← tabButtons[0]
-│   ├─ Tab_Controls       ← tabButtons[1]
-│   ├─ Tab_Audio          ← tabButtons[2]
-│   └─ Tab_Gameplay       ← tabButtons[3]
-├─ ScrollView
-│   ├─ Viewport / Content ← SettingsListBuilder.content (строки генерируются)
-│   └─ Scrollbar Vertical / Sliding Area / Handle
-└─ (ResetButton добавляется в инстансах сцен MainMenu/Bunker;
-   в префабе его нет, поле resetButton не сериализовано —
-   SettingsPanel ищет кнопку по имени)
+SettingsPanel [Image = Scrim (0,0,0,0.62), CanvasGroup, SettingsPanel]
+└─ Plate (1400×920 по центру, flat PanelFill)
+    ├─ Frame (FrameTop/Bottom/Left/Right + Corner* — красные скобки, raycast=false)
+    ├─ Header (1400×80, flat 0.085/0.09/0.10)
+    │   ├─ Title (TMP 30 Bold, «НАСТРОЙКИ»)
+    │   ├─ ResetButton 168×44 (HUF #1 + AccentRed) ← resetButton
+    │   ├─ CloseButton 48×48 (HUF #1 + AccentRed) → Icon (HUF #38) ← closeButton
+    │   └─ AccentRule (3 px, AccentRed)
+    ├─ Tabs (1336×52, HLG spacing 8)
+    │   ├─ Tab_Graphics  ← tabButtons[0]  + Accent (3 px, активная)
+    │   ├─ Tab_Controls  ← tabButtons[1]
+    │   ├─ Tab_Audio     ← tabButtons[2]
+    │   └─ Tab_Gameplay  ← tabButtons[3]
+    └─ ScrollView (1336×740, верх 156)
+        ├─ Viewport (RectMask2D)
+        │   └─ Content (VLG spacing 6, CSF) ← SettingsListBuilder.content
+        └─ Scrollbar Vertical (8 px, HUF #28)
 ```
 
-Строки настроек **не хранятся в префабе** — они создаются кодом `SettingsListBuilder.Build(descriptors)` по `List<SettingDescriptor>`. `SettingsPanel` формирует 4 набора дескрипторов:
+> С 22.11.2026 `ResetButton` **входит в префаб** (`resetButton` сериализован), а сценовые дубликаты в `MainMenu` и `Bunker(main)` удалены — в каждой сцене ровно одна кнопка. Верх списка (`156`) ниже вкладок (`92…144`) на 12 px, поэтому первая строка больше не перекрывает вкладки.
+
+Строки настроек **не хранятся в префабе** — они создаются кодом `SettingsListBuilder.Build(descriptors)` по `List<SettingDescriptor>`. Строка 50 px: подпись TMP 17 (`flexibleWidth`), значение TMP 16 (88 px, справа), контрол 320 px (слайдер/дропдаун) или тумблер 32 px. Спрайты строк — HUF Pack: `#49` дорожка/заливка, `#22` ручка, `#20/#21` чекбокс, `#2` плашка дропдауна, `#39` стрелка, `#0` опции. Раскрытые опции выравниваются по правому краю под кнопкой (320×40), а не на всю ширину списка. `SettingsPanel` формирует 4 набора дескрипторов:
 
 | Вкладка | Кол-во параметров | Примеры |
 |---|---|---|
@@ -247,8 +264,8 @@ restorer.IsRestoring                        → выйти
 
 1. **`CanvasGroup` обязателен** на любом объекте, который наследует `UIScreen` (иначе `Show()/Hide()` пишет `LogError` и ничего не делает). `MainMenuController.OnValidate()` предупреждает об этом.
 2. **Z = 0** для панелей в Screen Space Overlay: `SettingsPanel.NormalizeZ()` — вынужденная мера. Новые панели лучше сразу ставить в `localPosition.z = 0`.
-3. **Не редактировать `MissionSelectPanel.prefab` / `SettingsPanel.prefab` вручную «насовсем»** — есть Editor-билдеры, которые могут перезаписать структуру.
-4. **Ссылки задаются в инспекторе**, а не через `GetComponentInChildren` (кроме фолбэков в `Awake`). При переименовании объектов ломаются: `MissionMenuController.FindBackButton()` (ищет `"BackButton"`), `DesktopIcon`, `CloseMissionBoardButton`.
+3. **Не редактировать `MissionSelectPanel.prefab` / `SettingsPanel.prefab` вручную «насовсем»** — есть Editor-билдеры, которые могут перезаписать структуру. С 22.11.2026 оба билдера работают **in-place** (`PrefabUtility.LoadPrefabContents` → мутация → `SaveAsPrefabAsset`) и идемпотентно: объекты ищутся по имени, `Header`/`MissionDetailsPanel` не пересоздаются, fileID компонентов сохраняются, ссылки сцен не рвутся.
+4. **Ссылки задаются в инспекторе**, а не через `GetComponentInChildren` (кроме фолбэков в `Awake`). При переименовании объектов ломаются: `MissionMenuController.FindBackButton()` (ищет `"BackButton"`), `DesktopIcon`, `CloseMissionBoardButton`. `ResetButton` живёт в `SettingsPanel.prefab`; **не добавляйте его повторно в сцены** — иначе `FindButton()` возьмёт случайную кнопку.
 5. **Кнопки подписываются кодом** (`onClick.AddListener`), а не в инспекторе — при копировании префаба подписки не теряются, но при открытии префаба в редакторе список `OnClick` будет пустым. Это нормально для этого проекта.
 6. **`Time.timeScale = 0`** ставит почти каждое окно. Если добавляешь своё окно — не забудь вернуть `timeScale = 1` при закрытии и восстановить `Cursor.lockState`.
 7. **`Time.timeScale` и `Cursor` — глобальные**: любое окно может «испортить» состояние другому. Отлаживай через `BunkerPauseController.IsPaused`, `ComputerUIController.IsOpen`, `MissionMenuController.IsOpen`.
@@ -264,5 +281,87 @@ restorer.IsRestoring                        → выйти
 * `Assets/Textures/comp.png` — картинка рабочего стола бункера.
 
 > Шрифт TMP один на весь проект, поэтому «разные шрифты в разных меню» сейчас невозможны без добавления новых TMP-ассетов.
+
+---
+
+## 8. Единая система оформления UI (22.11.2026)
+
+Эталон — главное меню: металлические плиты `HUF Pack.png`, белый TMP-текст, тёмно-красный акцент `#DB143D`. Все экраны `MainMenu` и `Bunker(main)` приведены к нему.
+
+### 8.1 Палитра
+
+| Токен | Значение | Где |
+|---|---|---|
+| `AccentRed` | `(0.86, 0.08, 0.24)` #DB143D | выход, закрытие, сброс, «Назад», «Запустить», красные уголки рамки |
+| `PanelFill` | `(0.045, 0.05, 0.055, 0.985)` | тело модальной панели |
+| `PanelFillSoft` | `(0.075, 0.08, 0.09, 0.98)` | панель деталей миссии, шапка ОС |
+| `ControlPlate` | `(0.16, 0.17, 0.19)` | плашка дропдауна/вкладки |
+| `Scrim` | `(0,0,0,0.62)` | затемнение под модалкой |
+| `TextPrimary` / `TextSecondary` / `TextCaption` | `white` / `white 0.62` / `white 0.45` | заголовки / подписи / мелкие метки |
+| `Steel` | `(0.72, 0.75, 0.78)` | заливка слайдера, ручка скролла |
+| `Divider` | `(1,1,1,0.16)` | разделители, контур рамки |
+
+Второй красный `#DC3132`, синий `(0.3,0.55,0.85)` и зелёный `(0.3,0.85,0.4)` из контролов удалены. Семантические статусы миссий остались приглушёнными: выполнено `(0.55,0.72,0.45)`, не выполнено `(0.9,0.68,0.22)`, заблокировано `(0.86,0.2,0.24)`.
+
+### 8.2 Спрайты (`Assets/Strategic Warfare UI Starter Pack/UI Kit/UI-png/HUF Pack.png`)
+
+| Роль | Спрайт |
+|---|---|
+| Кнопка/вкладка | `UI Starter Pack_1` (281×97) |
+| Опасная кнопка | `UI Starter Pack_1` с тинтом `AccentRed` |
+| Контрол/дропдаун | `UI Starter Pack_2` (272×93) |
+| Плоская плашка | `UI Starter Pack_0` (477×66) |
+| Ручка/трек слайдера | `UI Starter Pack_49` (68×10), ручка `#22` |
+| Чекбокс | `UI Starter Pack_20` (вкл) / `_21` (выкл) |
+| Стрелка дропдауна | `UI Starter Pack_39` (52×31) |
+| X / замок / список | `#38` / `#50` / `#15` |
+| Пиксель-заливка | `UI Starter Pack_28` (2×2) |
+
+Крупные панели (`SettingsPanel`, `MissionSelectPanel`) используют **плоскую заливку + собственную рамку** (`FrameTop/Bottom/Left/Right` + красные `Corner*`), а не растянутый `#12`/`#7`: у этих спрайтов есть внутренние декоративные линии, которые проходят поверх строк и карточек.
+
+### 8.3 Типографика (только `LiberationSans SDF`)
+
+| Роль | Размер |
+|---|---|
+| Заголовок экрана | 32 Bold, uppercase, spacing +2 |
+| Заголовок модалки | 30 Bold |
+| Кнопка | 24; вторичная 20 |
+| Вкладка | 20 (активная Bold) |
+| Подпись строки | 17 |
+| Значение | 16 |
+| Body | 15 |
+| Caption | 11–13 |
+
+Legacy `UnityEngine.UI.Text` в настройках больше не используется. Однострочные подписи — `NoWrap` + Ellipsis; описания миссий — `Normal` + Ellipsis.
+
+### 8.4 Геометрия и состояния
+
+* Экран 1920×1080, поля 64 px; модалка настроек 1400×920, пауза 560×620, магазин 720×420.
+* Кнопки 60 px (основная), 44 px (вторичная/сброс/закрыть), 48×48 (X).
+* Строка настроек 50 px + 6 px; шапка 80 px; вкладки 52 px; список начинается через 12 px после вкладок.
+* Карточка миссии 840×150; панель деталей 860×814; баннер 812×150; плитка статистики 394×72; LaunchButton 812×64.
+* `ColorBlock` у всех кнопок: normal `1`, highlighted `0.96`, pressed `0.78`, disabled `(0.5,0.5,0.5,0.6)`, fade 0.1. Опасные кнопки — тот же блок поверх красного `Image.color`.
+
+### 8.5 Где реализовано
+
+| Файл | Роль |
+|---|---|
+| `Assets/Scripts/UI/TacticalUITheme.cs` | константы палитры/размеров, `ButtonColorBlock()` |
+| `Assets/Scripts/UI/SettingsPanel.cs` | активная вкладка (цвет `Image`, Bold, красная полоса), сброс скролла, сброс настроек |
+| `Assets/Scripts/UI/SettingsListBuilder.cs` | строки на TMP + HUF-спрайтах, drop-down 320 px справа |
+| `Assets/Scripts/Editor/TacticalUIBuilder.cs` | загрузка спрайтов/шрифта, `EnsureImage/EnsureText/EnsureButton`, `BuildTacticalFrame` |
+| `Assets/Scripts/Editor/SettingsPanelPrefabBuilder.cs` | in-place стилизация `SettingsPanel.prefab` |
+| `Assets/Scripts/Editor/MissionSelectPanelBuilder.cs` | in-place стилизация `MissionSelectPanel.prefab` + `MissionCard.prefab` |
+
+### 8.6 Проверка (22.11.2026)
+
+Play Mode, `MainMenu` и `Bunker(main)`:
+- вкладки: 13 / 10 / 8 / 12 строк, активная вкладка белая с красной полосой и Bold, неактивные 0.55;
+- дропдаун раскрывается (3 опции 320×40 справа), «Сброс» оставляет панель открытой и пересобирает строки, «X»/`Esc` закрывают;
+- пауза: кнопки 460×60, persistent-вызовы `PauseManager.Resume/OpenSettings/ExitToMainMenu` сохранены, выход красный;
+- миссии: карточки 816×150 (внутри 860-й колонки), детали 860×814, `LaunchButton` 812×64 с отступом 14 px, «Назад» закрывает меню;
+- подсказки: текст внутри плашки (запас 508 px для 279 px текста), клавиши читаемы;
+- рабочий стол: иконка 160×160 не пересекается с шапкой (56 px) и футером (48 px);
+- консоль Unity — 0 ошибок; геометрические проверки — без наложений и выходов за границы.
 
 
