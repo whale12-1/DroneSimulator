@@ -486,6 +486,34 @@
 * `CrashPanel` в обучении больше не показывается — он остался рабочей панелью для миссий без `TrainingManager` (`FirstMission(Forest)` его не вызывает).
 * `LiberationSans SDF - Fallback.asset` после прогонов откатан через `git checkout` (все нужные глифы есть в основном `LiberationSans SDF`).
 
+### 11.4 Клики мышью в панелях `PreparingDemo` (22.11.2026)
+
+Симптом: `Esc` открывал/закрывал паузу, но кнопки `PausePanel`, `CrashPanel` и `DebriefPanel` не реагировали на мышь (в `MainMenu` и `Bunker(main)` всё работало).
+
+| Что | Причина | Исправление | Файлы |
+|---|---|---|---|
+| Мышь не нажимает кнопки панелей | Панель отпускала курсор (`CursorLockMode.None`), `DroneFlightController.Update()` (строки 113‑119, выполняется и при `timeScale = 0`) по первому ЛКМ захватывал его, а `InputSystemUIInputModule` при `Locked` уводил UI‑указатель в `(-1,-1)` (`InputSystemUIInputModule.cs:428`) — рейкаст не попадал ни в один `Graphic` | Панели миссии держат `CursorLockMode.Confined` (не `None` — дрон не захватывает; не `Locked` — указатель жив). `MissionUIManager.LateUpdate()` при `IsModalOpen` удерживает `Confined` + `visible` | `MissionUIManager.cs`, `DebriefController.cs` |
+| «Спящий» перехватчик лучей | `ScreenFader` лежит выше панелей, его `Image`/`FadeText` имели `raycastTarget = true`, а `FadeOut()` включает `blocksRaycasts` на время перехода главы | `TrainingPanelsBuilder.HardenClickThrough()`: у фейдера `raycastTarget = false` у всех `Graphic`, `blocksRaycasts = false`, `siblingIndex = 1`; `SettingsPanel` — последний; в панелях `raycastTarget` только у `Image` кнопок и корневого скрима; `LogError` при отсутствии `GraphicRaycaster`/`EventSystem`/`InputSystemUIInputModule` | `TrainingPanelsBuilder.cs`, `PreparingDemo.unity` |
+
+Физика дрона (`DroneFlightController`, `DroneMotors`, PID, `DroneCollision`) не менялась; `MainMenu` и `Bunker(main)` не затрагивались.
+
+Проверка (Play Mode, 22.11.2026):
+
+| Сценарий | Результат |
+|---|---|
+| Прямой старт `PreparingDemo` → `Esc` | `FSM = Paused`, `timeScale = 0`, `Cursor.lockState = Confined`, `visible = true`, `IsModalOpen = true` |
+| `RaycastAll` по кнопкам паузы | верхний хит — `continue` / `settings` / `exit`, обработчик клика — сама кнопка |
+| ЛКМ при открытой панели | курсор остаётся `Confined`, указатель UI не `(-1,-1)` (замер: `pos ≈ (971, 486)`, `raycast = exit`) |
+| Имитация захвата курсора дроном (`lockState = None`) | `LateUpdate` возвращает `Confined` + `visible` |
+| «Продолжить» | `Gameplay`, `timeScale = 1`, `Locked` + `visible = false`, дрон управляется (DFC `enabled = true`) |
+| «Настройки» | `Confined`; верхний хит — `CloseButton`; `Esc` закрывает только настройки, второй `Esc` снимает паузу |
+| `CrashPanel` | `Confined`; верхние хиты `return` / `exit` |
+| `DebriefPanel` | `Confined`; верхние хиты `RetryButton` / `ReturnButton` / `MainMenuButton`; клик «Вернуться в бункер» → `Loading` → `Bunker(main)` |
+| Запуск `PreparingDemo` из `Bunker(main)` | `EventSystem = 1`, `Canvas = 1`, `MissionContext = training_mission`; пауза/клики работают идентично |
+| Консоль | 0 ошибок; `git status` — только `MissionUIManager.cs`, `DebriefController.cs`, `TrainingPanelsBuilder.cs`, `PreparingDemo.unity` (+ `Docs/`) |
+
+Примечание: при автовыборе в бункере «Тренировка» уже помечена выполненной, поэтому первым выбирается `mission_1` (`FirstMission(Forest)`). Для проверки путь из бункера запускался явно на `training_mission` (тот же код, что у кнопки «ЗАПУСТИТЬ»); запрещённая сцена не изменялась.
+
 
 
 

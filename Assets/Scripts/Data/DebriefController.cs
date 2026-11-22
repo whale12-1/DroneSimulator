@@ -101,7 +101,10 @@ public class DebriefController : MonoBehaviour
                              $"Награда: {score} очков";
         }
 
-        Cursor.lockState = CursorLockMode.None;
+        // Confined, а не None: иначе DroneFlightController по первому ЛКМ захватит
+        // курсор, а InputSystemUIInputModule уведёт указатель UI в (-1,-1) —
+        // кнопки дебрифа перестанут нажиматься (см. MissionUIManager.LateUpdate).
+        Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
     }
 

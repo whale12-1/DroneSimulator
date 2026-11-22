@@ -109,9 +109,82 @@ public static class TrainingPanelsBuilder
         trainingSo.FindProperty("subtitleText").objectReferenceValue = FindInactive("SubtitleText")?.GetComponent<TMP_Text>();
         trainingSo.ApplyModifiedPropertiesWithoutUndo();
 
+        // Гигиена кликов: убираем невидимые полноэкранные перехватчики лучей
+        // и проверяем, что в сцене есть EventSystem + GraphicRaycaster.
+        HardenClickThrough(canvas);
+
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[TrainingPanels] Панели PreparingDemo пересобраны в стиле Tactical Metal.");
+    }
+
+    /// <summary>
+    /// Гигиена кликов мышью. Билдер не должен оставлять декоративные полноэкранные
+    /// слои, которые перехватывают лучи: ScreenFader лежит выше панелей, а его
+    /// FadeOut() включает blocksRaycasts — панель под ним становится некликабельной.
+    /// Здесь же проверяется наличие EventSystem/GraphicRaycaster, без которых
+    /// мышь не работает в принципе.
+    /// </summary>
+    private static void HardenClickThrough(GameObject canvas)
+    {
+        if (canvas == null) return;
+
+        Transform canvasT = canvas.transform;
+
+        // 1) ScreenFader — под модальными панелями и полностью «прозрачный» для лучей.
+        //    raycastTarget=false гасит слой даже когда ScreenFader.FadeOut() включил
+        //    blocksRaycasts у CanvasGroup.
+        Transform fader = canvasT.Find("ScreenFader");
+        if (fader != null)
+        {
+            foreach (Graphic g in fader.GetComponentsInChildren<Graphic>(true))
+                g.raycastTarget = false;
+
+            CanvasGroup group = fader.GetComponent<CanvasGroup>();
+            if (group != null)
+            {
+                group.blocksRaycasts = false;
+                group.interactable = false;
+            }
+
+            // sibling 0 — InstructionText; фейдер идёт сразу за ним и ниже панелей.
+            fader.SetSiblingIndex(1);
+        }
+
+        // 2) Настройки открываются поверх паузы — всегда последний сиблинг.
+        Transform settings = canvasT.Find("SettingsPanel");
+        if (settings != null)
+            settings.SetSiblingIndex(canvasT.childCount - 1);
+
+        // 3) Внутри панелей кликабельны только Image самих кнопок и скрим корня.
+        string[] panelNames = { "PausePanel", "CrashPanel", "DebriefPanel" };
+        foreach (string panelName in panelNames)
+        {
+            Transform panel = canvasT.Find(panelName);
+            if (panel == null) continue;
+
+            foreach (Graphic g in panel.GetComponentsInChildren<Graphic>(true))
+            {
+                bool isButtonArt = g.GetComponent<Button>() != null;
+                g.raycastTarget = isButtonArt || g.transform == panel;
+            }
+
+            foreach (Button b in panel.GetComponentsInChildren<Button>(true))
+            {
+                b.interactable = true;
+                if (b.targetGraphic == null)
+                    b.targetGraphic = b.GetComponent<Image>();
+            }
+        }
+
+        // 4) Диагностика окружения — иначе баг вернётся молча.
+        if (canvas.GetComponent<GraphicRaycaster>() == null)
+            Debug.LogError("[TrainingPanels] На Canvas нет GraphicRaycaster — клики мышью работать не будут.");
+
+        if (Object.FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
+            Debug.LogError("[TrainingPanels] В сцене нет EventSystem — клики мышью работать не будут.");
+        else if (Object.FindAnyObjectByType<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
+            Debug.LogError("[TrainingPanels] На EventSystem нет InputSystemUIInputModule — клики мышью работать не будут.");
     }
 
     private static void BuildModal(GameObject root, string title, string subtitle, string footer,

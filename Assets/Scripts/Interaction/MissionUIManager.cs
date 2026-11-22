@@ -139,7 +139,9 @@ public class MissionUIManager : MonoBehaviour
 
         Time.timeScale = 0f;
         AudioListener.pause = true;
-        Cursor.lockState = CursorLockMode.None;
+        // Confined, а не None: DroneFlightController.Update() по ЛКМ захватывает
+        // курсор только при lockState == None (см. LateUpdate ниже).
+        Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
     }
 
@@ -252,12 +254,42 @@ public class MissionUIManager : MonoBehaviour
     private void ApplyPausedState()
     {
         Time.timeScale = 0f;
-        Cursor.lockState = CursorLockMode.None;
+        // Confined, а не None: DroneFlightController.Update() по ЛКМ захватывает
+        // курсор только при lockState == None (см. LateUpdate ниже).
+        Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
         AudioListener.pause = true;
 
         if (GameStateMachine.CanTransitionTo(GameState.Paused))
             GameStateMachine.TransitionTo(GameState.Paused);
+    }
+
+    /// <summary>
+    /// Открыта любая модалка миссии: пауза, настройки, crash-панель или дебриф.
+    /// </summary>
+    public bool IsModalOpen =>
+        (pausePanel != null && pausePanel.activeSelf) ||
+        (crashPanel != null && crashPanel.activeSelf) ||
+        (settingsPanel != null && settingsPanel.IsOpen) ||
+        GameStateMachine.Current == GameState.Debrief;
+
+    // DroneFlightController.Update() (строки 113-119) выполняется и при timeScale 0
+    // и на нажатие ЛКМ захватывает курсор, если Cursor.lockState == None.
+    // При Locked InputSystemUIInputModule уводит UI-указатель в (-1,-1)
+    // (InputSystemUIInputModule.cs:428) — клики по панели до кнопок не доходят.
+    // Confined не является ни None, ни Locked: дрон курсор не трогает, а указатель
+    // UI остаётся на экране. LateUpdate идёт после всех Update и удерживает
+    // состояние, даже если дрон успел выставить None в этом же кадре.
+    private void LateUpdate()
+    {
+        if (!IsModalOpen)
+            return;
+
+        if (Cursor.lockState != CursorLockMode.Confined)
+            Cursor.lockState = CursorLockMode.Confined;
+
+        if (!Cursor.visible)
+            Cursor.visible = true;
     }
 
     private void SetHudVisible(bool visible)

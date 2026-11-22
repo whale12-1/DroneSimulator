@@ -532,5 +532,41 @@ InstructionText (Canvas, top-right 460×176, inset 40)
 5. `FadeText` — `Center`, 64 px; `SubtitleText` — `Center`, 24 px.
 6. Консоль — 0 ошибок и 0 предупреждений проекта.
 
+### 10.5 Клики мышью в панелях миссии (22.11.2026)
+
+Симптом: `Esc` открывал и закрывал паузу, но **любые кнопки мышью** (`PausePanel`: «Продолжить»/«Настройки»/«Выйти в бункер»; `DebriefPanel`: «Повторить»/«Вернуться в бункер»/«В главное меню»; `CrashPanel`) не срабатывали. В `MainMenu` и `Bunker(main)` всё работало.
+
+Причина (Play Mode + исходники пакета Input System):
+
+| Шаг | Что происходит | Где |
+|---|---|---|
+| 1 | Панель отпускает курсор, чтобы им можно было кликать | `MissionUIManager.ApplyPausedState()` / `ShowCrashPanel()`, `DebriefController.ShowDebrief()` |
+| 2 | `DroneFlightController.Update()` выполняется и при `timeScale = 0`; на ЛКМ при `Cursor.lockState == None` захватывает курсор | `DroneFlightController.cs:113-119` |
+| 3 | При `Cursor.lockState == Locked` модуль ввода принудительно ставит UI-указатель в `(-1,-1)` | `InputSystemUIInputModule.cs:428` (`CursorLockBehavior.OutsideScreen`, дефолт) |
+| 4 | Указатель вне экрана → `raycast = NULL` → `Button.onClick` не вызывается (клик в uGUI срабатывает на отпускании) | замер: `pointer=(-1.00,-1.00)`, `raycast=NULL` |
+
+`RaycastAll` по центру кнопок при открытой паузе до фикса давал корректный топ-хит (`continue`/`settings`/`exit`), т.е. невидимого перекрытия не было — проблема была именно в позиции указателя, а не в иерархии.
+
+Решение (физика дрона не менялась):
+
+* Панели миссии держат курсор в `CursorLockMode.Confined`: это **не** `None` (дрон не захватывает курсор) и **не** `Locked` (указатель UI остаётся на экране). `MissionUIManager.LateUpdate()` при `IsModalOpen` удерживает `Confined` + `visible` (страховка на случай, если дрон выставил `None` в том же кадре).
+* `TrainingPanelsBuilder.HardenClickThrough()` (вызывается перед сохранением сцены):
+  * `ScreenFader` — `raycastTarget = false` у всех `Graphic`, `CanvasGroup.blocksRaycasts = false` / `interactable = false`, `siblingIndex = 1` (под панелями, сразу после `InstructionText`). Это закрывает второй, «спящий» дефект: `ScreenFader.FadeOut()` включает `blocksRaycasts` на время перехода главы и мог «съедать» клики;
+  * `SettingsPanel` — последний сиблинг (поверх паузы);
+  * внутри `PausePanel`/`CrashPanel`/`DebriefPanel` `raycastTarget = true` только у `Image` самих кнопок и корневого скрима;
+  * `LogError`, если на `Canvas` нет `GraphicRaycaster`, в сцене нет `EventSystem` или на нём нет `InputSystemUIInputModule`.
+
+Проверено в Play Mode (прямой старт `PreparingDemo` и запуск из `Bunker(main)`):
+
+**`PausePanel`** — `FSM = Paused`, `timeScale = 0`, `Cursor.lockState = Confined`, `visible = true`, `IsModalOpen = true`; `RaycastAll` даёт `continue`/`settings`/`exit` первым хитом; ЛКМ не переводит курсор в `Locked`; после «Продолжить» — `Gameplay`, `timeScale = 1`, `Locked` + `visible = false`, дрон управляется.
+
+**`SettingsPanel`** — `Confined`, верхний хит по `CloseButton`; `Esc` закрывает только настройки (пауза остаётся), второй `Esc` снимает паузу.
+
+**`CrashPanel`** — `Confined`; верхние хиты `return`/`exit`.
+
+**`DebriefPanel`** — `Confined`; верхние хиты `RetryButton`/`ReturnButton`/`MainMenuButton`; реальный клик по «Вернуться в бункер» → `Loading` → `Bunker(main)`.
+
+**После запуска из бункера** — `EventSystem` 1, `Canvas` 1, `MissionContext = training_mission`; пауза и клики работают так же.
+
 
 
