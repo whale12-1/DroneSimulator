@@ -176,16 +176,11 @@ public static class HorizonMeshGenerator
 
     public static Mesh BuildForestMesh(
         HorizonHeightField field,
+        Terrain terrain,
         int seed,
         int maxCards,
         out Stats stats)
     {
-        const float gridStep = 72f;
-        const float minBorder = 4500f;
-        const float maxBorder = 8600f;
-        const float cardBaseWidth = 112f;
-        const float cardBaseHeight = 18f;
-
         List<Vector3> vertices = new List<Vector3>(maxCards * 8);
         List<Vector3> normals = new List<Vector3>(maxCards * 8);
         List<Vector2> uvs = new List<Vector2>(maxCards * 8);
@@ -193,155 +188,21 @@ public static class HorizonMeshGenerator
         List<int> triangles = new List<int>(maxCards * 12);
 
         Vector2 center = field.Center;
-        float halfSpan = maxBorder + 1100f;
+        float[] treeDensity = BuildTerrainTreeDensity(terrain, 128);
         int cards = 0;
         float minHeight = float.MaxValue;
         float maxHeight = float.MinValue;
 
-        for (float z = center.y - halfSpan; z <= center.y + halfSpan; z += gridStep)
-        {
-            for (float x = center.x - halfSpan; x <= center.x + halfSpan; x += gridStep)
-            {
-                if (cards >= maxCards)
-                {
-                    break;
-                }
+        // Near/mid plain: small single-tree cards (12-18 m) in organic clusters that
+        // continue the main terrain forest and break the open land into groves.
+        PlaceForestCards(field, terrain, treeDensity, center, seed, maxCards,
+            380f, 2500f, 28f, 0.525f, 0.88f, 20f, 15f, 12f, 6f, false,
+            vertices, normals, uvs, colors, triangles, ref cards, ref minHeight, ref maxHeight);
 
-                float border = field.BorderDistance(x, z);
-                if (border < minBorder || border > maxBorder)
-                {
-                    continue;
-                }
-
-                float ridge = field.Ridge(x, z);
-                if (ridge < 0.60f)
-                {
-                    continue;
-                }
-
-                if (field.GapNoise(x, z) < 0.32f)
-                {
-                    continue;
-                }
-
-                int hashX = Mathf.FloorToInt((x - center.x) / gridStep);
-                int hashZ = Mathf.FloorToInt((z - center.y) / gridStep);
-                float place = HorizonNoise.Hash(hashX, hashZ, seed + 101);
-                if (place > 0.94f)
-                {
-                    continue;
-                }
-
-                float height = field.HeightWithBorder(x, z, out border);
-                float baseHeight = field.BaseHeight(x, z, out border);
-                if (height - baseHeight < 10f)
-                {
-                    continue;
-                }
-
-                Vector3 normal = field.Normal(x, z, 18f);
-                if (normal.y < 0.80f)
-                {
-                    continue;
-                }
-
-                // Tangent along the ridge crest (perpendicular to the ridge gradient).
-                float e = 22f;
-                float gx = field.Ridge(x + e, z) - field.Ridge(x - e, z);
-                float gz = field.Ridge(x, z + e) - field.Ridge(x, z - e);
-                Vector3 gradient = new Vector3(gx, 0f, gz);
-                Vector3 tangent = gradient.sqrMagnitude > 0.000001f
-                    ? Vector3.Cross(Vector3.up, gradient).normalized
-                    : Vector3.right;
-
-                float h1 = HorizonNoise.Hash(hashX, hashZ, seed + 103);
-                float h2 = HorizonNoise.Hash(hashX, hashZ, seed + 107);
-                float h3 = HorizonNoise.Hash(hashX, hashZ, seed + 109);
-                float h4 = HorizonNoise.Hash(hashX, hashZ, seed + 113);
-
-                tangent = Quaternion.Euler(0f, (h3 - 0.5f) * 36f, 0f) * tangent;
-
-                float width = cardBaseWidth + h1 * 42f;
-                float cardHeight = cardBaseHeight + h2 * 8f;
-
-                int speciesRow;
-                if (h4 > 0.94f)
-                {
-                    speciesRow = 3; // mixed row
-                }
-                else if (h4 < 0.45f)
-                {
-                    speciesRow = 0; // conifer
-                }
-                else if (h4 < 0.76f)
-                {
-                    speciesRow = 1; // pine
-                }
-                else
-                {
-                    speciesRow = 2; // cypress
-                }
-
-                Color tint = new Color(
-                    0.76f + h1 * 0.22f,
-                    0.80f + h2 * 0.18f,
-                    0.70f + h3 * 0.18f,
-                    1f);
-
-                for (int quad = 0; quad < 2; quad++)
-                {
-                    Vector3 direction = Quaternion.Euler(0f, quad == 0 ? 0f : 62f, 0f) * tangent;
-                    Vector3 left = new Vector3(x - direction.x * width * 0.5f, 0f, z - direction.z * width * 0.5f);
-                    Vector3 right = new Vector3(x + direction.x * width * 0.5f, 0f, z + direction.z * width * 0.5f);
-
-                    float leftHeight = field.Height(left.x, left.z);
-                    float rightHeight = field.Height(right.x, right.z);
-                    float bottom = Mathf.Min(leftHeight, rightHeight) - 2.5f;
-                    float top = Mathf.Max(leftHeight, rightHeight) + cardHeight - 1.0f;
-
-                    Vector3 rootOffset = new Vector3(-center.x, 0f, -center.y);
-                    Vector3 v0 = new Vector3(left.x, bottom, left.z) + rootOffset;
-                    Vector3 v1 = new Vector3(right.x, bottom, right.z) + rootOffset;
-                    Vector3 v2 = new Vector3(right.x, top, right.z) + rootOffset;
-                    Vector3 v3 = new Vector3(left.x, top, left.z) + rootOffset;
-
-                    float u0 = speciesRow * 0.25f + 0.004f;
-                    float u1 = (speciesRow + 1) * 0.25f - 0.004f;
-
-                    int baseIndex = vertices.Count;
-                    vertices.Add(v0);
-                    vertices.Add(v1);
-                    vertices.Add(v2);
-                    vertices.Add(v3);
-                    for (int i = 0; i < 4; i++)
-                    {
-                        normals.Add(Vector3.up);
-                        colors.Add(tint);
-                    }
-                    uvs.Add(new Vector2(0.004f, u0));
-                    uvs.Add(new Vector2(0.996f, u0));
-                    uvs.Add(new Vector2(0.996f, u1));
-                    uvs.Add(new Vector2(0.004f, u1));
-
-                    triangles.Add(baseIndex);
-                    triangles.Add(baseIndex + 1);
-                    triangles.Add(baseIndex + 2);
-                    triangles.Add(baseIndex);
-                    triangles.Add(baseIndex + 2);
-                    triangles.Add(baseIndex + 3);
-
-                    if (bottom < minHeight) minHeight = bottom;
-                    if (top > maxHeight) maxHeight = top;
-                }
-
-                cards++;
-            }
-
-            if (cards >= maxCards)
-            {
-                break;
-            }
-        }
+        // Far ridges: wider 4-tree strip cards (18-26 m) as long soft belts.
+        PlaceForestCards(field, terrain, treeDensity, center, seed, maxCards,
+            2500f, 7000f, 62f, 0.565f, 0.70f, 82f, 40f, 18f, 8f, true,
+            vertices, normals, uvs, colors, triangles, ref cards, ref minHeight, ref maxHeight);
 
         Mesh mesh = new Mesh();
         mesh.name = "Horizon_Forest_Silhouette_Mesh";
@@ -359,6 +220,223 @@ public static class HorizonMeshGenerator
         stats.MinHeight = minHeight == float.MaxValue ? 0f : minHeight;
         stats.MaxHeight = maxHeight == float.MinValue ? 0f : maxHeight;
         return mesh;
+    }
+
+    static void PlaceForestCards(
+        HorizonHeightField field, Terrain terrain, float[] treeDensity, Vector2 center,
+        int seed, int maxCards, float minBorder, float maxBorder, float gridStep,
+        float threshold, float hashPass, float baseWidth, float widthRandom,
+        float baseHeight, float heightRandom, bool fullRow,
+        List<Vector3> vertices, List<Vector3> normals, List<Vector2> uvs,
+        List<Color> colors, List<int> triangles, ref int cards,
+        ref float minHeight, ref float maxHeight)
+    {
+        float halfSpan = maxBorder + 1100f;
+        for (float z = center.y - halfSpan; z <= center.y + halfSpan; z += gridStep)
+        {
+            for (float x = center.x - halfSpan; x <= center.x + halfSpan; x += gridStep)
+            {
+                if (cards >= maxCards) return;
+
+                float border = field.BorderDistance(x, z);
+                if (border < minBorder || border > maxBorder) continue;
+
+                // Organic clusters + anisotropic belts: natural groves and elongated
+                // tree lines instead of a regular grid or a contour ring.
+                float organic = OrganicScore(x, z, seed);
+                float borderDensity = SampleDensity(treeDensity, 128, terrain, x, z);
+                float borderBoost = (1f - Mathf.SmoothStep(0f, 1f,
+                    Mathf.InverseLerp(700f, 2200f, border))) * borderDensity;
+                if (organic < threshold - borderBoost * 0.16f) continue;
+                if (HorizonNoise.Fbm(x / 420f, z / 420f, 2, seed + 223) < 0.36f) continue;
+
+                int hashX = Mathf.FloorToInt((x - center.x) / gridStep);
+                int hashZ = Mathf.FloorToInt((z - center.y) / gridStep);
+                if (HorizonNoise.Hash(hashX, hashZ, seed + 101) > hashPass) continue;
+
+                Vector3 normal = field.Normal(x, z, 16f);
+                if (normal.y < 0.82f) continue;
+
+                float h1 = HorizonNoise.Hash(hashX, hashZ, seed + 103);
+                float h2 = HorizonNoise.Hash(hashX, hashZ, seed + 107);
+                float h3 = HorizonNoise.Hash(hashX, hashZ, seed + 109);
+                float h4 = HorizonNoise.Hash(hashX, hashZ, seed + 113);
+                float h5 = HorizonNoise.Hash(hashX, hashZ, seed + 127);
+
+                Vector3 tangent;
+                if (fullRow)
+                {
+                    float e = 28f;
+                    float gx = OrganicScore(x + e, z, seed) - OrganicScore(x - e, z, seed);
+                    float gz = OrganicScore(x, z + e, seed) - OrganicScore(x, z - e, seed);
+                    Vector3 gradient = new Vector3(gx, 0f, gz);
+                    tangent = gradient.sqrMagnitude > 0.000001f
+                        ? Vector3.Cross(Vector3.up, gradient).normalized
+                        : Vector3.right;
+                    tangent = Quaternion.Euler(0f, (h3 - 0.5f) * 30f, 0f) * tangent;
+                }
+                else
+                {
+                    tangent = Quaternion.Euler(0f, h3 * 360f, 0f) * Vector3.right;
+                }
+
+                float width = baseWidth + h1 * widthRandom;
+                float cardHeight = baseHeight + h2 * heightRandom;
+
+                int speciesRow;
+                if (h4 > 0.95f)
+                {
+                    speciesRow = 3; // mixed row
+                }
+                else if (h4 < 0.45f)
+                {
+                    speciesRow = 0; // conifer
+                }
+                else if (h4 < 0.76f)
+                {
+                    speciesRow = 1; // pine
+                }
+                else
+                {
+                    speciesRow = 2; // cypress
+                }
+
+                Color tint = new Color(
+                    0.74f + h1 * 0.22f,
+                    0.78f + h2 * 0.18f,
+                    0.68f + h3 * 0.18f,
+                    1f);
+
+                float vStart = speciesRow * 0.25f + 0.004f;
+                float vEnd = (speciesRow + 1) * 0.25f - 0.004f;
+                float uStart = 0.004f;
+                float uEnd = 0.996f;
+                if (!fullRow)
+                {
+                    // Near/mid cards show a single tree cell instead of a 4-tree strip.
+                    int column = Mathf.Clamp((int)(h5 * 4f), 0, 3);
+                    uStart = column * 0.25f + 0.006f;
+                    uEnd = (column + 1) * 0.25f - 0.006f;
+                }
+
+                for (int quad = 0; quad < 2; quad++)
+                {
+                    Vector3 direction = Quaternion.Euler(0f, quad == 0 ? 0f : 64f, 0f) * tangent;
+                    Vector3 left = new Vector3(x - direction.x * width * 0.5f, 0f, z - direction.z * width * 0.5f);
+                    Vector3 right = new Vector3(x + direction.x * width * 0.5f, 0f, z + direction.z * width * 0.5f);
+
+                    float leftHeight = field.Height(left.x, left.z);
+                    float rightHeight = field.Height(right.x, right.z);
+                    float bottom = Mathf.Min(leftHeight, rightHeight) - (fullRow ? 2.5f : 1.4f);
+                    float top = Mathf.Max(leftHeight, rightHeight) + cardHeight - (fullRow ? 1.0f : 0.3f);
+
+                    Vector3 rootOffset = new Vector3(-center.x, 0f, -center.y);
+                    Vector3 v0 = new Vector3(left.x, bottom, left.z) + rootOffset;
+                    Vector3 v1 = new Vector3(right.x, bottom, right.z) + rootOffset;
+                    Vector3 v2 = new Vector3(right.x, top, right.z) + rootOffset;
+                    Vector3 v3 = new Vector3(left.x, top, left.z) + rootOffset;
+
+                    int baseIndex = vertices.Count;
+                    vertices.Add(v0);
+                    vertices.Add(v1);
+                    vertices.Add(v2);
+                    vertices.Add(v3);
+                    for (int i = 0; i < 4; i++)
+                    {
+                        normals.Add(Vector3.up);
+                        colors.Add(tint);
+                    }
+                    uvs.Add(new Vector2(uStart, vStart));
+                    uvs.Add(new Vector2(uEnd, vStart));
+                    uvs.Add(new Vector2(uEnd, vEnd));
+                    uvs.Add(new Vector2(uStart, vEnd));
+
+                    triangles.Add(baseIndex);
+                    triangles.Add(baseIndex + 1);
+                    triangles.Add(baseIndex + 2);
+                    triangles.Add(baseIndex);
+                    triangles.Add(baseIndex + 2);
+                    triangles.Add(baseIndex + 3);
+
+                    if (bottom < minHeight) minHeight = bottom;
+                    if (top > maxHeight) maxHeight = top;
+                }
+
+                cards++;
+            }
+        }
+    }
+
+    static float OrganicScore(float x, float z, int seed)
+    {
+        float cluster = HorizonNoise.Fbm(x / 620f, z / 620f, 3, seed + 201);
+        float belt = HorizonNoise.Fbm(x / 2500f, z / 820f, 3, seed + 211);
+        return cluster * 0.62f + belt * 0.38f;
+    }
+
+    // Builds a smooth forest-density mask from the main terrain's SpeedTree instances.
+    // Horizon trees get denser where the real forest touches the border, so the far
+    // forest visually continues the playable forest instead of starting from nothing.
+    static float[] BuildTerrainTreeDensity(Terrain terrain, int resolution)
+    {
+        int res = Mathf.Max(8, resolution);
+        float[] density = new float[res * res];
+        TreeInstance[] trees = terrain.terrainData.treeInstances;
+        for (int i = 0; i < trees.Length; i++)
+        {
+            int x = Mathf.Clamp(Mathf.RoundToInt(trees[i].position.x * (res - 1)), 0, res - 1);
+            int z = Mathf.Clamp(Mathf.RoundToInt(trees[i].position.z * (res - 1)), 0, res - 1);
+            density[z * res + x] += 1f;
+        }
+
+        float[] blurred = new float[density.Length];
+        for (int pass = 0; pass < 2; pass++)
+        {
+            for (int z = 0; z < res; z++)
+            {
+                int z0 = Mathf.Max(z - 1, 0);
+                int z1 = Mathf.Min(z + 1, res - 1);
+                for (int x = 0; x < res; x++)
+                {
+                    int x0 = Mathf.Max(x - 1, 0);
+                    int x1 = Mathf.Min(x + 1, res - 1);
+                    float sum = 0f;
+                    for (int zz = z0; zz <= z1; zz++)
+                    {
+                        for (int xx = x0; xx <= x1; xx++)
+                        {
+                            sum += density[zz * res + xx];
+                        }
+                    }
+                    blurred[z * res + x] = sum / 9f;
+                }
+            }
+
+            float[] swap = density;
+            density = blurred;
+            blurred = swap;
+        }
+
+        float max = 0.0001f;
+        for (int i = 0; i < density.Length; i++)
+        {
+            max = Mathf.Max(max, density[i]);
+        }
+        for (int i = 0; i < density.Length; i++)
+        {
+            density[i] = Mathf.Clamp01(density[i] / (max * 0.65f));
+        }
+        return density;
+    }
+
+    static float SampleDensity(float[] density, int resolution, Terrain terrain, float x, float z)
+    {
+        int res = Mathf.Max(8, resolution);
+        Vector3 position = terrain.transform.position;
+        Vector3 size = terrain.terrainData.size;
+        int px = Mathf.Clamp((int)(((x - position.x) / Mathf.Max(size.x, 0.001f)) * (res - 1)), 0, res - 1);
+        int pz = Mathf.Clamp((int)(((z - position.z) / Mathf.Max(size.z, 0.001f)) * (res - 1)), 0, res - 1);
+        return density[pz * res + px];
     }
 }
 

@@ -219,7 +219,7 @@ public static class HorizonEnvironmentBuilder
 
         HorizonMeshGenerator.Stats forestStats;
         Mesh forestMesh = HorizonMeshGenerator.BuildForestMesh(
-            field, Seed, MaxForestCards, out forestStats);
+            field, terrain, Seed, MaxForestCards, out forestStats);
         forestMesh = SaveMeshAsset(forestMesh, ForestMeshPath);
 
         report.AppendLine("  ground: vertices=" + groundStats.Vertices + " triangles=" + groundStats.Triangles +
