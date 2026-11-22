@@ -231,10 +231,26 @@
 Прочее по сцене:
 
 * **Кольца**: `BoxCollider` всех трёх арок приведён к мировому AABB рендерера (учтён поворот 270° по X — раньше Y и Z были перепутаны).
-* **VFX целей**: `VehicleHealth.explosionVFX` = `BigExplosion`, `VehicleModule.destroyedVFX` = `VFX_Fire_01_Medium_Smoke`, `smokeVFX` = `SmokeEffect`, `DestructibleWallZone` (`FrontWall`) = `Prefabs/Buildings/dust`.
+* **VFX целей** (актуально на 22.11.2026): `VehicleHealth.explosionVFX` = `BigExplosion` — у танка, у `generator` и у макета 1-й главы `potujnojet` (у макета заменён с `WildFire`); `VehicleModule.destroyedVFX` = `VFX_Fire_01_Medium_Smoke`, `VehicleModule.smokeVFX` = `None` (дубль убран); `DestructibleWallZone` (`FrontWall`): `dustFx` = `SmallExplosion` (одноразовый), `debrisPrefab` = `Prefabs/Buildings/dust`.
 * **`DebriefCamera`**: `(-49.0, 57.7, -40.8)` — обзорный ракурс на танк вместо мирового нуля.
 * **Панель краха в обучении не открывается**: потерю борта обрабатывает `TrainingManager` (замена через 1.5 с unscaled). `CrashPanel` остался как страховка для миссий без `TrainingManager`.
 * **`Mission1.asset`**: `targetCount = 3` — дебриф показывает «Целей уничтожено: 3 / 3» и 175 очков.
+
+### 7.1 Летающий огонь в главе 3 (исправлено 22.11.2026)
+
+**Симптом:** при прогрессе `1 / 3` справа от танка в воздухе висела горизонтальная полоса огня.
+
+**Причина:** макет 1-й главы `Env_Chapter1/potujnojet` имел `VehicleHealth.explosionVFX = WildFire` (3 системы, `loop = true`, `StopAction = None`). При уничтожении макета `VehicleHealth.DestroyVehicle()` делает `Instantiate(explosionVFX, hitPoint, ...)` без родителя и без `Destroy`, а `TrainingManager.CleanupChapter()` чистит только `ParticleSystem` внутри `envChapter1/2/3`. Клон в корне сцены переживал переход глав и в главе 3 оказывался в **35 м справа от танка** на высоте ≈ 5.5 м (точка попадания по макету, висящему на `y = 5`).
+
+**Исправление:**
+* `potujnojet.explosionVFX` → `BigExplosion` (8 систем, `loop = false`, `StopAction = Destroy` — самоудаляется за ~2 с);
+* `VehicleModule.smokeVFX` очищен у всех трёх модулей (раньше `destroyedVFX` и `smokeVFX` указывали на один префаб → два клона по 11 систем на модуль);
+* `DestructibleWallZone.dustFx` → `SmallExplosion` (`DustExplosion` не подходит: 5/5 систем `loop = true`);
+* `VehicleModule`: поле `destroyedVfxLifetime` + пропуск дубля `smokeVFX == destroyedVFX`, фолбэк позиции — `Collider/Renderer.bounds.center` вместо `transform.position`;
+* `VehicleHealth`: поле `explosionVfxLifetime` + авто-время жизни для префабов с циклическими `ParticleSystem`;
+* `TrainingManager.DestroyOrphanRootVfx()` в `TransitionToChapter` удаляет корневые объекты `*(Clone)` с `ParticleSystem` (дочерние эффекты дронов и `Canvas` не затрагиваются).
+
+**Проверка (Play Mode):** `WildFire` не создаётся; `BigExplosion(Clone)` самоудаляется; после уничтожения 1 модуля — ровно **один** клон `VFX_Fire_01_Medium_Smoke` (11 систем, 129 частиц) на танке; после перехода главы корневых VFX-клонов **0**; огня у стены нет.
 
 
 

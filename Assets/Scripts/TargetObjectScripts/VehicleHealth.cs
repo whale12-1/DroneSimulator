@@ -5,6 +5,8 @@ public class VehicleHealth : MonoBehaviour, IDamageable
     [Header("Прочность и Визуал")]
     public float totalHealth = 300f;
     public GameObject explosionVFX;
+    [Tooltip("Через сколько секунд удалять клон explosionVFX. 0 = авто: для циклических эффектов время считается по ParticleSystem, одноразовые удаляют себя сами.")]
+    [SerializeField] private float explosionVfxLifetime = 0f;
     public Transform turretTransform;
     [SerializeField] private Material overallBurntMaterial;
 
@@ -108,7 +110,13 @@ public class VehicleHealth : MonoBehaviour, IDamageable
         if (explosionVFX != null)
         {
             Vector3 spawnPos = lastHitPoint != Vector3.zero ? lastHitPoint : transform.position + Vector3.up * 1.2f;
-            Instantiate(explosionVFX, spawnPos, Quaternion.identity);
+            GameObject fx = Instantiate(explosionVFX, spawnPos, Quaternion.identity);
+
+            // WildFire и подобные префабы — циклические (loop = true, StopAction = None):
+            // без ограничения времени они горят до конца сцены и «переезжают» в следующие главы.
+            float lifetime = explosionVfxLifetime;
+            if (lifetime <= 0f) lifetime = ResolveLoopingVfxLifetime(explosionVFX);
+            if (lifetime > 0f) Destroy(fx, lifetime);
         }
 
         EWEmitter emitter = GetComponent<EWEmitter>();
@@ -146,5 +154,29 @@ public class VehicleHealth : MonoBehaviour, IDamageable
 
         GameEvents.RaiseVehicleDestroyed(this);
         Debug.Log("<color=red>ТЕХНИКА ПОЛНОСТЬЮ УНИЧТОЖЕНА!</color>");
+    }
+
+    // Возвращает безопасное время жизни для эффекта, внутри которого есть
+    // циклические ParticleSystem (0 — эффект одноразовый и удаляет себя сам).
+    private static float ResolveLoopingVfxLifetime(GameObject prefab)
+    {
+        if (prefab == null) return 0f;
+
+        bool hasLooping = false;
+        float longest = 0f;
+
+        foreach (ParticleSystem particles in prefab.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            if (particles == null) continue;
+
+            ParticleSystem.MainModule main = particles.main;
+            if (!main.loop) continue;
+
+            hasLooping = true;
+            longest = Mathf.Max(longest, main.duration + main.startLifetime.constantMax);
+        }
+
+        if (!hasLooping) return 0f;
+        return Mathf.Clamp(longest, 5f, 60f);
     }
 }

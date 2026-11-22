@@ -221,6 +221,11 @@ public class TrainingManager : MonoBehaviour
         CleanupChapter(envChapter2);
         CleanupChapter(envChapter3);
 
+        // Бесхозные рантайм-клоны эффектов (Instantiate без родителя) не попадают
+        // в CleanupChapter: они висят в корне сцены. Пример — WildFire от макета
+        // 1-й главы, который «уезжал» в 3-ю главу и висел в воздухе справа от танка.
+        DestroyOrphanRootVfx();
+
         if (nextChapter == TrainingChapter.Completed)
         {
             // Финальный шаг выставляем явно: раньше он оставался Chapter3_DestroyModules,
@@ -459,7 +464,22 @@ public class TrainingManager : MonoBehaviour
         ShowSubtitle("Сигнал восстановлен", 1.5f);
     }
 
-    // Гасим только эффекты/звуки указанной главы (точечная очистка).
+    // Удаляем только корневые объекты-клоны с ParticleSystem: эффекты дронов и
+    // Canvas не затрагиваются, потому что они дочерние.
+    private static void DestroyOrphanRootVfx()
+    {
+        GameObject[] roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+
+        foreach (GameObject root in roots)
+        {
+            if (root == null) continue;
+            if (!root.name.EndsWith("(Clone)", System.StringComparison.Ordinal)) continue;
+            if (root.GetComponent<ParticleSystem>() == null) continue;
+
+            Destroy(root);
+        }
+    }
+
     // Гасим только эффекты/звуки указанной главы (точечная очистка).
     // ParticleSystem.Clear вместо Stop: у систем с sub-emitters Unity пишет
     // предупреждение «Sub-emitters may not use stop actions». Сама глава

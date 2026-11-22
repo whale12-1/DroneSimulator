@@ -514,6 +514,47 @@
 
 Примечание: при автовыборе в бункере «Тренировка» уже помечена выполненной, поэтому первым выбирается `mission_1` (`FirstMission(Forest)`). Для проверки путь из бункера запускался явно на `training_mission` (тот же код, что у кнопки «ЗАПУСТИТЬ»); запрещённая сцена не изменялась.
 
+---
+
+## 12. Летающий огонь и дубли VFX в `PreparingDemo` (22.11.2026)
+
+**Симптом:** на 3-м этапе обучения (`Прогресс: 1 / 3`) справа от танка у стены ангара в воздухе висела горизонтальная полоса огня.
+
+### 12.1 Причина
+
+| Что | Детали |
+|---|---|
+| Источник огня | `WildFire(Clone)` от уничтожения макета 1-й главы `Env_Chapter1/potujnojet` |
+| Почему в воздухе | макет стоит на `(-50, 5, -100)`, `WildFire` спавнится в точке попадания (`y ≈ 5.5`) |
+| Почему не исчезает | `WildFire.prefab` — 3 системы с `loop = true` и `StopAction = None`; `Instantiate` в `VehicleHealth.DestroyVehicle()` без родителя и без `Destroy` |
+| Почему пережил смену главы | `TrainingManager.CleanupChapter()` чистит только `ParticleSystem` внутри `envChapter1/2/3`, а клон висит в корне сцены |
+| Где виден | в главе 3 спавн `Chapter3_spawn` смотрит на танк: клон оказывается в 35.5 м справа (`+34` по X), на 5.5 м над полом |
+| Дубли модулей | у всех трёх `VehicleModule` `destroyedVFX` и `smokeVFX` указывали на один `VFX_Fire_01_Medium_Smoke` → **2 клона × 11 систем** на каждый уничтоженный модуль, оба вечные |
+
+### 12.2 Исправление
+
+| Файл | Изменение |
+|---|---|
+| `PreparingDemo.unity` | `potujnojet.explosionVFX`: `WildFire` → `BigExplosion`; у `Object_3/Object_12/Object_17` (Optics/Tracks/Engine) `smokeVFX` → `None`; `FrontWall.dustFx`: `dust` → `SmallExplosion` |
+| `VehicleModule.cs` | новое поле `destroyedVfxLifetime`; `SpawnEffect()` c `Destroy(fx, lifetime)` при `> 0`; второй клон не создаётся, если `smokeVFX == destroyedVFX`; фолбэк позиции — `GetModuleCenter()` (`Collider.bounds.center` → `Renderer.bounds.center` → `transform.position`) |
+| `VehicleHealth.cs` | новое поле `explosionVfxLifetime`; `ResolveLoopingVfxLifetime()` — авто-время жизни (`Clamp(duration + startLifetime, 5…60 c)`) для префабов с `loop = true` |
+| `TrainingManager.cs` | `DestroyOrphanRootVfx()` вызывается в `TransitionToChapter` после `CleanupChapter`; удаляет только корневые `*(Clone)` с `ParticleSystem` |
+
+Ассеты `WildFire.prefab` и `VFX_Fire_01_Medium_Smoke.prefab` **не менялись** (используются в `FirstMission(Forest)`); `DustExplosion.prefab` не выбран для стены, т.к. все его 5 систем `loop = true`.
+
+### 12.3 Проверка (Play Mode, `PreparingDemo`)
+
+| Сценарий | Результат |
+|---|---|
+| Уничтожение макета 1-й главы | создан только `BigExplosion(Clone)` в `(-50, 5.5, -96)`; `WildFire`-систем в сцене **0** |
+| Через ~2 с | `BigExplosion(Clone)` удалился сам (`StopAction = Destroy`) — корневых PS-объектов 0 |
+| Переход в главу 3 (`TransitionToChapter`) | `Env_Chapter1/2 = inactive`, `Env_Chapter3 = active`, `step = Chapter3_Start` |
+| Уничтожение 1 модуля (Tracks) | `Прогресс: 1 / 3`; ровно **1** клон `VFX_Fire_01_Medium_Smoke` (11 систем, 129 частиц) в точке удара `(-78.5, 2.2, -104)` |
+| Старый огонь у стены | огневых рендереров в радиусе 20 м от `(-50, 5.5, -96)` — **0**; на скриншоте с `Chapter3_spawn` огня справа от танка нет |
+| Искусственный бесхозный `WildFire(Clone)` + вызов `DestroyOrphanRootVfx()` | клон удалён; дочерние эффекты и `Canvas` не затронуты |
+| Повторный переход главы | клон модуля очищен, корневых PS-объектов **0** |
+| Консоль Unity | **0 ошибок** |
+
 
 
 
