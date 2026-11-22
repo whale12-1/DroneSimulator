@@ -24,6 +24,9 @@ public class FPVZoom : MonoBehaviour
     {
         if (cam == null) return;
 
+        // На паузе зум не крутим и поле зрения не меняем.
+        if (Time.timeScale <= 0f) return;
+
         // Если зум отключен для этого дрона — плавный сброс к дефолтному FOV
         if (config != null && !config.allowZoom)
         {
@@ -37,25 +40,16 @@ public class FPVZoom : MonoBehaviour
 
             int maxIndex = GetZoomLevelsCount() - 1;
 
-            // Увеличение кратности (уменьшение FOV)
             if (Input.GetKeyDown(zoomInKey))
             {
-                if (currentZoomIndex < maxIndex)
-                {
-                    currentZoomIndex++;
-                }
+                if (currentZoomIndex < maxIndex) currentZoomIndex++;
             }
 
-            // Уменьшение кратности (увеличение FOV)
             if (Input.GetKeyDown(zoomOutKey))
             {
-                if (currentZoomIndex > 0)
-                {
-                    currentZoomIndex--;
-                }
+                if (currentZoomIndex > 0) currentZoomIndex--;
             }
 
-            // Плавный переход к целевому FOV
             float targetFOV = GetZoomLevel(currentZoomIndex);
             currentFov = Mathf.Lerp(currentFov, targetFOV, Time.deltaTime * GetZoomSpeed());
         }

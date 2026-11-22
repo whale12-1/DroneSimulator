@@ -74,6 +74,9 @@ public class MissionSelectScreen : UIScreen
 
     // При открытии терминала правая панель сразу показывает брифинг, а не пустое
     // состояние: выбираем первую доступную миссию (иначе — первую в списке).
+    // При открытии терминала правая панель сразу показывает брифинг. Приоритет:
+    // первая непройденная доступная миссия (после прохождения «Тренировки»
+    // сразу выделяется «БТР и РСЗО»), затем первая доступная, затем первая в списке.
     private void SelectDefaultMission()
     {
         if (cards.Count == 0) return;
@@ -84,9 +87,22 @@ public class MissionSelectScreen : UIScreen
         {
             if (card == null || card.Mission == null) continue;
             if (!ProgressService.IsUnlocked(card.Mission)) continue;
+            if (ProgressService.IsCompleted(card.Mission)) continue;
 
             defaultCard = card;
             break;
+        }
+
+        if (defaultCard == null)
+        {
+            foreach (MissionCardView card in cards)
+            {
+                if (card == null || card.Mission == null) continue;
+                if (!ProgressService.IsUnlocked(card.Mission)) continue;
+
+                defaultCard = card;
+                break;
+            }
         }
 
         if (defaultCard == null) defaultCard = cards[0];

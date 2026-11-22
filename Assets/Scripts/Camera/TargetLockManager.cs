@@ -21,6 +21,8 @@ public class TargetLockManager : MonoBehaviour
 
     private void Update()
     {
+        if (Time.timeScale <= 0f) return; // пауза: ввод захвата цели не обрабатываем
+
         // Если конфиг отсутствует или на дроне отключен автозахват — сбрасываем цель и не обрабатываем ввод
         if (config != null && !config.allowTargetLock)
         {

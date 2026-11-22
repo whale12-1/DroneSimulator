@@ -31,13 +31,14 @@ public class ReconHUD : MonoBehaviour
 
         if (MissionUIManager.IsHudHidden) return;
 
-        // Проверяем тип камеры из конфига или модуля
         CameraType camType = (config != null) ? config.cameraType : (cameraModule != null ? cameraModule.CurrentCameraType : CameraType.StrikeFixed);
         if (camType != CameraType.ReconGimbal) return;
 
         Matrix4x4 previousMatrix = HudStyleService.Begin();
 
-        Color hudColor = (config != null) ? config.reconColor : new Color(1f, 0.85f, 0.2f, 0.9f);
+        // Tactical Metal: стальной основной цвет, красный — только захват цели.
+        Color hudColor = TacticalUITheme.Steel;
+        Color accentColor = TacticalUITheme.AccentRed;
         float lineWidth = HudStyleService.LineThickness((config != null) ? config.hudLineWidth : 2f);
         float minBoxSize = (config != null) ? config.minBoxSize : 20f;
         float crosshairSize = HudStyleService.CrosshairSize((config != null) ? config.crosshairSize : HudStyleService.DefaultCrosshairSize);
@@ -58,22 +59,22 @@ public class ReconHUD : MonoBehaviour
             targetWorldPos = hit.point;
         }
 
-        // 2. Отрисовка центрального перекрестия дальномера
+        // 2. Перекрестие дальномера
         Vector2 center = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         float crosshairArm = crosshairSize * 0.5f;
         DrawRect(new Rect(center.x - crosshairArm, center.y - 1f, crosshairSize, 2f));
         DrawRect(new Rect(center.x - 1f, center.y - crosshairArm, 2f, crosshairSize));
 
-        // 3. Информационный блок OSD
-        GUI.Label(new Rect(25, 25, 350, 20), "[RECON GIMBAL ACTIVE]", style);
-        GUI.Label(new Rect(25, 45, 350, 20), $"ALT: {transform.position.y:F1}m  |  LRF DIST: {(distance > 0 ? $"{distance:F0}m" : "N/A")}", style);
+        // 3. Информационный блок OSD (русский, как весь интерфейс)
+        GUI.Label(new Rect(25, 25, 420, 20), "[КАМЕРА РАЗВЕДКИ АКТИВНА]", style);
+        GUI.Label(new Rect(25, 45, 420, 20), $"ВЫС: {transform.position.y:F1} м  |  ДАЛЬНОСТЬ: {(distance > 0 ? $"{distance:F0} м" : "Н/Д")}", style);
 
         if (distance > 0)
         {
-            GUI.Label(new Rect(25, 65, 350, 20), $"GRID POS: X:{targetWorldPos.x:F0} Z:{targetWorldPos.z:F0}", style);
+            GUI.Label(new Rect(25, 65, 420, 20), $"СЕТКА: X:{targetWorldPos.x:F0} Z:{targetWorldPos.z:F0}", style);
         }
 
-        // 4. Отрисовка динамической адаптивной рамки цели
+        // 4. Адаптивная рамка цели
         if (lockManager != null && lockManager.currentLockedTarget != null)
         {
             TargetObject target = lockManager.currentLockedTarget;
@@ -114,10 +115,16 @@ public class ReconHUD : MonoBehaviour
 
                     Rect targetRect = new Rect(centerX - width * 0.5f, centerY - height * 0.5f, width, height);
 
+                    GUI.color = HudStyleService.ApplyAlpha(accentColor);
+                    style.normal.textColor = HudStyleService.Opaque(accentColor);
+
                     if (HudStyleService.TargetFrameVisible(true)) DrawBoxOutline(targetRect, lineWidth);
 
-                    GUI.Label(new Rect(targetRect.x, targetRect.y - 18f, 200f, 20f), $"LOCKED: {target.targetName.ToUpper()}", style);
-                    GUI.Label(new Rect(targetRect.x, targetRect.yMax + 2f, 200f, 20f), $"DIST: {Vector3.Distance(transform.position, target.TargetPosition):F0}m", style);
+                    GUI.Label(new Rect(targetRect.x, targetRect.y - 18f, 240f, 20f), $"ЗАХВАТ: {target.targetName.ToUpper()}", style);
+                    GUI.Label(new Rect(targetRect.x, targetRect.yMax + 2f, 240f, 20f), $"ДИСТ: {Vector3.Distance(transform.position, target.TargetPosition):F0} м", style);
+
+                    GUI.color = HudStyleService.ApplyAlpha(hudColor);
+                    style.normal.textColor = HudStyleService.Opaque(hudColor);
                 }
             }
         }

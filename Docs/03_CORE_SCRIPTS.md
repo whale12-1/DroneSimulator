@@ -291,6 +291,43 @@ EWReceiver ──► EWService.SampleJamAt, PostFxRouter
 | Поменять HUD | `StrikeHUD.OnGUI()` / `ReconHUD.OnGUI()` + `HudStyleService` |
 | Поменять вид «рабочего стола» в бункере | `ComputerUIController` + префаб `MissionSelectPanel` |
 
+---
+
+## 12. Fix-QA тренировки: изменения скриптов (22.11.2026)
+
+### 12.1 Новые файлы
+
+| Файл | Роль |
+|---|---|
+| `Assets/Scripts/Core/GameStateBootstrap.cs` (static) | `EnsureGameplayState()`: поднимает `SettingsService` (если сцену запустили напрямую) и доводит FSM по матрице `Boot → MainMenu → Loading → Gameplay`. Вызывается из `MissionController.Awake()` |
+| `Assets/Scripts/Editor/TrainingPanelsBuilder.cs` | меню `Tools ▸ DroneSimulator ▸ Mission UI ▸ Rebuild Training Panels`: in-place пересборка `PausePanel` / `CrashPanel` / `DebriefPanel`, стилизация `InstructionText`/`FadeText`/`SubtitleText`, назначение ссылок. Идемпотентен, корни панелей сохраняются |
+
+### 12.2 Изменённые скрипты
+
+| Скрипт | Что изменено |
+|---|---|
+| `TrainingGate` | событие стало `event Action<TrainingGate>` (отдаёт саму арку), добавлен `ResetGate()`; цвет кольца кэшируется и восстанавливается |
+| `TrainingManager` | учёт колец через `HashSet<TrainingGate>` + `ResetGateProgress()` при входе в `StrikeFlyGates` и после замены борта → softlock `2/3` невозможен; респавн через `StartCoroutine(RespawnStrikeDroneRoutine)` на `WaitForSecondsRealtime(1.5f)` + субтитр «БОРТ ПОТЕРЯН»; `CleanupChapter()` вместо глобального удаления `ParticleSystem`/`AudioSource`; `trainingHints` скрывает `InstructionText`; `TrainingStep.Completed` выставляется явно; `DroneManager.RespawnPoint` переключается по главам |
+| `ScreenFader` | `Time.unscaledDeltaTime`, `WaitForSecondsRealtime`, поле `holdSeconds` — переход главы не зависает при `timeScale = 0` |
+| `MissionController` | FSM-бутстрап через `GameStateBootstrap`; `CrashPanel` больше не открывается там, где есть `TrainingManager` (магическая строка `"PreparingDemo"` убрана); из `Paused` сначала возврат в `Gameplay`, потом `Debrief` |
+| `MissionUIManager` | пауза/настройки: `OpenPause`, `OpenSettings`, `ApplyPausedState` (`timeScale = 0`, `AudioListener.pause = true`, FSM `Paused`), `HandleEscapePressed()` (приоритет: настройки → пауза → игра), `AudioListener.pause = false` при продолжении/дебрифе/выходе, `ReturnToMainMenu()`, `RestartMission()` по `MissionContext.Current.sceneName` с рестартом через `Loading`, кнопки панелей подписываются кодом (рекурсивный поиск внутри `Plate`) |
+| `DebriefController` | кнопки `RetryMission()` / `ReturnToMainMenu()` (плюс прежний `ReturnToMenu`), `Esc` = «вернуться в бункер», защита от `MissionContext.Current == null`, семантические цвета `TacticalUITheme.StatusCompleted/StatusLocked` |
+| `DroneManager` | роль дрона (`DroneConfig.droneRole`) вместо подстроки `"FPV"`; границы полигона: `IsOutOfBounds`, события `OutOfBoundsStarted/Ended`, автовозврат в зону через `outOfBoundsGrace`; `ResolveSpawnPosition()` (raycast вниз) — спавн у поверхности; свойство `RespawnPoint` |
+| `DroneConfig` | новый `enum DroneRole { Recon, Strike, Interceptor }` и поле `droneRole` |
+| `GameStateMachine` | `Loading` разрешён из `Gameplay` и `Paused` (рестарт миссии идёт через `Loading`) |
+| `MissionSelectScreen` | автовыбор: первая **непройденная** доступная миссия → первая доступная → первая в списке |
+| `UISoundService` | `AudioSource.ignoreListenerPause = true` — клики UI слышны при `AudioListener.pause` |
+| `TargetLockManager`, `FPVZoom`, `NightVisionController` | ранний выход при `Time.timeScale <= 0` (ввод не двигает шаги/зум/ПНВ на паузе) |
+| `ReconHUD`, `StrikeHUD` | OSD локализован (`[КАМЕРА РАЗВЕДКИ АКТИВНА]`, `ЗАХВАТ:`, `ВЗВЕДЁН / КУМУЛЯТИВНЫЙ`, `[ВНИМАНИЕ: ПОМЕХИ РЭБ n%]`), палитра Tactical Metal: `Steel` + `AccentRed` для захвата/предупреждений |
+
+### 12.3 Ресурсы и префабы
+
+* `Assets/Settings/PC_Renderer.asset` — фича переименована в `Night Vision Feature` (совпадает со строкой в `NightVisionController`);
+* `Assets/Prefabs/Drones/StrikeDrone 1.prefab` — `NightVisionController.config = SmallFpvHeatConfig`, `isNightVisionActive = false`; то же поле сброшено в `GimbalDrone Variant.prefab`;
+* `DroneConfigs/*.asset` — `droneRole` (Mavic = Recon, SmallFpv = Strike, Intersector = Interceptor);
+* `Resources/Missions/Mission1.asset` — `targetCount = 3`.
+
+
 
 
 

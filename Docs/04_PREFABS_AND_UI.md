@@ -470,4 +470,67 @@ Play Mode, `MainMenu` и `Bunker(main)`:
 3. Пластина: внутри круга `maxChroma = 4`; в зоне бывшего текста нет пикселей > 60 (mean 9.9 против 9.8 у соседнего чистого фона); буквы N/E/S/W и красные дуги на месте.
 4. Консоль Unity — 0 ошибок; `Temp/UIAudit/` удалён.
 
+---
+
+## 10. UI тренировочной миссии `PreparingDemo` в стиле Tactical Metal (22.11.2026)
+
+Раньше панели миссии были legacy-вёрсткой: спрайт `UISprite`, серая заливка кнопок `(0.25,0.25,0.25)`, затемнение 0.39, текст «Вы рызбились», плейсхолдеры `MISSION`/`STATS`, кнопки 320×70. Теперь панели собираются по тому же стандарту, что `MainMenu` и `Bunker(main)`.
+
+### 10.1 Структура панелей
+
+```
+PausePanel / CrashPanel            DebriefPanel
+ └ Scrim (0,0,0,0.62)               └ Scrim (0,0,0,0.62)
+    └ Plate 560×620                    └ Plate 720×640
+       ├ Frame 2 px + 4 красных уголка    ├ Frame 2 px + 4 красных уголка
+       ├ Title 30 Bold                    ├ DebriefTitle 30 Bold
+       ├ Subtitle 15 (0.62)               ├ AccentRule 3 px #DB143D
+       ├ AccentRule 3 px #DB143D          ├ DebriefStats 18 (0.62), 600×170
+       ├ 3 × Button 460×60                ├ RetryButton     460×60 «ПОВТОРИТЬ»
+       └ Footer 11 (0.45)                 ├ ReturnButton    460×60 «ВЕРНУТЬСЯ В БУНКЕР»
+                                          ├ MainMenuButton  460×60 красная «В ГЛАВНОЕ МЕНЮ»
+                                          └ Footer 11 (0.45)
+```
+
+* Плита — `UI Starter Pack_0` (HUF Pack), заливка `TacticalUITheme.PanelFill`; кнопки — `UI Starter Pack_1`, `ColorBlock` из `TacticalUITheme.ButtonColorBlock()`.
+* «Опасные» действия (выход в бункер/меню) — заливка `#DB143D`, остальные — белые с тинтом.
+* Тексты: «БОРТ ПОТЕРЯН» / «СВЯЗЬ С БОРТОМ ПРЕРВАНА» / «Перезапустить»; исправлены «Вы разбились», лишняя кавычка и хвостовые пробелы.
+* Кнопки подписываются **кодом** (`MissionUIManager` / `DebriefController`), persistent-вызовов нет; клики и наведение озвучены (`UISoundService`, `AudioBus.UI`).
+* `SettingsPanel` в миссии — тот же инстанс префаба, что в бункере: 4 вкладки 13/10/8/12.
+
+### 10.2 Подсказка инструктора и субтитры
+
+```
+InstructionText (Canvas, top-right 460×176, inset 40)
+ ├ Image = UI Starter Pack_0 (0.03/0.035/0.04, α 0.92)
+ ├ Frame + AccentBar слева (4 px #DB143D)
+ └ Label (TMP 18, TopLeft, margin 24/14) ← TrainingManager.instructionText
+```
+
+* Клавиши в тексте выделены `#DB143D` (было `#00FF00`).
+* Корень скрывается паузой (`MissionUIManager.SetHudVisible`), настройка «Подсказки обучения» очищает текст.
+* `SubtitleText` (низ экрана, TMP 24, Center) — канал уведомлений инструктора; `FadeText` заголовков глав — `Center`, 64 px (заголовок больше не смещён влево на ~500 px).
+
+### 10.3 HUD (IMGUI)
+
+`ReconHUD`/`StrikeHUD` переведены на русский и палитру Tactical Metal:
+
+| Было | Стало |
+|---|---|
+| `[RECON GIMBAL ACTIVE]`, `ALT:`, `LRF DIST:`, `GRID POS:` | `[КАМЕРА РАЗВЕДКИ АКТИВНА]`, `ВЫС:`, `ДАЛЬНОСТЬ:`, `СЕТКА:` |
+| `LOCKED:`, `DIST:` | `ЗАХВАТ:`, `ДИСТ:` |
+| `[FPV-7 HEAT]`, `ARMED / HEAT` | `[УДАРНЫЙ БОРТ · FPV-7 HEAT]`, `ВЗВЕДЁН / КУМУЛЯТИВНЫЙ` |
+| `[WARNING: EW JAMMING n%]` | `[ВНИМАНИЕ: ПОМЕХИ РЭБ n%]` |
+| зелёный `hudColor`/`reconColor` из конфига | `TacticalUITheme.Steel`, красный `AccentRed` только для рамки захвата и предупреждений |
+
+### 10.4 Проверка (Play Mode, 22.11.2026)
+
+1. `PausePanel`: scrim 0.62, плита 560×620, кнопки 460×60 (170/242/314 сверху), «Выйти в бункер» красная; клик «Продолжить» → `timeScale = 1`, `FSM = Gameplay`, звук снят с паузы.
+2. «Настройки» → `SettingsPanel` поверх паузы, вкладки 13/10/8/12; `Esc` закрывает настройки (пауза остаётся), второй `Esc` снимает паузу.
+3. `InstructionText`: плашка + Label 18, клавиша `[W]` цвета `#DB143D`; в паузе корень скрыт, после — текст восстановлен.
+4. `DebriefPanel`: «МИССИЯ ВЫПОЛНЕНА» (30, семантический зелёный), статистика 18 «3 / 3 · 175 очков», три кнопки 460×60; «ПОВТОРИТЬ» → `Loading` и перезапуск миссии, «В ГЛАВНОЕ МЕНЮ» → `MainMenu`.
+5. `FadeText` — `Center`, 64 px; `SubtitleText` — `Center`, 24 px.
+6. Консоль — 0 ошибок и 0 предупреждений проекта.
+
+
 

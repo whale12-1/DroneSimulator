@@ -54,6 +54,9 @@ public static class UISoundService
         source.volume = 1f;
         source.outputAudioMixerGroup = AudioBus.UI;
 
+        // Клики UI должны быть слышны и при AudioListener.pause = true (пауза игры).
+        source.ignoreListenerPause = true;
+
         return source;
     }
 

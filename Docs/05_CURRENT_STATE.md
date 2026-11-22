@@ -424,6 +424,69 @@
 | Полный цикл `MainMenu → Bunker → Pause → Settings → ComputerOS → MissionSelect → MainMenu → Bunker` | без ошибок, без дублей синглтонов (`SceneLoader/SettingsService/Pause/Computer = 1`) |
 | Консоль Unity | 0 ошибок проекта (только известный внешний warning VideoPlayer `Color primaries`) |
 
+---
+
+## 11. Fix-QA тренировочной миссии `PreparingDemo` (22.11.2026)
+
+Сквозной аудит цикла `Bunker(main) → ComputerOS → PreparingDemo → пауза/настройки → победа/поражение → Bunker(main)` выявил 4 критичных, 16 средних и 10 мелких дефектов. Исправления выполнены четырьмя этапами, каждый — с проверкой в Play Mode.
+
+### 11.1 Что исправлено
+
+| ID | Проблема | Исправление | Файлы |
+|---|---|---|---|
+| **C1** | Кольца «сгорали» до шага полосы препятствий → `2/3` и softlock | `TrainingGate.OnGatePassed` отдаёт арку; учёт в `TrainingManager` (`HashSet`) + `ResetGateProgress()` при входе в `StrikeFlyGates` и после замены борта | `TrainingGate.cs`, `TrainingManager.cs` |
+| **C2** | Панель краха в обучении замораживала время и отменяла респавн | `CrashPanel` не открывается при наличии `TrainingManager`; респавн на `WaitForSecondsRealtime(1.5f)` + субтитр «БОРТ ПОТЕРЯН · ЗАМЕНА» | `MissionController.cs`, `TrainingManager.cs` |
+| **C3** | Переход главы зависал при `timeScale = 0` | `ScreenFader` на `unscaledDeltaTime` / `WaitForSecondsRealtime` | `ScreenFader.cs` |
+| **C4** | Прямой старт `PreparingDemo`: FSM оставался в `Boot`, дебрифа и прогресса нет | `GameStateBootstrap.EnsureGameplayState()` (+ `SettingsService`) в `MissionController.Awake`; защита дебрифа от `MissionContext.Current == null` | `GameStateBootstrap.cs` (новый), `MissionController.cs`, `DebriefController.cs` |
+| **M1** | В паузе миссии не было настроек | Кнопка «Настройки» + инстанс `SettingsPanel.prefab`, `MissionUIManager.OpenSettings`, `Esc`: настройки → пауза → игра | `PreparingDemo.unity`, `MissionUIManager.cs` |
+| **M2** | Пауза не останавливала звук, FSM не переходил в `Paused` | `ApplyPausedState`: `timeScale = 0`, `AudioListener.pause = true`, FSM `Paused`; клики UI через `ignoreListenerPause` | `MissionUIManager.cs`, `UISoundService.cs` |
+| **M3** | `mapCenter = NULL` — границ полигона и «потери сигнала» не было | `MapCenter`, `safeRadius 220` / `maxRadius 300`, `outOfBoundsGrace 5 с`, события + автовозврат в зону, субтитр-предупреждение | `DroneManager.cs`, `TrainingManager.cs`, сцена |
+| **M4** | `spawnPosChapter3 = Chapter2_spawn` — 315 м до танка | Отдельный `Chapter3_spawn` (45 м), `DroneManager.RespawnPoint` переключается по главам | сцена, `TrainingManager.cs`, `DroneManager.cs` |
+| **M5** | Дебриф «3 / 1» | `Mission1.targetCount = 3` → «3 / 3», 175 очков | `Mission1.asset` |
+| **M6** | Панели миссии в legacy-стиле (`UISprite`, серые кнопки, «Вы рызбились», `MISSION`/`STATS`) | `TrainingPanelsBuilder`: scrim 0.62, плита HUF, рамка + красные уголки, кнопки 460×60, TMP 30/24/18/15/11, исправленные тексты | `TrainingPanelsBuilder.cs` (новый), сцена |
+| **M7** | `InstructionText` — мелкий текст без плашки, зелёные кейкапы; `FadeText` смещён влево | Плашка Tactical Metal + `Label` 18, кейкапы `#DB143D`; `FadeText` → `Center` 64 | `TrainingPanelsBuilder.cs`, `TrainingManager.cs` |
+| **M8** | HUD на английском, зелёная палитра | OSD локализован, палитра `Steel` + `AccentRed` для захвата/РЭБ | `ReconHUD.cs`, `StrikeHUD.cs` |
+| **M9** | ПНВ не работал: фича `NightVisionFeature` ≠ `"Night Vision Feature"` | Фича переименована в `Night Vision Feature`; `config` назначен; ложный `isNightVisionActive` сброшен | `PC_Renderer.asset`, префабы дронов |
+| **M10** | Поиск ударного дрона по подстроке `"FPV"` | `DroneConfig.droneRole` (+ фолбэк по имени для старых конфигов) | `DroneConfig.cs`, `DroneManager.cs`, `.asset` |
+| **M11** | Ввод двигал обучение/зум/захват/ПНВ на паузе | Guard `Time.timeScale <= 0` в `TrainingManager`, `DroneManager`, `TargetLockManager`, `FPVZoom`, `NightVisionController` | перечисленные скрипты |
+| **M12** | `RestartMission()` всегда грузил `PreparingDemo`, без `Loading` | Рестарт по `MissionContext.Current?.sceneName`, FSM через `Loading`; `Loading` разрешён из `Gameplay`/`Paused` | `MissionUIManager.cs`, `GameStateMachine.cs` |
+| **M13** | В дебрифе только «Вернуться в бункер» | Добавлены «ПОВТОРИТЬ» и «В ГЛАВНОЕ МЕНЮ» (+ `Esc` = в бункер) | `DebriefController.cs`, сцена |
+| **M14** | Смена главы удаляла все `ParticleSystem`/глушила `AudioSource` в сцене | `CleanupChapter()` — только эффекты/звуки уходящих глав (`ParticleSystem.Clear`, без предупреждений sub-emitters) | `TrainingManager.cs` |
+| **M15** | `trainingHints` без потребителя, субтитров нет | `trainingHints` скрывает текст инструктора; отдельный канал `SubtitleText` с `subtitlesEnabled`/`subtitleFontSize` | `TrainingManager.cs`, сцена |
+| **M16** | Два активных `AudioListener` | `AudioListener` удалён у `BackgroundCamera` | сцена |
+| **m1** | `TrainingStep.Completed` не выставлялся | Шаг и глава выставляются явно перед завершением | `TrainingManager.cs` |
+| **m2** | Дрон падал с 10 м при спавне | `ResolveSpawnPosition()` — raycast до опоры + зазор 0.8 м | `DroneManager.cs` |
+| **m3** | Триггеры колец не совпадали с арками (перепутаны оси) | BoxCollider = мировой AABB рендерера с учётом поворота | сцена |
+| **m4** | Пустые VFX/дым у целей, модулей и стены | `BigExplosion`, `VFX_Fire_01_Medium_Smoke`, `SmokeEffect`, `dust` | сцена |
+| **m6** | `DebriefCamera` в `(0,0,0)` | Ракурс `(-49, 57.7, -40.8)` на танк | сцена |
+| **m9** | После возврата выделялась пройденная миссия | Автовыбор первой непройденной доступной миссии | `MissionSelectScreen.cs` |
+| **m10** | «Борт можно заменить» противоречило поведению | Теперь соответствует: замена борта реально работает | `TrainingManager.cs` |
+
+**Не менялось (по решению):** `Mission1.description` (m5), бонус за время/`timeLimit` (m7), `GimbalDrone Variant/DroneCollision.config` (m8).
+
+### 11.2 Проверка (Play Mode, 22.11.2026)
+
+| Сценарий | Результат |
+|---|---|
+| Прямой старт `PreparingDemo` | `FSM = Gameplay`, `SettingsService` поднят, настройки применены (FOV 100, farClip 2000); завершение → `Debrief` |
+| Кольца | ранний пролёт игнорируется, при входе в шаг сбрасывается, 3/3 → `StrikeDestroyTarget` |
+| Потеря борта | `CrashPanel` не открывается, `timeScale = 1`, субтитр «БОРТ ПОТЕРЯН · ЗАМЕНА 1.5 с», новый борт на земле (y ≈ 0.9), шаг сохранён |
+| Переход глав | глава 2 у дома, глава 3 — 45 м от танка (было 315 м); фейдер работает и при `timeScale = 0` |
+| Пауза/настройки | `Esc` → `Paused`, `timeScale 0`, звук на паузе; настройки 13/10/8/12; `Esc` → пауза → игра |
+| ПНВ | фича найдена, `N` включает/выключает, ошибок `[NV]` нет |
+| Границы | вылет за `maxRadius` → помехи 100 %, субтитр, через 5 с возврат в зону |
+| Дебриф | «3 / 3», 175 очков, `progress.json` записан, «Тренировка» помечена выполненной |
+| Возврат в бункер | игрок сидит, ОС и меню миссий открыты, автовыбор «БТР и РСЗО» |
+| Выход в меню | бункер → пауза → «Выйти в главное меню» → `MainMenu`, синглтоны по 1 |
+| Консоль | **0 ошибок и 0 предупреждений проекта** (внешний `Color primaries` остаётся) |
+
+### 11.3 Известные ограничения
+
+* Быстрый повторный клик по «Играть» **во время** экрана загрузки `MainMenu` может «съесть» загрузку (`SceneLoader` игнорирует повторный вызов, FSM остаётся в `Loading`); повторный клик восстанавливает переход. UI-загрузка блокирует клики, поэтому в обычной игре сценарий маловероятен.
+* `CrashPanel` в обучении больше не показывается — он остался рабочей панелью для миссий без `TrainingManager` (`FirstMission(Forest)` его не вызывает).
+* `LiberationSans SDF - Fallback.asset` после прогонов откатан через `git checkout` (все нужные глифы есть в основном `LiberationSans SDF`).
+
+
 
 
 

@@ -11,6 +11,8 @@ public class DebriefController : MonoBehaviour
     [SerializeField] private TMP_Text statsText;
     [SerializeField] private Button returnToMenuButton;
     [SerializeField] private Camera debriefCamera;
+    [SerializeField] private Button retryButton;
+    [SerializeField] private Button mainMenuButton;
 
     private bool isReturning = false;
 
@@ -18,13 +20,32 @@ public class DebriefController : MonoBehaviour
     {
         GameStateMachine.StateChanged += OnStateChanged;
 
-        if (returnToMenuButton != null)
-        {
-            returnToMenuButton.onClick.RemoveAllListeners();
-            returnToMenuButton.onClick.AddListener(ReturnToMenu);
-        }
+        WireButton(returnToMenuButton, ReturnToMenu);
+        WireButton(retryButton, RetryMission);
+        WireButton(mainMenuButton, ReturnToMainMenu);
 
-        panel.SetActive(false);
+        if (panel != null) UISoundService.Attach(panel);
+        if (panel != null) panel.SetActive(false);
+    }
+
+    private static void WireButton(Button button, UnityEngine.Events.UnityAction action)
+    {
+        if (button == null) return;
+
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(action);
+    }
+
+    // Esc в дебрифе = «Вернуться в бункер» (как обещает футер панели).
+    private void Update()
+    {
+        if (panel == null || !panel.activeSelf) return;
+
+        UnityEngine.InputSystem.Keyboard keyboard = UnityEngine.InputSystem.Keyboard.current;
+        if (keyboard == null) return;
+        if (!keyboard.escapeKey.wasPressedThisFrame) return;
+
+        ReturnToMenu();
     }
 
     private void OnDestroy()
@@ -42,32 +63,43 @@ public class DebriefController : MonoBehaviour
 
     private void ShowDebrief()
     {
-        panel.SetActive(true);
+        if (panel != null) panel.SetActive(true);
 
         if (debriefCamera != null)
         {
             debriefCamera.gameObject.SetActive(true);
         }
 
-        var result = MissionContext.LastResult;
-        var mission = MissionContext.Current;
+        MissionResult result = MissionContext.LastResult;
+        MissionDefinition mission = MissionContext.Current;
 
-        if (result == MissionResult.Success)
+        if (titleText != null)
         {
-            titleText.text = "МИССИЯ ВЫПОЛНЕНА";
-            titleText.color = Color.green;
+            if (result == MissionResult.Success)
+            {
+                titleText.text = "МИССИЯ ВЫПОЛНЕНА";
+                titleText.color = TacticalUITheme.StatusCompleted;
+            }
+            else
+            {
+                titleText.text = "МИССИЯ ПРОВАЛЕНА";
+                titleText.color = TacticalUITheme.StatusLocked;
+            }
         }
-        else
+
+        // Прямой запуск сцены (без выбора миссии) оставляет MissionContext пустым:
+        // дебриф обязан работать и в этом случае, а не падать на mission.targetCount.
+        int targetCount = mission != null ? mission.targetCount : MissionContext.LastTargetsDestroyed;
+        int score = mission != null
+            ? ProgressService.ComputeScore(mission, result, MissionContext.LastTimeElapsed, MissionContext.LastTargetsDestroyed)
+            : 0;
+
+        if (statsText != null)
         {
-            titleText.text = "МИССИЯ ПРОВАЛЕНА";
-            titleText.color = Color.red;
+            statsText.text = $"Время: {MissionContext.LastTimeElapsed:F1} сек\n" +
+                             $"Целей уничтожено: {MissionContext.LastTargetsDestroyed} / {targetCount}\n" +
+                             $"Награда: {score} очков";
         }
-
-        int score = ProgressService.ComputeScore(mission, result, MissionContext.LastTimeElapsed, MissionContext.LastTargetsDestroyed);
-
-        statsText.text = $"Время: {MissionContext.LastTimeElapsed:F1} сек\n" +
-                         $"Целей уничтожено: {MissionContext.LastTargetsDestroyed} / {mission.targetCount}\n" +
-                         $"Награда: {score} очков";
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -97,6 +129,54 @@ public class DebriefController : MonoBehaviour
             SceneLoader.Instance.LoadAsync("Bunker(main)");
 
         StartCoroutine(ResetReturnFlagAfterTimeout(5f));
+    }
+
+    /// <summary>Повторить текущую миссию (из дебрифа, через Loading).</summary>
+    public void RetryMission()
+    {
+        if (isReturning) return;
+        isReturning = true;
+
+        if (panel != null) panel.SetActive(false);
+        if (debriefCamera != null) debriefCamera.gameObject.SetActive(false);
+
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        string sceneName = MissionContext.Current != null && !string.IsNullOrEmpty(MissionContext.Current.sceneName)
+            ? MissionContext.Current.sceneName
+            : "PreparingDemo";
+
+        if (GameStateMachine.CanTransitionTo(GameState.Loading))
+            GameStateMachine.TransitionTo(GameState.Loading);
+
+        SceneLoader.EnsureInstance();
+        if (SceneLoader.Instance != null)
+            SceneLoader.Instance.LoadAsync(sceneName);
+    }
+
+    /// <summary>Выход в главное меню (из дебрифа).</summary>
+    public void ReturnToMainMenu()
+    {
+        if (isReturning) return;
+        isReturning = true;
+
+        if (panel != null) panel.SetActive(false);
+        if (debriefCamera != null) debriefCamera.gameObject.SetActive(false);
+
+        Time.timeScale = 1f;
+        AudioListener.pause = false;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        if (GameStateMachine.CanTransitionTo(GameState.MainMenu))
+            GameStateMachine.TransitionTo(GameState.MainMenu);
+
+        SceneLoader.EnsureInstance();
+        if (SceneLoader.Instance != null)
+            SceneLoader.Instance.LoadAsync("MainMenu");
     }
 
     private IEnumerator ResetReturnFlagAfterTimeout(float seconds)

@@ -2,8 +2,11 @@ using UnityEngine;
 
 public class TrainingGate : MonoBehaviour
 {
-    // Статическое событие, чтобы менеджер обучения мог на него подписаться
-    public static event System.Action OnGatePassed;
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    public static event System.Action<TrainingGate> OnGatePassed;
+
+    private Color originalColor = Color.white;
+    private bool hasOriginalColor;
 
     private bool isPassed = false;
     private Renderer meshRenderer;
@@ -18,15 +21,50 @@ public class TrainingGate : MonoBehaviour
     {
         if (isPassed) return;
 
-        // Проверяем, что пролетел именно дрон
         if (other.CompareTag("Drone") || other.GetComponentInParent<DroneFlightController>() != null)
         {
-            isPassed = true;
-            OnGatePassed?.Invoke();
+            CacheOriginalColor();
 
-            // Меняем цвет на зеленый для визуального фидбека
-            if (meshRenderer != null)
-                meshRenderer.material.color = new Color(0.2f, 1f, 0.2f, 0.5f); // Полупрозрачный зеленый
+            isPassed = true;
+            SetPassedVisual(true);
+            OnGatePassed?.Invoke(this);
         }
     }
+
+    /// <summary>
+    /// Р’РѕР·РІСЂР°С‰Р°РµС‚ РєРѕР»СЊС†Рѕ РІ РёСЃС…РѕРґРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ: РїСЂРѕР»С‘С‚ СЃРЅРѕРІР° РІС‹Р·РѕРІРµС‚ OnGatePassed.
+    /// Р’С‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё РІС…РѕРґРµ РІ С€Р°Рі В«РїРѕР»РѕСЃР° РїСЂРµРїСЏС‚СЃС‚РІРёР№В» Рё РїРѕСЃР»Рµ Р·Р°РјРµРЅС‹ Р±РѕСЂС‚Р°.
+    /// </summary>
+    public void ResetGate()
+    {
+        isPassed = false;
+        SetPassedVisual(false);
+    }
+
+    private void CacheOriginalColor()
+    {
+        if (hasOriginalColor) return;
+
+        if (meshRenderer == null) meshRenderer = GetComponent<Renderer>();
+        if (meshRenderer == null) meshRenderer = GetComponentInChildren<Renderer>();
+        if (meshRenderer == null) return;
+
+        originalColor = meshRenderer.material.color;
+        hasOriginalColor = true;
+    }
+
+    private void SetPassedVisual(bool passed)
+    {
+        if (meshRenderer == null) return;
+
+        if (passed)
+        {
+            meshRenderer.material.color = new Color(0.2f, 1f, 0.2f, 0.5f);
+            return;
+        }
+
+        if (hasOriginalColor)
+            meshRenderer.material.color = originalColor;
+    }
+
 }

@@ -7,11 +7,21 @@ public enum WarheadType
     Thermobaric   // Термобарическая
 }
 
+// Явная роль борта: раньше DroneManager искал ударный дрон по подстроке "FPV"
+// в имени конфига, что ломалось при переименовании.
+public enum DroneRole
+{
+    Recon,
+    Strike,
+    Interceptor
+}
+
 [CreateAssetMenu(fileName = "NewDroneConfig", menuName = "FPV/Drone Config")]
 public class DroneConfig : ScriptableObject
 {
     [Header("1. Идентификация и Боевая Часть")]
     public string droneName = "FPV-7 PG-7VL";
+    public DroneRole droneRole = DroneRole.Recon;
     public WarheadType warheadType = WarheadType.HEAT;
     public float directDamage = 250f;
     public float splashRadius = 1.5f;

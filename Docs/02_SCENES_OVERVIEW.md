@@ -212,5 +212,30 @@
 | `PreparingDemo` | `TrainingManager` | `TrainingManager → MissionController.CompleteMission` | `MissionUIManager` | `DebriefController` |
 | `FirstMission(Forest)` | `AmbushMissionDirector` | `AmbushMissionDirector → MissionController.CompleteMission` | `MissionUIManager` | `DebriefController` |
 
+---
+
+## 7. `PreparingDemo` после Fix-QA тренировки (22.11.2026)
+
+Сцена изменена в рамках исправления блокеров `C1–C4` / `M1–M16` / мелких пунктов (см. `05` §11). Новые и изменённые объекты:
+
+| Объект | Что это | Зачем |
+|---|---|---|
+| `MapCenter` (root) | `(-75, 0, -260)` | центр полигона для `DroneManager.mapCenter`; `safeRadius = 220`, `maxRadius = 300`, `outOfBoundsGrace = 5 с` |
+| `Chapter3_spawn` (root) | `(-84.0, 10.7, -150.8)`, смотрит на танк | отдельная точка спавна главы 3: **45 м** до танка вместо 315 м (`Chapter2_spawn`) |
+| `SubtitleText` (Canvas) | TMP 24, Center, низ экрана `1200×110` | канал субтитров инструктора («БОРТ ПОТЕРЯН · ЗАМЕНА», «СИГНАЛ ТЕРЯЕТСЯ»); уважает `gameplay.subtitlesEnabled` и `subtitleFontSize` |
+| `SettingsPanel` (Canvas) | инстанс `Prefabs/UI/SettingsPanel.prefab` | настройки из паузы миссии |
+| `InstructionText` (Canvas) | корень с `Image`-плашкой + дочерний `Label` (TMP) | плашка Tactical Metal; `TrainingManager.instructionText` → `Label`, `MissionUIManager.instructionText` → корень (скрывается паузой) |
+| `BackgroundCamera` | **без** `AudioListener` | второй слушатель давал предупреждения Unity и «плавающее» 3D-аудио |
+| `PausePanel` / `CrashPanel` / `DebriefPanel` | пересобраны редакторским билдером | см. `04` §10 |
+
+Прочее по сцене:
+
+* **Кольца**: `BoxCollider` всех трёх арок приведён к мировому AABB рендерера (учтён поворот 270° по X — раньше Y и Z были перепутаны).
+* **VFX целей**: `VehicleHealth.explosionVFX` = `BigExplosion`, `VehicleModule.destroyedVFX` = `VFX_Fire_01_Medium_Smoke`, `smokeVFX` = `SmokeEffect`, `DestructibleWallZone` (`FrontWall`) = `Prefabs/Buildings/dust`.
+* **`DebriefCamera`**: `(-49.0, 57.7, -40.8)` — обзорный ракурс на танк вместо мирового нуля.
+* **Панель краха в обучении не открывается**: потерю борта обрабатывает `TrainingManager` (замена через 1.5 с unscaled). `CrashPanel` остался как страховка для миссий без `TrainingManager`.
+* **`Mission1.asset`**: `targetCount = 3` — дебриф показывает «Целей уничтожено: 3 / 3» и 175 очков.
+
+
 
 
