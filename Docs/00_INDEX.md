@@ -1,7 +1,7 @@
 # DroneSimulator — Context Base (индекс)
 
 > Версия документа: **1.1**
-> Дата генерации: **21.11.2026**; обновление **22.11.2026** — унификация UI `MainMenu` / `Bunker(main)` (см. `04` §8, `05` §9)
+> Дата генерации: **21.11.2026**; обновление **22.11.2026** — унификация UI `MainMenu` / `Bunker(main)` (см. `04` §8, `05` §9), исправление отображения карточек списка миссий (`04` §3.1–3.2, `05` §9.6)
 > Движок: **Unity 6000.6.0f1**, **URP** (PC_RPAsset / PC_Renderer), цветовое пространство **Gamma** (`m_ActiveColorSpace: 0`)
 > Ввод: `activeInputHandler: 2` — **Both** (старый `Input.*` и новый Input System работают одновременно)
 > Область аудита: **5 сцен** — `Boot`, `MainMenu`, `Bunker(main)`, `PreparingDemo`, `FirstMission(Forest)`

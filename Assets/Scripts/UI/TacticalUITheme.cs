@@ -65,6 +65,12 @@ public static class TacticalUITheme
     public const float MissionCardWidth = 840f;
     public const float MissionCardHeight = 150f;
 
+    /// <summary>Фон вертикального списка карточек миссий (подложка Scroll View).</summary>
+    public static readonly Color MissionListFill = new Color(0.015f, 0.016f, 0.018f, 0.96f);
+
+    /// <summary>Заливка плашки карточки миссии — контрастнее фона списка.</summary>
+    public static readonly Color MissionCardFill = new Color(0.13f, 0.14f, 0.155f, 1f);
+
     public const float SafeMargin = 64f;
 
     // ---------------------------------------------------------------- шрифты

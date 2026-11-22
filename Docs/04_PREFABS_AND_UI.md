@@ -129,7 +129,7 @@ MissionSelectPanel [Image (непрозрачный PanelFill), CanvasGroup, Mis
 │   ├─ Rule            2 px
 │   └─ BackButton      160×56, HUF #1 + AccentRed ← backButton
 ├─ Scroll View (x 80…940, y 186…1000, вертикальный ScrollRect)
-│   ├─ Viewport (840×814, RectMask2D)
+│   ├─ Viewport (840×814, только RectMask2D — без Image-based Mask)
 │   │   └─ Content (VLG + CSF)      ← cardsContainer (карточки создаются в рантайме)
 │   │       └─ (MissionCard 840×150, spacing 12)
 │   └─ Scrollbar Vertical (8 px, HUF #28)
@@ -154,10 +154,12 @@ MissionSelectPanel [Image (непрозрачный PanelFill), CanvasGroup, Mis
 
 > С 22.11.2026 `Content` — вертикальный список (`VerticalLayoutGroup` + `ContentSizeFitter`), карточки 840×150, `cardsContainer` указывает на `Scroll View/Viewport/Content`. Горизонтальный `Scrollbar Horizontal` удалён. Все размеры рассчитаны на Canvas 1920×1080.
 
+> **22.11.2026 — исправлена невидимость карточек (legacy `Mask`).** На `Viewport` вместе с `RectMask2D` оставался старый `UnityEngine.UI.Mask` (`showMaskGraphic = false`) от первой вёрстки, а билдер при переходе на `RectMask2D` сделал `Image` у `Viewport` полностью прозрачным (`alpha = 0`). Материал `Mask` включает `UNITY_UI_ALPHACLIP`, поэтому при alpha = 0 он **не пишет stencil**, и все дочерние графики карточек (`Stencil Comp: Equal`) отсекаются — левая колонка выглядела сплошным чёрным прямоугольником. Клики при этом работали: raycast-фильтр `Mask`/`RectMask2D` проверяет только попадание в прямоугольник, а не альфу. Теперь `Viewport` содержит **только** `RectMask2D` (компоненты: `RectTransform`, `CanvasRenderer`, `Image` с alpha 0, `RectMask2D`), а `MissionSelectPanelBuilder.BuildScrollView()` при каждом прогоне удаляет legacy `Mask` через `DestroyImmediate`. Подложка списка — `TacticalUITheme.MissionListFill` (0.015/0.016/0.018, α 0.96), чтобы плашки карточек читались.
+
 ### 3.2 `MissionCard.prefab`
 
 ```
-MissionCard [Image (flat 0.10/0.11/0.12), Button, LayoutElement 840×150, MissionCardView]
+MissionCard [Image (flat 0.13/0.14/0.155 ≈ #212428), Button, LayoutElement 840×150, MissionCardView]
 ├─ Preview (Image 200×126, слева)       ← previewImage
 ├─ NameText (TMP 22 Bold)               ← nameLabel
 ├─ MetaText (TMP 14, TextSecondary)     ← metaText
@@ -169,6 +171,8 @@ MissionCard [Image (flat 0.10/0.11/0.12), Button, LayoutElement 840×150, Missio
 ```
 
 > Плитка карточки — плоская заливка: спрайт `#12` при растяжении 840×150 давал внутренние линии поверх превью и текста.
+
+> С 22.11.2026 заливка плашки — `TacticalUITheme.MissionCardFill` (0.13/0.14/0.155 ≈ `#212428`), контрастнее подложки списка `MissionListFill`; раньше было 0.10/0.11/0.12, и карточка почти сливалась с фоном. Порядок отрисовки детей фиксирован: `Preview → NameText → MetaText → isCompleted → LockedOverlay → SelectedFrame` (иначе `MetaText` рисовался поверх затемнения и оставался ярким на заблокированной карточке). Порядок задаётся в `MissionSelectPanelBuilder.NormalizeCardOrder()`.
 
 ### 3.3 `SettingsPanel.prefab`
 
@@ -295,6 +299,8 @@ restorer.IsRestoring                        → выйти
 | `AccentRed` | `(0.86, 0.08, 0.24)` #DB143D | выход, закрытие, сброс, «Назад», «Запустить», красные уголки рамки |
 | `PanelFill` | `(0.045, 0.05, 0.055, 0.985)` | тело модальной панели |
 | `PanelFillSoft` | `(0.075, 0.08, 0.09, 0.98)` | панель деталей миссии, шапка ОС |
+| `MissionListFill` | `(0.015, 0.016, 0.018, 0.96)` | подложка списка карточек миссий (`Scroll View`) |
+| `MissionCardFill` | `(0.13, 0.14, 0.155)` ≈ `#212428` | плашка карточки миссии |
 | `ControlPlate` | `(0.16, 0.17, 0.19)` | плашка дропдауна/вкладки |
 | `Scrim` | `(0,0,0,0.62)` | затемнение под модалкой |
 | `TextPrimary` / `TextSecondary` / `TextCaption` | `white` / `white 0.62` / `white 0.45` | заголовки / подписи / мелкие метки |
@@ -360,6 +366,7 @@ Play Mode, `MainMenu` и `Bunker(main)`:
 - дропдаун раскрывается (3 опции 320×40 справа), «Сброс» оставляет панель открытой и пересобирает строки, «X»/`Esc` закрывают;
 - пауза: кнопки 460×60, persistent-вызовы `PauseManager.Resume/OpenSettings/ExitToMainMenu` сохранены, выход красный;
 - миссии: карточки 816×150 (внутри 860-й колонки), детали 860×814, `LaunchButton` 812×64 с отступом 14 px, «Назад» закрывает меню;
+- список миссий (22.11.2026): обе карточки видимы и читаемы — плашка `#212428` на подложке `MissionListFill`, превью 200×126, заголовок 22 Bold, метаданные, замок + «ЗАБЛОКИРОВАНО» (затемнение накрывает всю карточку), выбранная подсвечена рамкой `#DB143D` и детали справа переключаются (см. §3.1);
 - подсказки: компактные белые надписи без плашек (TMP 20 / 18 px, `Outline` 0,0,0,0.85 при 1.5 px), `InteractionHint` на 75 % высоты, `SittingHint` в 52 px от низа; при одновременном показе (сидя + взгляд на терминал) вертикальный зазор 162 px — без наложений;
 - рабочий стол: иконка 160×160 не пересекается с шапкой (56 px) и футером (48 px);
 - консоль Unity — 0 ошибок; геометрические проверки — без наложений и выходов за границы.

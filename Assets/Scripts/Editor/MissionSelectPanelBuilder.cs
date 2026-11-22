@@ -169,7 +169,7 @@ public static class MissionSelectPanelBuilder
         rt.offsetMin = new Vector2(80f, 80f);
         rt.offsetMax = new Vector2(-980f, -186f);
 
-        Image background = TacticalUIBuilder.EnsureImage(scroll, null, new Color(0.02f, 0.022f, 0.025f, 0.92f), Image.Type.Simple);
+        Image background = TacticalUIBuilder.EnsureImage(scroll, null, TacticalUITheme.MissionListFill, Image.Type.Simple);
         background.raycastTarget = true;
 
         ScrollRect scrollRect = scroll.GetComponent<ScrollRect>();
@@ -187,6 +187,13 @@ public static class MissionSelectPanelBuilder
         viewportRT.pivot = new Vector2(0.5f, 0.5f);
         viewportRT.offsetMin = Vector2.zero;
         viewportRT.offsetMax = new Vector2(-20f, 0f);
+
+        // Legacy Image-based Mask на Viewport несовместим с прозрачной графикой:
+        // материал маски включает UNITY_UI_ALPHACLIP, поэтому при alpha = 0 он не
+        // пишет stencil, и все карточки списка отсекаются (выглядели «чёрным
+        // прямоугольником» — клики при этом работали). Клипать должен только RectMask2D.
+        Mask legacyMask = viewport.GetComponent<Mask>();
+        if (legacyMask != null) Object.DestroyImmediate(legacyMask);
 
         Image viewportImage = viewport.GetComponent<Image>();
         if (viewportImage != null)
@@ -415,7 +422,7 @@ public static class MissionSelectPanelBuilder
 
         try
         {
-            Image rootImage = TacticalUIBuilder.EnsureImage(root, null, new Color(0.1f, 0.11f, 0.12f, 1f), Image.Type.Simple);
+            Image rootImage = TacticalUIBuilder.EnsureImage(root, null, TacticalUITheme.MissionCardFill, Image.Type.Simple);
             rootImage.raycastTarget = true;
             TacticalUIBuilder.EnsureButton(root, rootImage);
 
@@ -484,6 +491,8 @@ public static class MissionSelectPanelBuilder
             selected.transform.SetAsLastSibling();
             selected.SetActive(false);
 
+            NormalizeCardOrder(root);
+
             MissionCardView view = root.GetComponent<MissionCardView>();
             if (view != null)
             {
@@ -505,6 +514,26 @@ public static class MissionSelectPanelBuilder
         finally
         {
             PrefabUtility.UnloadPrefabContents(root);
+        }
+    }
+
+    /// <summary>
+    /// Порядок отрисовки карточки: превью → название → метаданные → бейдж «пройдено» →
+    /// затемнение блокировки → красная рамка выбора. EnsureChild не переставляет уже
+    /// существующих детей, поэтому порядок задаётся явно (иначе MetaText рисуется
+    /// поверх LockedOverlay и остаётся ярким на заблокированной карточке).
+    /// </summary>
+    private static void NormalizeCardOrder(GameObject root)
+    {
+        string[] order =
+        {
+            "Preview", "NameText", "MetaText", "isCompleted", "LockedOverlay", "SelectedFrame"
+        };
+
+        for (int i = 0; i < order.Length; i++)
+        {
+            Transform child = root.transform.Find(order[i]);
+            if (child != null) child.SetSiblingIndex(i);
         }
     }
 
