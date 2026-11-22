@@ -5,8 +5,8 @@ using UnityEngine.Rendering;
 // Mesh builders for the far horizon:
 //   * BuildGroundMesh: a square-to-circle ring from just inside the main Terrain edge
 //     out to a 10 km circle, with distance-graded ring spacing (dense near the seam).
-//   * BuildForestMesh: one combined mesh of crossed forest-strip cards placed on the
-//     ridge crests between 1.2 km and 4.5 km from the terrain border.
+//   * BuildForestMesh: one combined mesh of crossed forest-strip cards placed as long
+//     belts on the far ridge crests (4.2-8.6 km from the terrain border).
 public static class HorizonMeshGenerator
 {
     static readonly float[] RingDistances =
@@ -44,6 +44,7 @@ public static class HorizonMeshGenerator
         float innerHalf,
         float outerRadius,
         int perimeterSamples,
+        Color[] borderColors,
         out Stats stats)
     {
         int ringCount = RingDistances.Length + 1; // + outer circle ring
@@ -53,6 +54,8 @@ public static class HorizonMeshGenerator
         Vector3[] vertices = new Vector3[vertexCount];
         Vector3[] normals = new Vector3[vertexCount];
         Vector2[] uvs = new Vector2[vertexCount];
+        Color[] colors = new Color[vertexCount];
+        Color fallbackBorderColor = new Color(0.30f, 0.25f, 0.18f).linear;
 
         Vector2 center = field.Center;
         float minHeight = float.MaxValue;
@@ -101,6 +104,16 @@ public static class HorizonMeshGenerator
                 vertices[index] = new Vector3(offset.x, height, offset.y);
                 normals[index] = field.Normal(worldX, worldZ, epsilon);
                 uvs[index] = new Vector2(border / 1000f, 0f);
+                if (borderColors != null && borderColors.Length > 0)
+                {
+                    int colorIndex = Mathf.Clamp(
+                        Mathf.FloorToInt(s * borderColors.Length), 0, borderColors.Length - 1);
+                    colors[index] = borderColors[colorIndex];
+                }
+                else
+                {
+                    colors[index] = fallbackBorderColor;
+                }
 
                 if (height < minHeight) minHeight = height;
                 if (height > maxHeight) maxHeight = height;
@@ -149,6 +162,7 @@ public static class HorizonMeshGenerator
         mesh.vertices = vertices;
         mesh.normals = normals;
         mesh.uv = uvs;
+        mesh.colors = colors;
         mesh.triangles = triangles;
         mesh.RecalculateBounds();
 
@@ -166,11 +180,11 @@ public static class HorizonMeshGenerator
         int maxCards,
         out Stats stats)
     {
-        const float gridStep = 52f;
-        const float minBorder = 1200f;
-        const float maxBorder = 4500f;
-        const float cardBaseWidth = 78f;
-        const float cardBaseHeight = 25f;
+        const float gridStep = 72f;
+        const float minBorder = 4500f;
+        const float maxBorder = 8600f;
+        const float cardBaseWidth = 112f;
+        const float cardBaseHeight = 18f;
 
         List<Vector3> vertices = new List<Vector3>(maxCards * 8);
         List<Vector3> normals = new List<Vector3>(maxCards * 8);
@@ -200,12 +214,12 @@ public static class HorizonMeshGenerator
                 }
 
                 float ridge = field.Ridge(x, z);
-                if (ridge < 0.64f)
+                if (ridge < 0.60f)
                 {
                     continue;
                 }
 
-                if (field.GapNoise(x, z) < 0.40f)
+                if (field.GapNoise(x, z) < 0.32f)
                 {
                     continue;
                 }
@@ -213,7 +227,7 @@ public static class HorizonMeshGenerator
                 int hashX = Mathf.FloorToInt((x - center.x) / gridStep);
                 int hashZ = Mathf.FloorToInt((z - center.y) / gridStep);
                 float place = HorizonNoise.Hash(hashX, hashZ, seed + 101);
-                if (place > 0.90f)
+                if (place > 0.94f)
                 {
                     continue;
                 }
@@ -225,8 +239,8 @@ public static class HorizonMeshGenerator
                     continue;
                 }
 
-                Vector3 normal = field.Normal(x, z, 14f);
-                if (normal.y < 0.74f)
+                Vector3 normal = field.Normal(x, z, 18f);
+                if (normal.y < 0.80f)
                 {
                     continue;
                 }
@@ -247,8 +261,8 @@ public static class HorizonMeshGenerator
 
                 tangent = Quaternion.Euler(0f, (h3 - 0.5f) * 36f, 0f) * tangent;
 
-                float width = cardBaseWidth + h1 * 30f;
-                float cardHeight = cardBaseHeight + h2 * 12f;
+                float width = cardBaseWidth + h1 * 42f;
+                float cardHeight = cardBaseHeight + h2 * 8f;
 
                 int speciesRow;
                 if (h4 > 0.94f)

@@ -49,9 +49,14 @@ public static class CameraApplier
             data.renderPostProcessing = graphics.bunkerPostProcessing;
     }
 
+    // The far horizon mesh reaches a 10 km radius; a drone at the terrain corner can
+    // look up to ~11.4 km, so the drone camera must never go below 12 km.
+    private const float MinDroneFarClip = 12000f;
+    private const float MaxDroneFarClip = 30000f;
+
     private static void ApplyDroneCamera(Camera cam, DroneSimulator.Settings.GraphicsSettings graphics)
     {
-        float farClip = Mathf.Max(50f, graphics.droneFarClip);
+        float farClip = Mathf.Clamp(graphics.droneFarClip, MinDroneFarClip, MaxDroneFarClip);
         if (!Mathf.Approximately(cam.farClipPlane, farClip)) cam.farClipPlane = farClip;
 
         UniversalAdditionalCameraData data = cam.GetUniversalAdditionalCameraData();

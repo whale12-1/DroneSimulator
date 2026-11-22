@@ -106,6 +106,10 @@ public class SettingsService : MonoBehaviour
     private static SettingsData Normalize(SettingsData data)
     {
         if (data.graphics == null) data.graphics = new GraphicsSettings();
+
+        // Old settings.json files (schema < 4) stored 2000 m, which clips the 10 km
+        // horizon ring. Migrate them to the new default without touching other values.
+        if (data.graphics.droneFarClip < 12000f) data.graphics.droneFarClip = 15000f;
         if (data.audio == null) data.audio = new DroneSimulator.Settings.AudioSettings();
         if (data.controls == null) data.controls = new ControlSettings();
         if (data.gameplay == null) data.gameplay = new GameplaySettings();

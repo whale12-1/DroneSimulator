@@ -103,27 +103,35 @@ public class HorizonHeightField
     }
 
     // Multi-layer relief (hills and hollows) measured in meters above the extended base.
+    // Near zone (0-3500 m) stays a gentle plain (+/- 6-18 m) so the drone camera can see
+    // kilometres of fields; the real ridges only start beyond 4500 m.
     public float Relief(float x, float z, float border)
     {
-        float ramp = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(280f, 1000f, border));
-        float amplitude = Mathf.Lerp(46f, 86f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(600f, 6200f, border)));
+        // --- Near plain: broad, very soft undulation only. ---
+        float nearRamp = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(250f, 900f, border));
+        float nearAmplitude = Mathf.Lerp(6f, 16f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(600f, 3500f, border)));
+        float wideRidge = 1f - Mathf.Abs(HorizonNoise.Fbm(x / 1600f, z / 1600f, 2, Seed + 23) * 2f - 1f);
+        float wideRolling = HorizonNoise.Fbm(x / 3200f, z / 3200f, 2, Seed + 37) - 0.5f;
+        float wideDetail = HorizonNoise.Fbm(x / 700f, z / 700f, 2, Seed + 51) - 0.5f;
+        float nearRelief = nearAmplitude * (0.65f * wideRidge + 0.55f * wideRolling) + 3f * wideDetail;
+        nearRelief *= nearRamp;
 
+        // --- Far hills: gentle 40-75 m ridges, growing from 4500 m to 9500 m. ---
+        float farRamp = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4500f, 9500f, border));
+        float farAmplitude = Mathf.Lerp(42f, 70f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(5000f, 9000f, border)));
         float ridge = Ridge(x, z);
         float ridgeSecondary = 1f - Mathf.Abs(HorizonNoise.Fbm(x / 520f, z / 520f, 2, Seed + 29) * 2f - 1f);
         float rolling = HorizonNoise.Fbm(x / 2300f, z / 2300f, 3, Seed + 37) - 0.5f;
-        float detail = HorizonNoise.Fbm(x / 380f, z / 380f, 2, Seed + 51) - 0.5f;
+        float farRelief = farAmplitude * (0.55f * ridge + 0.28f * ridgeSecondary + 0.30f * rolling);
+        farRelief *= farRamp;
 
-        float relief = amplitude * (0.60f * ridge + 0.33f * ridgeSecondary + 1.00f * rolling) + 12f * detail;
-        relief *= ramp;
+        // Small far lip so the last ridge line still reads as a skyline above the plain.
+        float farLip = 8f * farRamp;
 
-        float rim = 27f
-            * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4200f, 9500f, border))
-            * (0.55f + 0.45f * HorizonNoise.Fbm(x / 5200f, z / 5200f, 2, Seed + 67));
-
-        float undulation = (HorizonNoise.Fbm(x / 210f, z / 210f, 2, Seed + 11) - 0.5f) * 4.4f;
+        float undulation = (HorizonNoise.Fbm(x / 210f, z / 210f, 2, Seed + 11) - 0.5f) * 3.2f;
         undulation *= Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(border / 80f));
 
-        return relief + rim + undulation;
+        return nearRelief + farRelief + farLip + undulation;
     }
 
     public float HeightWithBorder(float x, float z, out float border)

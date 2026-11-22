@@ -14,21 +14,23 @@ public static class HorizonFieldMapGenerator
     const float GridRotationSin = 0.3335f;  // sin(0.34 rad)
     const float GridShear = 0.12f;
 
+    // Muted, overcast palette: greens are desaturated ~50% and darkened so the far
+    // farmland sits inside the dark rainy-forest grade of FirstMission(Forest).
     static readonly Color[] FieldPalette =
     {
-        new Color(0.34f, 0.26f, 0.18f), // ploughed soil
-        new Color(0.30f, 0.40f, 0.18f), // winter crop
-        new Color(0.55f, 0.48f, 0.30f), // stubble
-        new Color(0.40f, 0.46f, 0.25f), // meadow
-        new Color(0.26f, 0.34f, 0.16f), // dark crop
-        new Color(0.45f, 0.50f, 0.27f), // young crop
-        new Color(0.37f, 0.36f, 0.24f), // fallow
-        new Color(0.30f, 0.44f, 0.20f)  // grass ley
+        new Color(0.295f, 0.245f, 0.190f), // wet ploughed soil
+        new Color(0.300f, 0.345f, 0.250f), // winter crop (olive)
+        new Color(0.460f, 0.435f, 0.355f), // stubble / dry grass
+        new Color(0.355f, 0.385f, 0.297f), // meadow (grey-green)
+        new Color(0.255f, 0.300f, 0.220f), // dark crop
+        new Color(0.375f, 0.400f, 0.308f), // young crop (grey-olive)
+        new Color(0.345f, 0.340f, 0.285f), // fallow (grey-brown)
+        new Color(0.290f, 0.350f, 0.254f)  // grass ley
     };
 
-    static readonly Color HedgerowColor = new Color(0.15f, 0.23f, 0.11f);
-    static readonly Color ForestColor = new Color(0.12f, 0.19f, 0.09f);
-    static readonly Color DirtTrackColor = new Color(0.42f, 0.36f, 0.26f);
+    static readonly Color HedgerowColor = new Color(0.135f, 0.165f, 0.118f);
+    static readonly Color ForestColor = new Color(0.115f, 0.145f, 0.105f);
+    static readonly Color DirtTrackColor = new Color(0.365f, 0.335f, 0.285f);
 
     public static Color32[] CreateFieldMap(int size, Vector2 center, float span, int seed)
     {

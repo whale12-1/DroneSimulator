@@ -20,9 +20,9 @@ Shader "DroneSimulator/HorizonTreeSilhouette"
 
         [Header(Aerial Perspective)]
         _HazeColor("Haze Color (linear)", Color) = (0.55, 0.60, 0.68, 1)
-        _HazeStart("Haze Start (meters)", Float) = 2600
-        _HazeEnd("Haze End (meters)", Float) = 12000
-        _HazeStrength("Haze Strength", Range(0.0, 1.0)) = 0.55
+        _HazeStart("Haze Start (meters)", Float) = 1800
+        _HazeEnd("Haze End (meters)", Float) = 9000
+        _HazeStrength("Haze Strength", Range(0.0, 1.0)) = 0.70
     }
 
     SubShader

@@ -45,7 +45,7 @@ public static class HorizonEnvironmentBuilder
     const int MacroTextureSize = 4096;
     const int DetailTextureSize = 1024;
     const int ForestAtlasSize = 2048;
-    const int MaxForestCards = 30000;
+    const int MaxForestCards = 60000;
     const float MinCameraFarClip = 15000f;
 
     static readonly string[] ForestSourceGuids =
@@ -64,6 +64,13 @@ public static class HorizonEnvironmentBuilder
     [MenuItem("Tools/DroneSimulator/Environment/Build Horizon Environment", priority = 40)]
     public static void BuildHorizonEnvironment()
     {
+        if (EditorApplication.isPlaying || EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            Debug.LogError("[HorizonEnvironmentBuilder] Exit Play Mode before building the horizon: " +
+                           "scene objects are saved by the builder and cannot be marked dirty in Play Mode.");
+            return;
+        }
+
         StringBuilder report = new StringBuilder();
         Stopwatch timer = Stopwatch.StartNew();
         report.AppendLine("HorizonEnvironmentBuilder started " + DateTime.Now.ToString("s"));
@@ -125,6 +132,14 @@ public static class HorizonEnvironmentBuilder
         report.AppendLine("main terrain '" + terrain.name + "' position=" + terrain.transform.position +
                           " size=" + terrainSize + " center=" + field.Center);
 
+        // Real outer-layer colour of the main Terrain, sampled around its border ring.
+        // Stored in the ring mesh vertex colours so the seam continues exactly the
+        // soil/grass the player sees at the Terrain edge.
+        report.AppendLine("[Terrain border colours]");
+        Color[] borderColors = HorizonTerrainBorderColor.SampleBorderColors(
+            terrain, field.Center, innerHalf, 512, report);
+        Color hazeColor = SampleSkyHorizonColor(report);
+
         report.AppendLine("[Textures] macro fields " + MacroTextureSize + "x" + MacroTextureSize);
         Color32[] macroPixels = HorizonFieldMapGenerator.CreateFieldMap(
             MacroTextureSize, field.Center, OuterRadius * 2f, Seed);
@@ -171,13 +186,16 @@ public static class HorizonEnvironmentBuilder
         groundMaterial.SetFloat("_DetailStrengthB", 0.16f);
         groundMaterial.SetFloat("_DetailStrengthC", 0.10f);
         groundMaterial.SetFloat("_SlopeDarken", 0.40f);
-        groundMaterial.SetColor("_NearColor", ToLinear(new Color(0.235f, 0.255f, 0.155f)));
-        groundMaterial.SetFloat("_NearBlendStart", 6f);
-        groundMaterial.SetFloat("_NearBlendEnd", 320f);
-        groundMaterial.SetColor("_HazeColor", ToLinear(new Color(0.78f, 0.81f, 0.86f)));
-        groundMaterial.SetFloat("_HazeStart", 2600f);
-        groundMaterial.SetFloat("_HazeEnd", 12000f);
-        groundMaterial.SetFloat("_HazeStrength", 0.50f);
+        Color hazeLinear = hazeColor.linear;
+        hazeLinear = new Color(hazeLinear.r * 0.94f, hazeLinear.g * 0.94f, hazeLinear.b * 0.94f, 1f);
+
+        groundMaterial.SetColor("_NearColor", Color.white);
+        groundMaterial.SetFloat("_NearBlendStart", 0f);
+        groundMaterial.SetFloat("_NearBlendEnd", 220f);
+        groundMaterial.SetColor("_HazeColor", hazeLinear);
+        groundMaterial.SetFloat("_HazeStart", 1800f);
+        groundMaterial.SetFloat("_HazeEnd", 9000f);
+        groundMaterial.SetFloat("_HazeStrength", 0.70f);
         EditorUtility.SetDirty(groundMaterial);
 
         Material forestMaterial = GetOrCreateMaterial(ForestMaterialPath, treeShader);
@@ -185,10 +203,10 @@ public static class HorizonEnvironmentBuilder
         forestMaterial.SetColor("_BaseColor", Color.white);
         forestMaterial.SetFloat("_AlphaCutoff", 0.32f);
         forestMaterial.SetFloat("_RootDarken", 0.55f);
-        forestMaterial.SetColor("_HazeColor", ToLinear(new Color(0.78f, 0.81f, 0.86f)));
-        forestMaterial.SetFloat("_HazeStart", 2600f);
-        forestMaterial.SetFloat("_HazeEnd", 12000f);
-        forestMaterial.SetFloat("_HazeStrength", 0.50f);
+        forestMaterial.SetColor("_HazeColor", hazeLinear);
+        forestMaterial.SetFloat("_HazeStart", 1800f);
+        forestMaterial.SetFloat("_HazeEnd", 9000f);
+        forestMaterial.SetFloat("_HazeStrength", 0.70f);
         EditorUtility.SetDirty(forestMaterial);
         report.AppendLine("  " + GroundMaterialPath);
         report.AppendLine("  " + ForestMaterialPath);
@@ -196,13 +214,13 @@ public static class HorizonEnvironmentBuilder
         report.AppendLine("[Meshes]");
         HorizonMeshGenerator.Stats groundStats;
         Mesh groundMesh = HorizonMeshGenerator.BuildGroundMesh(
-            field, innerHalf, OuterRadius, PerimeterSamples, out groundStats);
-        SaveMeshAsset(groundMesh, GroundMeshPath);
+            field, innerHalf, OuterRadius, PerimeterSamples, borderColors, out groundStats);
+        groundMesh = SaveMeshAsset(groundMesh, GroundMeshPath);
 
         HorizonMeshGenerator.Stats forestStats;
         Mesh forestMesh = HorizonMeshGenerator.BuildForestMesh(
             field, Seed, MaxForestCards, out forestStats);
-        SaveMeshAsset(forestMesh, ForestMeshPath);
+        forestMesh = SaveMeshAsset(forestMesh, ForestMeshPath);
 
         report.AppendLine("  ground: vertices=" + groundStats.Vertices + " triangles=" + groundStats.Triangles +
                           " height=[" + groundStats.MinHeight.ToString("F1") + ".." +
@@ -385,13 +403,35 @@ public static class HorizonEnvironmentBuilder
         return material;
     }
 
-    static void SaveMeshAsset(Mesh mesh, string path)
+    // Reuses the existing mesh asset when possible so its GUID (and therefore the
+    // scene references) stays stable between rebuilds. Returns the mesh that actually
+    // lives in the asset - the caller must assign that one to the MeshFilter.
+    static Mesh SaveMeshAsset(Mesh mesh, string path)
     {
-        if (AssetDatabase.LoadAssetAtPath<Mesh>(path) != null)
+        Mesh existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (existing == null)
         {
-            AssetDatabase.DeleteAsset(path);
+            AssetDatabase.CreateAsset(mesh, path);
+            return mesh;
         }
-        AssetDatabase.CreateAsset(mesh, path);
+
+        existing.Clear();
+        existing.indexFormat = mesh.indexFormat;
+        existing.vertices = mesh.vertices;
+        existing.normals = mesh.normals;
+        existing.uv = mesh.uv;
+        Color[] colors = mesh.colors;
+        if (colors != null && colors.Length > 0)
+        {
+            existing.colors = colors;
+        }
+        existing.triangles = mesh.triangles;
+        existing.RecalculateBounds();
+        existing.name = mesh.name;
+        EditorUtility.SetDirty(existing);
+
+        UnityEngine.Object.DestroyImmediate(mesh);
+        return existing;
     }
 
     static void EnsureFolder(string path)
@@ -409,9 +449,65 @@ public static class HorizonEnvironmentBuilder
         }
     }
 
-    static Color ToLinear(Color color)
+    // Renders the CloudySky skybox without any scene geometry and averages the rows
+    // just above the horizon. That exact grey is used as the shader-level aerial
+    // perspective colour, so the far ridges melt into the sky instead of turning into
+    // a black line (global RenderSettings fog stays disabled).
+    static Color SampleSkyHorizonColor(StringBuilder report)
     {
-        return color.linear;
+        GameObject probeObject = new GameObject("TMP_HorizonSkyProbe");
+        Camera camera = probeObject.AddComponent<Camera>();
+        camera.cullingMask = 0;
+        camera.clearFlags = CameraClearFlags.Skybox;
+        camera.fieldOfView = 60f;
+        camera.nearClipPlane = 0.1f;
+        camera.farClipPlane = 1000f;
+        camera.allowMSAA = false;
+        camera.allowHDR = false;
+        probeObject.transform.position = new Vector3(0f, 500f, 0f);
+        probeObject.transform.rotation = Quaternion.identity;
+
+        RenderTexture target = RenderTexture.GetTemporary(
+            64, 64, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        camera.targetTexture = target;
+        camera.Render();
+
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = target;
+        Texture2D readable = new Texture2D(64, 64, TextureFormat.RGBA32, false, false);
+        readable.ReadPixels(new Rect(0, 0, 64, 64), 0, 0);
+        readable.Apply(false, false);
+        RenderTexture.active = previous;
+
+        Color32[] pixels = readable.GetPixels32();
+        double r = 0, g = 0, b = 0;
+        int count = 0;
+        for (int y = 33; y <= 42; y++)
+        {
+            for (int x = 0; x < 64; x++)
+            {
+                Color32 pixel = pixels[y * 64 + x];
+                r += pixel.r;
+                g += pixel.g;
+                b += pixel.b;
+                count++;
+            }
+        }
+
+        camera.targetTexture = null;
+        UnityEngine.Object.DestroyImmediate(readable);
+        RenderTexture.ReleaseTemporary(target);
+        UnityEngine.Object.DestroyImmediate(probeObject);
+
+        Color color = new Color(
+            (float)(r / Mathf.Max(1, count)) / 255f,
+            (float)(g / Mathf.Max(1, count)) / 255f,
+            (float)(b / Mathf.Max(1, count)) / 255f,
+            1f);
+        report.AppendLine("  sky horizon colour sRGB=(" + Mathf.RoundToInt(color.r * 255f) + "," +
+                          Mathf.RoundToInt(color.g * 255f) + "," +
+                          Mathf.RoundToInt(color.b * 255f) + ")");
+        return color;
     }
 
     static void WriteReport(StringBuilder report)

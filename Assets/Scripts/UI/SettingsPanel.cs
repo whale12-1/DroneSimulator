@@ -151,7 +151,7 @@ public class SettingsPanel : UIScreen
             MakeSlider("fpsLimit", "Ограничение FPS (0 = без)", 0f, 240f, true, "F0", () => g.fpsLimit, v => g.fpsLimit = (int)v),
             MakeSlider("quality", "Уровень качества", 0f, Mathf.Max(0, QualitySettings.names.Length - 1), true, "F0", () => g.qualityLevel, v => g.qualityLevel = (int)v),
             MakeSlider("droneFov", "FOV дрона", 70f, 110f, true, "F0", () => g.droneFov, v => g.droneFov = v),
-            MakeSlider("droneFarClip", "Дальность прорисовки (дрон)", 500f, 3000f, true, "F0", () => g.droneFarClip, v => g.droneFarClip = v),
+            MakeSlider("droneFarClip", "Дальность прорисовки (дрон)", 12000f, 20000f, true, "F0", () => g.droneFarClip, v => g.droneFarClip = v),
             MakeSlider("droneShadowDistance", "Тени дрона (дистанция)", 0f, 300f, true, "F0", () => g.droneShadowDistance, v => g.droneShadowDistance = v),
             MakeToggle("droneFog", "Туман у дрона", () => g.droneFog, v => g.droneFog = v),
             MakeToggle("droneLensDistortion", "Дисторсия объектива", () => g.droneLensDistortion, v => g.droneLensDistortion = v),

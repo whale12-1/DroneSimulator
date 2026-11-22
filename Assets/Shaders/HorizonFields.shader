@@ -35,15 +35,15 @@ Shader "DroneSimulator/HorizonFields"
         _SlopeDarken("Slope Darken", Range(0.0, 1.0)) = 0.40
 
         [Header(Seam Blend)]
-        _NearColor("Near Seam Grass Color", Color) = (0.07, 0.09, 0.03, 1)
-        _NearBlendStart("Near Blend Start (meters)", Float) = 6
-        _NearBlendEnd("Near Blend End (meters)", Float) = 180
+        _NearColor("Near Seam Tint", Color) = (1, 1, 1, 1)
+        _NearBlendStart("Near Blend Start (meters)", Float) = 0
+        _NearBlendEnd("Near Blend End (meters)", Float) = 220
 
         [Header(Aerial Perspective)]
         _HazeColor("Haze Color (linear)", Color) = (0.55, 0.60, 0.68, 1)
-        _HazeStart("Haze Start (meters)", Float) = 2600
-        _HazeEnd("Haze End (meters)", Float) = 12000
-        _HazeStrength("Haze Strength", Range(0.0, 1.0)) = 0.55
+        _HazeStart("Haze Start (meters)", Float) = 1800
+        _HazeEnd("Haze End (meters)", Float) = 9000
+        _HazeStrength("Haze Strength", Range(0.0, 1.0)) = 0.70
     }
 
     SubShader
@@ -95,7 +95,8 @@ Shader "DroneSimulator/HorizonFields"
         {
             float4 positionOS : POSITION;
             float3 normalOS : NORMAL;
-            float2 uv : TEXCOORD0; // x = distance from the main terrain border / 1000
+            float2 uv : TEXCOORD0;  // x = distance from the main terrain border / 1000
+            half4 color : COLOR;    // linear colour of the real Terrain border layer
             UNITY_VERTEX_INPUT_INSTANCE_ID
         };
 
@@ -105,6 +106,7 @@ Shader "DroneSimulator/HorizonFields"
             float3 positionWS : TEXCOORD0;
             half3 normalWS : TEXCOORD1;
             float borderDistance : TEXCOORD2;
+            half3 borderColor : TEXCOORD3;
             UNITY_VERTEX_INPUT_INSTANCE_ID
             UNITY_VERTEX_OUTPUT_STEREO
         };
@@ -120,6 +122,7 @@ Shader "DroneSimulator/HorizonFields"
             output.positionCS = TransformWorldToHClip(positionWS);
             output.normalWS = TransformObjectToWorldNormal(input.normalOS);
             output.borderDistance = input.uv.x * 1000.0;
+            output.borderColor = input.color.rgb;
             return output;
         }
 
@@ -155,15 +158,20 @@ Shader "DroneSimulator/HorizonFields"
             half slope = 1.0 - saturate(normalWS.y);
 
             half3 albedo = macro * _BaseColor.rgb * saturate(detail);
-            albedo *= lerp(1.0, 1.0 - _SlopeDarken, slope);
 
-            // Near-seam grass: the first ~180 m of the ring blends into a fine noisy grass
-            // tone so the 4.8 m/px macro map never reads as blur where the player can
-            // actually fly close to it.
-            half nearVariation = (detailC * 2.0 - 1.0) * 0.55 + (detailA * 2.0 - 1.0) * 0.35;
-            half3 nearGrass = _NearColor.rgb * saturate(1.0 + nearVariation);
-            half nearBlend = 1.0 - smoothstep(_NearBlendStart, max(_NearBlendEnd, _NearBlendStart + 1.0), input.borderDistance);
-            albedo = lerp(albedo, nearGrass, nearBlend);
+            // No slope darkening on the first 150 m of the seam: the main Terrain edge
+            // must not turn into a dark band against the fields.
+            half slopeGuard = smoothstep(150.0, 320.0, input.borderDistance);
+            albedo *= 1.0 - (_SlopeDarken * slopeGuard * slope);
+
+            // The mesh carries the real Terrain border layer colour in vertex colour, so
+            // the ring continues the visible soil/grass instead of a generic tone. The
+            // transition to fields is noise-warped over ~130-310 m.
+            half nearVariation = (detailC * 2.0 - 1.0) * 0.30 + (detailB * 2.0 - 1.0) * 0.18;
+            half3 nearTerrain = saturate(input.borderColor * _NearColor.rgb) * saturate(1.0 + nearVariation);
+            half nearEnd = max(80.0, _NearBlendEnd + (detailB * 2.0 - 1.0) * 90.0);
+            half nearBlend = 1.0 - smoothstep(_NearBlendStart, nearEnd, input.borderDistance);
+            albedo = lerp(albedo, nearTerrain, nearBlend);
 
             half3 color = HorizonShade(albedo, normalWS, input.positionWS);
             return half4(color, 1.0);
