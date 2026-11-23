@@ -67,6 +67,12 @@ namespace Game.Spline
         [SerializeField] [Min(3)] private int farRadialSegments = 4;
         [SerializeField] private bool disableBeyondFarDistance;
 
+        [Header("Runtime Update")]
+        [Tooltip("Rebuild the animated tube at a limited rate and only while the camera is closer than the far LOD distance. Disable only for debugging.")]
+        [SerializeField] private bool limitRuntimeRebuilds = true;
+        [Tooltip("Seconds between animated mesh rebuilds while in play mode (~12 Hz by default).")]
+        [SerializeField] [Range(0.02f, 0.5f)] private float runtimeRebuildInterval = 0.08f;
+
         [Header("Visual")]
         [SerializeField] private CableVisualMode visualMode = CableVisualMode.MeshTube;
         [SerializeField] private LineRenderer lineRenderer;
@@ -100,6 +106,11 @@ namespace Game.Spline
         private Vector3[] frameTangents;
         private Vector3[] frameNormals;
         private Vector3[] frameBinormals;
+        private Camera cachedCamera;
+        private float nextRuntimeRebuildTime;
+        private bool rebuildPhaseInitialized;
+        private float rebuildPhase;
+        private readonly Vector3[][] singleSpanCache = new Vector3[1][];
 #if UNITY_EDITOR
         private bool editorRebuildQueued;
         private bool forceQueuedEditorRebuild;
@@ -175,6 +186,7 @@ namespace Game.Spline
             nearRadialSegments = Mathf.Max(3, nearRadialSegments);
             midRadialSegments = Mathf.Max(3, midRadialSegments);
             farRadialSegments = Mathf.Max(3, farRadialSegments);
+            runtimeRebuildInterval = Mathf.Clamp(runtimeRebuildInterval, 0.02f, 0.5f);
             nearDistance = Mathf.Max(0f, nearDistance);
             midDistance = Mathf.Max(nearDistance, midDistance);
             farDistance = Mathf.Max(midDistance, farDistance);
@@ -239,6 +251,11 @@ namespace Game.Spline
             {
                 if ((Application.isPlaying || rebuildInEditMode) && bakedKeepsWind && windSway)
                 {
+                    if (Application.isPlaying && !ShouldRebuildThisFrame())
+                    {
+                        return;
+                    }
+
                     RebuildInternal(true, true);
                 }
                 else
@@ -251,6 +268,11 @@ namespace Game.Spline
 
             if (Application.isPlaying || rebuildInEditMode)
             {
+                if (Application.isPlaying && !ShouldRebuildThisFrame())
+                {
+                    return;
+                }
+
                 Rebuild();
             }
         }
@@ -458,12 +480,13 @@ namespace Game.Spline
             lineRenderer.widthMultiplier = cableWidth;
             lineRenderer.numCapVertices = 6;
             lineRenderer.numCornerVertices = 4;
-            lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lineRenderer.receiveShadows = true;
 
-            if (cableMaterial != null)
+            Material resolvedLineMaterial = ResolveCableMaterial(lineRenderer.sharedMaterial);
+            if (resolvedLineMaterial != null)
             {
-                lineRenderer.sharedMaterial = cableMaterial;
+                lineRenderer.sharedMaterial = resolvedLineMaterial;
             }
 
             lineRenderer.startColor = cableColor;
@@ -494,12 +517,13 @@ namespace Game.Spline
             }
 
             meshRenderer.enabled = bakedStatic || visualMode == CableVisualMode.MeshTube;
-            meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             meshRenderer.receiveShadows = true;
 
-            if (cableMaterial != null)
+            Material resolvedMeshMaterial = ResolveCableMaterial(meshRenderer.sharedMaterial);
+            if (resolvedMeshMaterial != null)
             {
-                meshRenderer.sharedMaterial = cableMaterial;
+                meshRenderer.sharedMaterial = resolvedMeshMaterial;
             }
 
             if (bakedStatic && bakedMesh != null)
@@ -543,8 +567,17 @@ namespace Game.Spline
 
             if (!bakedStatic && disableBeyondFarDistance && IsBeyondFarDistance(start, end))
             {
-                ClearVisuals();
-                return;
+                // Keep the last built mesh instead of clearing it: distant cables are sub-pixel,
+                // and clearing them causes visible pop-in when the camera turns back.
+                EnsureVisualComponents();
+
+                // A fresh (empty) mesh is created on enable / after a domain reload.
+                // Build it once at the far LOD so distant cables stay visible, then let
+                // ShouldRebuildThisFrame() skip per-frame work until the camera is close.
+                if (generatedMesh != null && generatedMesh.vertexCount > 0)
+                {
+                    return;
+                }
             }
 
             EnsureVisualComponents();
@@ -637,9 +670,10 @@ namespace Game.Spline
             lineRenderer.startColor = cableColor;
             lineRenderer.endColor = cableColor;
 
-            if (cableMaterial != null)
+            Material resolvedLineMaterial = ResolveCableMaterial(lineRenderer.sharedMaterial);
+            if (resolvedLineMaterial != null)
             {
-                lineRenderer.sharedMaterial = cableMaterial;
+                lineRenderer.sharedMaterial = resolvedLineMaterial;
             }
 
             lineRenderer.positionCount = points.Length;
@@ -715,7 +749,8 @@ namespace Game.Spline
 
         private void ApplyContinuousMeshTube(Vector3[] worldPoints, int effectiveRadialSegments)
         {
-            ApplyMultiSpanMeshTube(new[] { worldPoints }, effectiveRadialSegments);
+            singleSpanCache[0] = worldPoints;
+            ApplyMultiSpanMeshTube(singleSpanCache, effectiveRadialSegments);
         }
 
         private void ApplyMultiSpanMeshTube(Vector3[][] spans, int effectiveRadialSegments)
@@ -824,11 +859,11 @@ namespace Game.Spline
             }
 
             generatedMesh.Clear();
-            generatedMesh.vertices = meshVertices;
-            generatedMesh.normals = meshNormals;
-            generatedMesh.uv = meshUvs;
-            generatedMesh.triangles = meshTriangles;
-            generatedMesh.RecalculateBounds();
+            generatedMesh.SetVertices(meshVertices, 0, vertexCursor);
+            generatedMesh.SetNormals(meshNormals, 0, vertexCursor);
+            generatedMesh.SetUVs(0, meshUvs, 0, vertexCursor);
+            generatedMesh.SetTriangles(meshTriangles, 0, triangleCursor, 0, false, 0);
+            generatedMesh.bounds = CalculateVertexBounds(meshVertices, vertexCursor);
         }
 
         private int GetEffectiveSegments(Vector3 start, Vector3 end)
@@ -880,14 +915,166 @@ namespace Game.Spline
 
         private float GetLodDistance(Vector3 start, Vector3 end)
         {
-            Camera camera = lodCamera != null ? lodCamera : Camera.main;
+            Camera camera = ResolveCamera();
             if (camera == null)
             {
                 return 0f;
             }
 
             Vector3 midpoint = (start + end) * 0.5f;
-            return Vector3.Distance(camera.transform.position, midpoint);
+            Vector3 offset = midpoint - camera.transform.position;
+            return offset.magnitude;
+        }
+
+        private static Material cachedFallbackMaterial;
+
+        private Material ResolveCableMaterial(Material currentMaterial)
+        {
+            if (cableMaterial != null && cableMaterial.shader != null)
+            {
+                return cableMaterial;
+            }
+
+            // Keep a valid material that is already assigned to the renderer
+            // (e.g. the persistent Cable_Matte_URP asset serialized in the scene).
+            if (currentMaterial != null && currentMaterial.shader != null)
+            {
+                return currentMaterial;
+            }
+
+            return ResolveFallbackMaterial();
+        }
+
+        private static Material ResolveFallbackMaterial()
+        {
+            if (cachedFallbackMaterial != null)
+            {
+                return cachedFallbackMaterial;
+            }
+
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null)
+            {
+                shader = Shader.Find("Universal Render Pipeline/Simple Lit");
+            }
+
+            if (shader == null)
+            {
+                shader = Shader.Find("Sprites/Default");
+            }
+
+            if (shader == null)
+            {
+                return null;
+            }
+
+            cachedFallbackMaterial = new Material(shader)
+            {
+                name = "Cable Fallback Material",
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            Color fallbackColor = new Color(0.02f, 0.02f, 0.019f, 1f);
+            if (cachedFallbackMaterial.HasProperty("_BaseColor")) cachedFallbackMaterial.SetColor("_BaseColor", fallbackColor);
+            if (cachedFallbackMaterial.HasProperty("_Color")) cachedFallbackMaterial.SetColor("_Color", fallbackColor);
+            if (cachedFallbackMaterial.HasProperty("_Smoothness")) cachedFallbackMaterial.SetFloat("_Smoothness", 0f);
+            if (cachedFallbackMaterial.HasProperty("_Glossiness")) cachedFallbackMaterial.SetFloat("_Glossiness", 0f);
+            if (cachedFallbackMaterial.HasProperty("_Metallic")) cachedFallbackMaterial.SetFloat("_Metallic", 0f);
+            return cachedFallbackMaterial;
+        }
+
+        private Camera ResolveCamera()
+        {
+            if (lodCamera != null)
+            {
+                return lodCamera;
+            }
+
+            // Camera.main is a native lookup; cache it and refresh only when the active
+            // drone camera changes (the old camera gets disabled on drone switch).
+            if (cachedCamera == null || !cachedCamera.isActiveAndEnabled)
+            {
+                cachedCamera = Camera.main;
+            }
+
+            return cachedCamera;
+        }
+
+        private bool ShouldRebuildThisFrame()
+        {
+            if (!limitRuntimeRebuilds)
+            {
+                return true;
+            }
+
+            if (!rebuildPhaseInitialized)
+            {
+                rebuildPhaseInitialized = true;
+                rebuildPhase = CalculateRebuildPhase();
+                nextRuntimeRebuildTime = Time.unscaledTime + rebuildPhase * runtimeRebuildInterval;
+            }
+
+            if (Time.unscaledTime < nextRuntimeRebuildTime)
+            {
+                return false;
+            }
+
+            nextRuntimeRebuildTime = Time.unscaledTime + Mathf.Max(0.02f, runtimeRebuildInterval);
+
+            if (useDistanceLod && disableBeyondFarDistance)
+            {
+                Camera camera = ResolveCamera();
+                if (camera != null && TryGetEndpoints(out Vector3 start, out Vector3 end))
+                {
+                    Vector3 midpoint = (start + end) * 0.5f;
+                    Vector3 offset = midpoint - camera.transform.position;
+                    if (offset.sqrMagnitude > farDistance * farDistance)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private float CalculateRebuildPhase()
+        {
+            unchecked
+            {
+                Vector3 position = transform.position;
+                int hash = Mathf.RoundToInt(position.x * 10f) * 73856093;
+                hash ^= Mathf.RoundToInt(position.y * 10f) * 19349663;
+                hash ^= Mathf.RoundToInt(position.z * 10f) * 83492791;
+                hash &= 0x7fffffff;
+                return (hash % 1000) / 1000f;
+            }
+        }
+
+        private static Bounds CalculateVertexBounds(Vector3[] vertices, int count)
+        {
+            if (vertices == null || count <= 0)
+            {
+                return new Bounds(Vector3.zero, Vector3.zero);
+            }
+
+            Vector3 min = vertices[0];
+            Vector3 max = vertices[0];
+            for (int i = 1; i < count; i++)
+            {
+                Vector3 vertex = vertices[i];
+                if (vertex.x < min.x) min.x = vertex.x;
+                if (vertex.y < min.y) min.y = vertex.y;
+                if (vertex.z < min.z) min.z = vertex.z;
+                if (vertex.x > max.x) max.x = vertex.x;
+                if (vertex.y > max.y) max.y = vertex.y;
+                if (vertex.z > max.z) max.z = vertex.z;
+            }
+
+            Bounds bounds = new Bounds();
+            bounds.SetMinMax(min, max);
+            bounds.Expand(0.005f);
+            return bounds;
         }
 
         private void BuildFrames(Vector3[] points, out Vector3[] normals, out Vector3[] binormals)

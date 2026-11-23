@@ -61,9 +61,21 @@ namespace Game.Spline
         [SerializeField] [Min(0f)] private float windSpatialFrequency = 0.32f;
         [SerializeField] private Vector3 windDirection = new Vector3(1f, 0f, 0.25f);
 
+        [Header("Runtime Update")]
+        [Tooltip("Rebuild hanging/broken cables at a limited rate instead of every frame.")]
+        [SerializeField] private bool limitRuntimeRebuilds = true;
+        [Tooltip("Seconds between rebuilds while in play mode.")]
+        [SerializeField] [Range(0.02f, 0.5f)] private float runtimeRebuildInterval = 0.1f;
+        [Tooltip("Skip rebuilds while the camera is farther than this distance (0 = no distance limit).")]
+        [SerializeField] [Min(0f)] private float runtimeRebuildMaxDistance = 200f;
+
         private const string RootName = "__LocalBrokenCables";
         private const string CablePrefix = "LocalBrokenCable_";
         private Material generatedFallbackMaterial;
+        private Camera cachedCamera;
+        private float nextRuntimeRebuildTime;
+        private bool rebuildPhaseInitialized;
+        private float rebuildPhase;
 #if UNITY_EDITOR
         private bool editorRebuildQueued;
         private bool recordEditorUndo;
@@ -96,6 +108,8 @@ namespace Game.Spline
             windAmplitude = Mathf.Max(0f, windAmplitude);
             windSpeed = Mathf.Max(0f, windSpeed);
             windSpatialFrequency = Mathf.Max(0f, windSpatialFrequency);
+            runtimeRebuildInterval = Mathf.Clamp(runtimeRebuildInterval, 0.02f, 0.5f);
+            runtimeRebuildMaxDistance = Mathf.Max(0f, runtimeRebuildMaxDistance);
 
             if (cables != null)
             {
@@ -118,7 +132,77 @@ namespace Game.Spline
 
         private void Update()
         {
-            if (CanModifyHierarchy() && (Application.isPlaying || rebuildInEditMode)) Rebuild();
+            if (!CanModifyHierarchy() || (!Application.isPlaying && !rebuildInEditMode))
+            {
+                return;
+            }
+
+            if (Application.isPlaying && !ShouldRebuildThisFrame())
+            {
+                return;
+            }
+
+            Rebuild();
+        }
+
+        private bool ShouldRebuildThisFrame()
+        {
+            if (!limitRuntimeRebuilds)
+            {
+                return true;
+            }
+
+            if (!rebuildPhaseInitialized)
+            {
+                rebuildPhaseInitialized = true;
+                rebuildPhase = CalculateRebuildPhase();
+                nextRuntimeRebuildTime = Time.unscaledTime + rebuildPhase * runtimeRebuildInterval;
+            }
+
+            if (Time.unscaledTime < nextRuntimeRebuildTime)
+            {
+                return false;
+            }
+
+            nextRuntimeRebuildTime = Time.unscaledTime + Mathf.Max(0.02f, runtimeRebuildInterval);
+
+            if (runtimeRebuildMaxDistance > 0f)
+            {
+                Camera camera = ResolveCamera();
+                if (camera != null)
+                {
+                    Vector3 offset = transform.position - camera.transform.position;
+                    if (offset.sqrMagnitude > runtimeRebuildMaxDistance * runtimeRebuildMaxDistance)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private Camera ResolveCamera()
+        {
+            if (cachedCamera == null || !cachedCamera.isActiveAndEnabled)
+            {
+                cachedCamera = Camera.main;
+            }
+
+            return cachedCamera;
+        }
+
+        private float CalculateRebuildPhase()
+        {
+            unchecked
+            {
+                Vector3 position = transform.position;
+                int hash = Mathf.RoundToInt(position.x * 10f) * 73856093;
+                hash ^= Mathf.RoundToInt(position.y * 10f) * 19349663;
+                hash ^= Mathf.RoundToInt(position.z * 10f) * 83492791;
+                hash &= 0x7fffffff;
+                return (hash % 1000) / 1000f;
+            }
         }
 
         [ContextMenu("Apply Selected Damage Preset")]
@@ -428,7 +512,7 @@ namespace Game.Spline
             line.widthMultiplier = cableWidth;
             line.numCapVertices = capVertices;
             line.numCornerVertices = cornerVertices;
-            line.shadowCastingMode = ShadowCastingMode.On;
+            line.shadowCastingMode = ShadowCastingMode.Off;
             line.receiveShadows = true;
             line.startColor = cableColor;
             line.endColor = cableColor;
