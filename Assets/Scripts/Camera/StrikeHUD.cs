@@ -36,7 +36,8 @@ public class StrikeHUD : MonoBehaviour
         Matrix4x4 previousMatrix = HudStyleService.Begin();
 
         // 2. Считываем визуальные параметры из конфига
-        Color activeHudColor = (config != null) ? config.hudColor : new Color(0.1f, 1.0f, 0.2f, 0.85f);
+        // Tactical Metal: стальной основной цвет HUD вместо зелёного из конфига.
+        Color activeHudColor = TacticalUITheme.Steel;
         float crosshairSize = HudStyleService.CrosshairSize((config != null) ? config.crosshairSize : HudStyleService.DefaultCrosshairSize);
         Vector2 boxSize = (config != null) ? config.targetBoxSize : new Vector2(160f, 110f);
         float lineWidth = HudStyleService.LineThickness((config != null) ? config.hudLineWidth : 2f);
@@ -60,8 +61,12 @@ public class StrikeHUD : MonoBehaviour
         };
         textStyle.normal.textColor = HudStyleService.Opaque(activeHudColor);
 
-        string droneLabel = (config != null && !string.IsNullOrEmpty(config.droneName)) ? $"[{config.droneName.ToUpper()}]" : "[STRIKE FPV]";
-        string warheadLabel = (config != null) ? $"ARMED / {config.warheadType}" : "ARMED / PG-7V";
+        string droneLabel = (config != null && !string.IsNullOrEmpty(config.droneName))
+            ? $"[УДАРНЫЙ БОРТ · {config.droneName.ToUpper()}]"
+            : "[УДАРНЫЙ БОРТ]";
+        string warheadLabel = (config != null)
+            ? $"ВЗВЕДЁН / {WarheadLabel(config.warheadType)}"
+            : "ВЗВЕДЁН / КУМУЛЯТИВНЫЙ";
 
         GUI.Label(new Rect(targetRect.x, targetRect.y - 20f, 250f, 20f), droneLabel, textStyle);
         GUI.Label(new Rect(targetRect.x, targetRect.yMax + 4f, 250f, 20f), warheadLabel, textStyle);
@@ -70,11 +75,22 @@ public class StrikeHUD : MonoBehaviour
         if (ewReceiver != null && ewReceiver.jamIntensity > 0.1f)
         {
             GUIStyle warningStyle = new GUIStyle(textStyle);
-            warningStyle.normal.textColor = Color.red;
-            GUI.Label(new Rect(targetRect.x, targetRect.y - 38f, 280f, 20f), $"[WARNING: EW JAMMING {(ewReceiver.jamIntensity * 100f):F0}%]", warningStyle);
+            warningStyle.normal.textColor = HudStyleService.Opaque(TacticalUITheme.AccentRed);
+            GUI.Label(new Rect(targetRect.x, targetRect.y - 38f, 320f, 20f), $"[ВНИМАНИЕ: ПОМЕХИ РЭБ {(ewReceiver.jamIntensity * 100f):F0}%]", warningStyle);
         }
 
         HudStyleService.End(previousMatrix);
+    }
+
+    private static string WarheadLabel(WarheadType type)
+    {
+        switch (type)
+        {
+            case WarheadType.HEAT: return "КУМУЛЯТИВНЫЙ";
+            case WarheadType.HE_Frag: return "ОСКОЛОЧНО-ФУГАСНЫЙ";
+            case WarheadType.Thermobaric: return "ТЕРМОБАРИЧЕСКИЙ";
+            default: return type.ToString();
+        }
     }
 
     private void DrawBoxOutline(Rect rect, float width)

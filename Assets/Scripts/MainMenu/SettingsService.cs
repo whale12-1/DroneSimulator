@@ -8,7 +8,7 @@ public class SettingsService : MonoBehaviour
 {
     public static SettingsService Instance { get; private set; }
 
-    private const int SchemaVersion = 3;
+    private const int SchemaVersion = 4;
     private const float SaveDebounceSeconds = 0.5f;
 
     public SettingsData Data { get; private set; }
@@ -35,6 +35,7 @@ public class SettingsService : MonoBehaviour
         ApplyAll();
 
         SceneManager.sceneLoaded += OnSceneLoaded;
+        GameStateMachine.StateChanged += OnGameStateChanged;
     }
 
     private void OnDestroy()
@@ -42,8 +43,17 @@ public class SettingsService : MonoBehaviour
         if (Instance != this) return;
 
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        GameStateMachine.StateChanged -= OnGameStateChanged;
         FlushSave();
         Instance = null;
+    }
+
+    // Громкость музыки зависит от "меню/геймплей" (настройка duckOnMenus),
+    // поэтому пересчитываем аудио при каждой смене состояния FSM.
+    private void OnGameStateChanged(GameState previous, GameState next)
+    {
+        if (Data == null) return;
+        AudioApplier.Apply(Data.audio);
     }
 
     private void OnApplicationQuit()
@@ -83,8 +93,27 @@ public class SettingsService : MonoBehaviour
                 // Старый файл настроек: поля, добавленные в новой схеме, остаются дефолтными.
                 Debug.Log($"[SettingsService] Миграция settings.json: версия {loaded.version} → {SchemaVersion}.");
 
+                // v3: windowMode появился как отдельное поле, до этого был только fullscreen.
                 if (loaded.version < 3 && loaded.graphics != null)
                     loaded.graphics.windowMode = loaded.graphics.fullscreen ? 0 : 2;
+
+                // v4: разрешение хранится в пикселях, а не индексом в Screen.resolutions.
+                if (loaded.version < 4 && loaded.graphics != null)
+                {
+                    int legacyIndex = loaded.graphics.resolutionIndex;
+
+                    if (loaded.graphics.resolutionWidth <= 0 || loaded.graphics.resolutionHeight <= 0)
+                    {
+                        Resolution[] unique = legacyIndex >= 0 ? SettingsApplier.GetUniqueResolutions() : null;
+                        if (unique != null && legacyIndex < unique.Length)
+                        {
+                            loaded.graphics.resolutionWidth = unique[legacyIndex].width;
+                            loaded.graphics.resolutionHeight = unique[legacyIndex].height;
+                        }
+                    }
+
+                    loaded.graphics.resolutionIndex = -1;
+                }
 
                 loaded.version = SchemaVersion;
             }
@@ -113,6 +142,22 @@ public class SettingsService : MonoBehaviour
         if (data.audio == null) data.audio = new DroneSimulator.Settings.AudioSettings();
         if (data.controls == null) data.controls = new ControlSettings();
         if (data.gameplay == null) data.gameplay = new GameplaySettings();
+
+        GraphicsSettings g = data.graphics;
+
+        g.windowMode = Mathf.Clamp(g.windowMode, 0, 2);
+        // windowMode — единственный источник истины; fullscreen — производное зеркало.
+        g.fullscreen = g.windowMode != 2;
+
+        g.resolutionIndex = -1;
+        g.resolutionWidth = Mathf.Max(0, g.resolutionWidth);
+        g.resolutionHeight = Mathf.Max(0, g.resolutionHeight);
+
+        int maxQuality = Mathf.Max(0, QualitySettings.names.Length - 1);
+        g.qualityLevel = Mathf.Clamp(g.qualityLevel, 0, maxQuality);
+        g.fpsLimit = Mathf.Clamp(g.fpsLimit, 0, 1000);
+        g.renderScale = Mathf.Clamp(g.renderScale, 0.1f, 1f);
+
         return data;
     }
 
@@ -145,6 +190,8 @@ public class SettingsService : MonoBehaviour
     public void ResetAll()
     {
         Data = new SettingsData();
+        Data.version = SchemaVersion;
+        SettingsApplier.ResetScreenCache();
         ApplyAll();
         MarkDirty();
     }
@@ -170,14 +217,19 @@ public class SettingsService : MonoBehaviour
         int max = Mathf.Max(0, QualitySettings.names.Length - 1);
         level = Mathf.Clamp(level, 0, max);
         Data.qualityLevel = level;
-        QualitySettings.SetQualityLevel(level);
+
+        // SetQualityLevel применяет customRenderPipeline уровня (у 0..4 он пуст),
+        // поэтому сразу переустанавливаем runtime-клон URP-ассета.
+        ApplyHeavy();
         MarkDirty();
     }
 
     public void SetFullscreen(bool fs)
     {
-        Data.fullscreen = fs;
-        Screen.fullScreen = fs;
+        // windowMode — единственный источник истины (0 = полный экран, 2 = окно).
+        Data.graphics.windowMode = fs ? 0 : 2;
+        Data.graphics.fullscreen = fs;
+        ApplyHeavy();
         MarkDirty();
     }
 

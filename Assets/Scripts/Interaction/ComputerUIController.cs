@@ -12,6 +12,10 @@ public class ComputerUIController : MonoBehaviour
     private float lastOpenTime;
     private float lastCloseTime = -1f;
 
+    // Ссылка кэшируется: раньше она искалась через FindAnyObjectByType каждый
+    // кадр, пока открыт рабочий стол (и ещё раз в ToggleDesktop).
+    private MissionMenuController missionMenu;
+
     public bool IsOpen { get; private set; }
     public bool IsOpenAnimationComplete { get; private set; }
 
@@ -19,6 +23,14 @@ public class ComputerUIController : MonoBehaviour
     {
         if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
         if (panelTransform == null) panelTransform = GetComponent<RectTransform>();
+        if (missionMenu == null) missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
+
+        BunkerModalStack.Register(this);
+    }
+
+    private void OnDestroy()
+    {
+        BunkerModalStack.Unregister(this);
     }
 
     private void Update()
@@ -26,7 +38,6 @@ public class ComputerUIController : MonoBehaviour
         if (!IsOpen) return;
         if (Time.unscaledTime - lastOpenTime < 0.2f) return;
 
-        MissionMenuController missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
         if (missionMenu != null && (missionMenu.IsOpen || Time.unscaledTime - missionMenu.LastClosedTime < 0.2f)) return;
 
         Keyboard keyboard = Keyboard.current;
@@ -54,6 +65,10 @@ public class ComputerUIController : MonoBehaviour
             openRoutine = null;
         }
 
+        // Время и курсор — через общий координатор окон (он же учитывает панель
+        // миссий, если она уже открыта).
+        BunkerModalStack.Apply();
+
         openRoutine = StartCoroutine(AnimateOpen());
     }
 
@@ -75,17 +90,18 @@ public class ComputerUIController : MonoBehaviour
             canvasGroup.blocksRaycasts = false;
         }
 
-        Time.timeScale = 1f;
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        // Раньше здесь безусловно ставились timeScale = 1 и захват курсора, что
+        // конфликтовало с другими открытыми окнами (пауза, настройки).
+        BunkerModalStack.Apply();
 
         if (playerController == null) playerController = FindAnyObjectByType<PlayerController>();
-        if (playerController != null) playerController.ForceSitIdle();
+        // Игрок мог уже встать (Space при открытом рабочем столе) — не возвращаем позу сидения.
+        if (playerController != null && playerController.isSitting) playerController.ForceSitIdle();
     }
 
     public void ToggleDesktop()
     {
-        MissionMenuController missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
+        if (missionMenu == null) missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
         if (missionMenu != null && missionMenu.IsOpen)
             return;
 
@@ -95,13 +111,8 @@ public class ComputerUIController : MonoBehaviour
 
     private IEnumerator AnimateOpen()
     {
-        Time.timeScale = 0f;
-
         if (canvasGroup != null) canvasGroup.alpha = 0f;
         if (panelTransform != null) panelTransform.localScale = Vector3.one * 0.1f;
-
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
 
         float duration = 0.3f;
         float elapsed = 0f;

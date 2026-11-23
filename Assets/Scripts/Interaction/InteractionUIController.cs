@@ -60,6 +60,13 @@ public class InteractionUIController : MonoBehaviour
 
     public void ShowSittingHint(string text)
     {
+        SettingsService service = SettingsService.Instance;
+        if (service != null && service.Data != null && service.Data.gameplay != null && !service.Data.gameplay.showInteractionHints)
+        {
+            HideSittingHint();
+            return;
+        }
+
         if (sittingHintText != null) sittingHintText.text = text;
         if (sittingHintGroup != null) sittingHintGroup.alpha = 1f;
     }

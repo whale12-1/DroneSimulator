@@ -69,6 +69,46 @@ public class MissionSelectScreen : UIScreen
         }
 
         UpdateHeader(registry);
+        SelectDefaultMission();
+    }
+
+    // При открытии терминала правая панель сразу показывает брифинг, а не пустое
+    // состояние: выбираем первую доступную миссию (иначе — первую в списке).
+    // При открытии терминала правая панель сразу показывает брифинг. Приоритет:
+    // первая непройденная доступная миссия (после прохождения «Тренировки»
+    // сразу выделяется «БТР и РСЗО»), затем первая доступная, затем первая в списке.
+    private void SelectDefaultMission()
+    {
+        if (cards.Count == 0) return;
+
+        MissionCardView defaultCard = null;
+
+        foreach (MissionCardView card in cards)
+        {
+            if (card == null || card.Mission == null) continue;
+            if (!ProgressService.IsUnlocked(card.Mission)) continue;
+            if (ProgressService.IsCompleted(card.Mission)) continue;
+
+            defaultCard = card;
+            break;
+        }
+
+        if (defaultCard == null)
+        {
+            foreach (MissionCardView card in cards)
+            {
+                if (card == null || card.Mission == null) continue;
+                if (!ProgressService.IsUnlocked(card.Mission)) continue;
+
+                defaultCard = card;
+                break;
+            }
+        }
+
+        if (defaultCard == null) defaultCard = cards[0];
+        if (defaultCard == null || defaultCard.Mission == null) return;
+
+        OnMissionClicked(defaultCard.Mission);
     }
 
     public void CloseDetails()
@@ -139,8 +179,15 @@ public class MissionSelectScreen : UIScreen
     {
         if (cardsContainer != null)
         {
+            // Destroy откладывается до конца кадра, поэтому карточки сначала
+            // отвязываем от контейнера: иначе при повторном Populate в том же
+            // кадре в списке остаются дубликаты (как было в настройках).
             for (int i = cardsContainer.childCount - 1; i >= 0; i--)
-                Destroy(cardsContainer.GetChild(i).gameObject);
+            {
+                Transform child = cardsContainer.GetChild(i);
+                child.SetParent(null, false);
+                Destroy(child.gameObject);
+            }
         }
 
         cards.Clear();

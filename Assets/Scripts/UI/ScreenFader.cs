@@ -4,47 +4,52 @@ using TMPro;
 
 public class ScreenFader : MonoBehaviour
 {
-    [Header("Элементы UI")]
+    [Header("пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ UI")]
     [SerializeField] private CanvasGroup fadeGroup;
     [SerializeField] private TMP_Text fadeText;
 
-    [Header("Настройки")]
+    [Header("пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ")]
     [SerializeField] private float fadeSpeed = 1.5f;
+    [SerializeField] private float holdSeconds = 2f;
 
     private void Awake()
     {
-        // На старте экран прозрачный
+        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         fadeGroup.alpha = 0f;
         fadeGroup.blocksRaycasts = false;
     }
 
     public IEnumerator FadeOut(string message)
     {
-        fadeGroup.blocksRaycasts = true; // Блокируем клики, пока идет загрузка
+        if (fadeGroup == null) yield break;
+
+        fadeGroup.blocksRaycasts = true;
 
         if (fadeText != null)
             fadeText.text = message;
 
-        // Плавно затемняем
+        // Unscaled: РїРµСЂРµС…РѕРґ РјРµР¶РґСѓ РіР»Р°РІР°РјРё РЅРµ РґРѕР»Р¶РµРЅ Р·Р°РІРёСЃР°С‚СЊ РїСЂРё Time.timeScale == 0.
         while (fadeGroup.alpha < 1f)
         {
-            fadeGroup.alpha += Time.deltaTime * fadeSpeed;
+            fadeGroup.alpha = Mathf.MoveTowards(fadeGroup.alpha, 1f, Time.unscaledDeltaTime * fadeSpeed);
             yield return null;
         }
 
-        // Пауза, чтобы игрок прочитал заголовок главы
-        yield return new WaitForSeconds(2f);
+        fadeGroup.alpha = 1f;
+        yield return new WaitForSecondsRealtime(Mathf.Max(0f, holdSeconds));
     }
 
     public IEnumerator FadeIn()
     {
-        // Плавно убираем затемнение
+        if (fadeGroup == null) yield break;
+
         while (fadeGroup.alpha > 0f)
         {
-            fadeGroup.alpha -= Time.deltaTime * fadeSpeed;
+            fadeGroup.alpha = Mathf.MoveTowards(fadeGroup.alpha, 0f, Time.unscaledDeltaTime * fadeSpeed);
             yield return null;
         }
 
+        fadeGroup.alpha = 0f;
         fadeGroup.blocksRaycasts = false;
     }
 }

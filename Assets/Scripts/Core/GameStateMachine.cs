@@ -24,8 +24,10 @@ public static class GameStateMachine
         { GameState.MainMenu,      new[] { GameState.MissionSelect, GameState.Loading, GameState.Boot } },
         { GameState.MissionSelect, new[] { GameState.MainMenu, GameState.Loading, GameState.Gameplay } },
         { GameState.Loading,       new[] { GameState.Gameplay, GameState.MainMenu } },
-        { GameState.Gameplay,      new[] { GameState.Paused, GameState.Debrief, GameState.MainMenu, GameState.MissionSelect } },
-        { GameState.Paused,        new[] { GameState.Gameplay, GameState.MainMenu } },
+        // Loading добавлен из Gameplay/Paused: рестарт миссии идёт через Loading
+        // (MissionController.Awake() в новой сцене завершает его → Gameplay).
+        { GameState.Gameplay,      new[] { GameState.Paused, GameState.Debrief, GameState.MainMenu, GameState.MissionSelect, GameState.Loading } },
+        { GameState.Paused,        new[] { GameState.Gameplay, GameState.MainMenu, GameState.Loading } },
         { GameState.Debrief,       new[] { GameState.MainMenu, GameState.Loading } },
     };
 

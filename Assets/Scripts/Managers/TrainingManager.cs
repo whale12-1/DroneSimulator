@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using TMPro;
 using System.Collections;
 
@@ -38,6 +38,7 @@ public class TrainingManager : MonoBehaviour
     [Header("Ссылки")]
     [SerializeField] private Transform activeDroneTransform;
     [SerializeField] private TMP_Text instructionText;
+    [SerializeField] private TMP_Text subtitleText;
     [SerializeField] private ScreenFader screenFader;
     [SerializeField] private DroneManager droneManager;
 
@@ -63,6 +64,11 @@ public class TrainingManager : MonoBehaviour
     private TrainingStep currentStep = TrainingStep.StartMotor; // <--- Начинаем с запуска мотора
 
     private int gatesPassed = 0;
+    private readonly System.Collections.Generic.HashSet<TrainingGate> countedGates = new System.Collections.Generic.HashSet<TrainingGate>();
+    private bool isRespawning;
+    private Coroutine respawnRoutine;
+    private Coroutine subtitleRoutine;
+    private bool lastHintsEnabled = true;
     private float hoverTimer = 0f;
     private float startY;
     private bool isTransitioning = false;
@@ -71,6 +77,9 @@ public class TrainingManager : MonoBehaviour
 
     private void Start()
     {
+        lastHintsEnabled = HintsEnabled();
+        if (subtitleText != null) subtitleText.gameObject.SetActive(false);
+
         if (activeDroneTransform != null)
         {
             startY = activeDroneTransform.position.y;
@@ -86,6 +95,12 @@ public class TrainingManager : MonoBehaviour
         GameEvents.ModuleDestroyed += HandleModuleDestroyed;
         GameEvents.DroneSwitched += HandleDroneSwitched;
         GameEvents.DroneExploded += HandleDroneExploded;
+
+        if (droneManager != null)
+        {
+            droneManager.OutOfBoundsStarted += HandleOutOfBoundsStarted;
+            droneManager.OutOfBoundsEnded += HandleOutOfBoundsEnded;
+        }
     }
 
     private void OnDisable()
@@ -95,11 +110,23 @@ public class TrainingManager : MonoBehaviour
         GameEvents.ModuleDestroyed -= HandleModuleDestroyed;
         GameEvents.DroneSwitched -= HandleDroneSwitched;
         GameEvents.DroneExploded -= HandleDroneExploded;
+
+        if (droneManager != null)
+        {
+            droneManager.OutOfBoundsStarted -= HandleOutOfBoundsStarted;
+            droneManager.OutOfBoundsEnded -= HandleOutOfBoundsEnded;
+        }
     }
 
     private void Update()
     {
-        if (isTransitioning) return;
+        if (isTransitioning || isRespawning) return;
+
+        // MonoBehavour.Update не зависит от Time.timeScale: без этого guard'а
+        // клавиши (H/Z/X/N/Space) двигали шаги обучения при открытой паузе.
+        UpdateHintVisibility();
+
+        if (Time.timeScale <= 0f) return;
 
         switch (currentStep)
         {
@@ -170,6 +197,12 @@ public class TrainingManager : MonoBehaviour
         currentStep = (TrainingStep)((int)currentStep + 1);
         hoverTimer = 0f;
         if (activeDroneTransform != null) startY = activeDroneTransform.position.y;
+
+        // Вход в шаг полосы препятствий: кольца, пройденные раньше (например,
+        // разведчиком на пути к макету), не должны «сгорать», иначе 3/3 не набрать.
+        if (currentStep == TrainingStep.StrikeFlyGates)
+            ResetGateProgress();
+
         UpdateUI();
     }
 
@@ -181,21 +214,24 @@ public class TrainingManager : MonoBehaviour
         if (screenFader != null)
             yield return StartCoroutine(screenFader.FadeOut(title));
 
-        // Очистка VFX и звуков
-        ParticleSystem[] allParticles = FindObjectsByType<ParticleSystem>(FindObjectsSortMode.None);
-        foreach (var ps in allParticles)
-        {
-            if (ps.GetComponentInParent<Canvas>() == null) Destroy(ps.gameObject);
-        }
+        // Точечная очистка: гасим эффекты и звуки только уходящих глав,
+        // а не все ParticleSystem/AudioSource в сцене (раньше сносились
+        // и клоны взрывов, созданные в текущей главе).
+        CleanupChapter(envChapter1);
+        CleanupChapter(envChapter2);
+        CleanupChapter(envChapter3);
 
-        AudioSource[] allAudio = FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
-        foreach (var audio in allAudio)
-        {
-            if (audio.playOnAwake && audio.loop == false) audio.Stop();
-        }
+        // Бесхозные рантайм-клоны эффектов (Instantiate без родителя) не попадают
+        // в CleanupChapter: они висят в корне сцены. Пример — WildFire от макета
+        // 1-й главы, который «уезжал» в 3-ю главу и висел в воздухе справа от танка.
+        DestroyOrphanRootVfx();
 
         if (nextChapter == TrainingChapter.Completed)
         {
+            // Финальный шаг выставляем явно: раньше он оставался Chapter3_DestroyModules,
+            // поэтому текст «ОБУЧЕНИЕ ЗАВЕРШЕНО» не показывался никогда.
+            currentChapter = TrainingChapter.Completed;
+            currentStep = TrainingStep.Completed;
             UpdateUI();
             if (screenFader != null) yield return StartCoroutine(screenFader.FadeIn());
 
@@ -224,6 +260,10 @@ public class TrainingManager : MonoBehaviour
                 newSpawnPos = spawnPosChapter2.position;
                 newSpawnRot = spawnPosChapter2.rotation;
             }
+
+            // Замена борта в главе 2 — у дома, а не в начале трассы.
+            if (droneManager != null && spawnPosChapter2 != null)
+                droneManager.RespawnPoint = spawnPosChapter2;
         }
         else if (nextChapter == TrainingChapter.Chapter3_Mangal)
         {
@@ -233,6 +273,11 @@ public class TrainingManager : MonoBehaviour
                 newSpawnPos = spawnPosChapter3.position;
                 newSpawnRot = spawnPosChapter3.rotation;
             }
+
+            // Замена борта в главе 3 — рядом с танком (раньше использовалась
+            // точка старта трассы — 315 м до цели).
+            if (droneManager != null && spawnPosChapter3 != null)
+                droneManager.RespawnPoint = spawnPosChapter3;
         }
 
         currentChapter = nextChapter;
@@ -277,7 +322,7 @@ public class TrainingManager : MonoBehaviour
 
     private void HandleDroneExploded(Vector3 pos, MonoBehaviour drone)
     {
-        if (isTransitioning) return;
+        if (isTransitioning || isRespawning) return;
 
         if (currentStep == TrainingStep.StrikeFlyGates ||
             currentStep == TrainingStep.StrikeDestroyTarget ||
@@ -286,8 +331,30 @@ public class TrainingManager : MonoBehaviour
             currentStep == TrainingStep.Chapter3_Start ||
             currentStep == TrainingStep.Chapter3_DestroyModules)
         {
-            Invoke(nameof(RespawnStrikeDrone), 1.5f);
+            respawnRoutine = StartCoroutine(RespawnStrikeDroneRoutine());
         }
+    }
+
+    // Замена борта идёт на unscaled времени и не открывает панель краха:
+    // прогресс текущей главы сохраняется, игрок получает новый борт.
+    private IEnumerator RespawnStrikeDroneRoutine()
+    {
+        isRespawning = true;
+
+        ShowSubtitle("<b>БОРТ ПОТЕРЯН</b> · ЗАМЕНА ЧЕРЕЗ 1.5 с", 1.5f);
+
+        yield return new WaitForSecondsRealtime(1.5f);
+
+        if (droneManager != null) droneManager.RespawnStrikeDrone();
+        if (activeDroneTransform != null) startY = activeDroneTransform.position.y;
+
+        // Кольца, пройденные до потери борта, не должны блокировать шаг полосы.
+        if (currentStep == TrainingStep.StrikeFlyGates)
+            ResetGateProgress();
+
+        isRespawning = false;
+        respawnRoutine = null;
+        UpdateUI();
     }
 
     private void RespawnStrikeDrone()
@@ -311,12 +378,29 @@ public class TrainingManager : MonoBehaviour
         return (activeDroneTransform.position.y - startY) >= targetH - heightTolerance;
     }
 
-    private void HandleGatePassed()
+    private void HandleGatePassed(TrainingGate gate)
     {
         if (currentStep != TrainingStep.StrikeFlyGates) return;
-        gatesPassed++;
+        if (gate == null) return;
+
+        // Каждое кольцо засчитывается один раз за заход; при сбросе прогресса
+        // кольца возвращаются в исходное состояние, поэтому softlock невозможен.
+        if (!countedGates.Add(gate)) return;
+
+        gatesPassed = countedGates.Count;
         UpdateUI();
         if (gatesPassed >= totalGates) NextStep();
+    }
+
+    private void ResetGateProgress()
+    {
+        countedGates.Clear();
+        gatesPassed = 0;
+
+        foreach (TrainingGate gate in FindObjectsByType<TrainingGate>(FindObjectsSortMode.None))
+        {
+            if (gate != null) gate.ResetGate();
+        }
     }
 
     private void UpdateDroneReferences(GameObject drone)
@@ -324,21 +408,119 @@ public class TrainingManager : MonoBehaviour
         currentLockManager = drone.GetComponentInChildren<TargetLockManager>();
     }
 
+    private bool HintsEnabled()
+    {
+        SettingsService service = SettingsService.Instance;
+        if (service == null || service.Data == null || service.Data.gameplay == null) return true;
+
+        return service.Data.gameplay.trainingHints;
+    }
+
+    private void UpdateHintVisibility()
+    {
+        bool enabled = HintsEnabled();
+        if (enabled == lastHintsEnabled) return;
+
+        lastHintsEnabled = enabled;
+        UpdateUI();
+    }
+
+    // Радиопереговоры/уведомления инструктора: отдельный канал субтитров,
+    // чтобы не затирать текущую задачу в InstructionText.
+    private void ShowSubtitle(string message, float seconds)
+    {
+        if (subtitleText == null) return;
+
+        SettingsService service = SettingsService.Instance;
+        if (service != null && service.Data != null && service.Data.gameplay != null)
+        {
+            if (!service.Data.gameplay.subtitlesEnabled) return;
+            subtitleText.fontSize = Mathf.Clamp(service.Data.gameplay.subtitleFontSize, 10, 40);
+        }
+
+        if (subtitleRoutine != null) StopCoroutine(subtitleRoutine);
+        subtitleRoutine = StartCoroutine(SubtitleRoutine(message, Mathf.Max(0.5f, seconds)));
+    }
+
+    private IEnumerator SubtitleRoutine(string message, float seconds)
+    {
+        subtitleText.text = message;
+        subtitleText.gameObject.SetActive(true);
+
+        yield return new WaitForSecondsRealtime(seconds);
+
+        subtitleText.text = "";
+        subtitleText.gameObject.SetActive(false);
+        subtitleRoutine = null;
+    }
+
+    private void HandleOutOfBoundsStarted()
+    {
+        ShowSubtitle("<b>СИГНАЛ ТЕРЯЕТСЯ</b>\nВернитесь в зону полигона", 3f);
+    }
+
+    private void HandleOutOfBoundsEnded()
+    {
+        ShowSubtitle("Сигнал восстановлен", 1.5f);
+    }
+
+    // Удаляем только корневые объекты-клоны с ParticleSystem: эффекты дронов и
+    // Canvas не затрагиваются, потому что они дочерние.
+    private static void DestroyOrphanRootVfx()
+    {
+        GameObject[] roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+
+        foreach (GameObject root in roots)
+        {
+            if (root == null) continue;
+            if (!root.name.EndsWith("(Clone)", System.StringComparison.Ordinal)) continue;
+            if (root.GetComponent<ParticleSystem>() == null) continue;
+
+            Destroy(root);
+        }
+    }
+
+    // Гасим только эффекты/звуки указанной главы (точечная очистка).
+    // ParticleSystem.Clear вместо Stop: у систем с sub-emitters Unity пишет
+    // предупреждение «Sub-emitters may not use stop actions». Сама глава
+    // выключается через SetActive(false) сразу после — эмиссия и так встанет.
+    private void CleanupChapter(GameObject chapterRoot)
+    {
+        if (chapterRoot == null) return;
+
+        foreach (ParticleSystem particles in chapterRoot.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            particles.Clear(true);
+        }
+
+        foreach (AudioSource audio in chapterRoot.GetComponentsInChildren<AudioSource>(true))
+        {
+            audio.Stop();
+        }
+    }
+
     private void UpdateUI()
     {
         if (instructionText == null) return;
-        string cW = "<color=#00FF00>[W]</color>";
-        string cS = "<color=#00FF00>[S]</color>";
+
+        // Настройка «Подсказки обучения» скрывает текст инструктора.
+        if (!HintsEnabled())
+        {
+            instructionText.text = "";
+            return;
+        }
+        string cW = "<color=#DB143D>[W]</color>";
+        string cS = "<color=#DB143D>[S]</color>";
 
         switch (currentStep)
         {
             // --- ГЛАВА 1 ---
             case TrainingStep.StartMotor:
-                instructionText.text = "ИНСТРУКТОР:\nДля начала работы заведите мотор. Нажмите <color=#00FF00>[W]</color>.";
+                instructionText.text = "ИНСТРУКТОР:\nДля начала работы заведите мотор. Нажмите <color=#DB143D>[W]</color>.";
                 break;
 
             case TrainingStep.DisableHover:
-                instructionText.text = "ИНСТРУКТОР:\nДрон сейчас в режиме автозависания. Нажмите <color=#00FF00>[H]</color>, чтобы перейти на ручное управление газом.";
+                instructionText.text = "ИНСТРУКТОР:\nДрон сейчас в режиме автозависания. Нажмите <color=#DB143D>[H]</color>, чтобы перейти на ручное управление газом.";
                 break;
 
             case TrainingStep.ReconTakeoff:
@@ -346,18 +528,18 @@ public class TrainingManager : MonoBehaviour
                 break;
 
             case TrainingStep.ReconHover:
-                instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#00FF00>[H]</color> снова, если захотите включить режим зависания.";
+                instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#DB143D>[H]</color> снова, если захотите включить режим зависания.";
                 break;
 
-            case TrainingStep.ReconZoom: instructionText.text = "ИНСТРУКТОР:\nОптика. Нажмите <color=#00FF00>[Z]</color> или <color=#00FF00>[X]</color>."; break;
-            case TrainingStep.ReconGimbal: instructionText.text = "ИНСТРУКТОР:\nПокрутите камеру: <color=#00FF00>[R/F]</color> и <color=#00FF00>[Q/E]</color>."; break;
-            case TrainingStep.ReconNightVision: instructionText.text = "ИНСТРУКТОР:\nПНВ. Нажмите <color=#00FF00>[N]</color>."; break;
-            case TrainingStep.ReconTargetLock: instructionText.text = "ИНСТРУКТОР:\nНаведитесь на макет и нажмите <color=#00FF00>[Пробел]</color>."; break;
-            case TrainingStep.SwitchToStrike: instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#00FF00>[2]</color> для перехода на ударный дрон."; break;
+            case TrainingStep.ReconZoom: instructionText.text = "ИНСТРУКТОР:\nОптика. Нажмите <color=#DB143D>[Z]</color> или <color=#DB143D>[X]</color>."; break;
+            case TrainingStep.ReconGimbal: instructionText.text = "ИНСТРУКТОР:\nПокрутите камеру: <color=#DB143D>[R/F]</color> и <color=#DB143D>[Q/E]</color>."; break;
+            case TrainingStep.ReconNightVision: instructionText.text = "ИНСТРУКТОР:\nПНВ. Нажмите <color=#DB143D>[N]</color>."; break;
+            case TrainingStep.ReconTargetLock: instructionText.text = "ИНСТРУКТОР:\nНаведитесь на макет и нажмите <color=#DB143D>[Пробел]</color>."; break;
+            case TrainingStep.SwitchToStrike: instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#DB143D>[2]</color> для перехода на ударный дрон."; break;
             case TrainingStep.StrikeFlyGates: instructionText.text = "<b>ПОЛОСА ПРЕПЯТСТВИЙ</b>\nПролетите через кольца.\nПрогресс: " + gatesPassed + "/" + totalGates; break;
             case TrainingStep.StrikeDestroyTarget: instructionText.text = "ИНСТРУКТОР:\nУничтожьте макет тараном."; break;
-            case TrainingStep.SwitchBackToRecon: instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#00FF00>[1]</color>, чтобы вернуться на разведчик."; break;
-            case TrainingStep.ReconObjectiveControl: instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#00FF00>[Пробел]</color> для снимка обломков."; break;
+            case TrainingStep.SwitchBackToRecon: instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#DB143D>[1]</color>, чтобы вернуться на разведчик."; break;
+            case TrainingStep.ReconObjectiveControl: instructionText.text = "ИНСТРУКТОР:\nНажмите <color=#DB143D>[Пробел]</color> для снимка обломков."; break;
 
             // --- ГЛАВА 2 ---
             case TrainingStep.Chapter2_Start: instructionText.text = "<b>ГЛАВА 2: ТОЧНОСТЬ</b>\nВы на ударном дроне. Найдите дом впереди и залетите ВНУТРЬ через открытое окно или дверь."; break;

@@ -40,10 +40,9 @@ public class MissionController : MonoBehaviour
 
     private void Awake()
     {
-        if (GameStateMachine.Current == GameState.Loading)
-        {
-            GameStateMachine.TransitionTo(GameState.Gameplay);
-        }
+        // Прямой старт сцены (без Boot) оставлял FSM в Boot — тогда дебриф не
+        // открывался: переход Boot → Debrief запрещён матрицей состояний.
+        GameStateBootstrap.EnsureGameplayState();
 
         mission = MissionContext.Current;
         startTime = Time.time;
@@ -132,10 +131,13 @@ public class MissionController : MonoBehaviour
     private void OnDroneDestroyed(Vector3 pos, MonoBehaviour drone)
     {
         if (isEnded) return; // Если миссия уже завершена, крушение игнорируем
-        if (mission != null && mission.sceneName.Contains("PreparingDemo"))
-        {
-            StartCoroutine(DelayedCrashPanel());
-        }
+        if (mission == null) return;
+
+        // В обучении потерю борта обрабатывает TrainingManager (замена через 1.5 с):
+        // панель краха там только мешала — она замораживала время и отменяла респавн.
+        if (FindAnyObjectByType<TrainingManager>() != null) return;
+
+        StartCoroutine(DelayedCrashPanel());
     }
 
     private IEnumerator DelayedCrashPanel()
@@ -184,6 +186,10 @@ public class MissionController : MonoBehaviour
 
         if (mission != null)
             ProgressService.RecordResult(mission, result, timeElapsed, targetsDestroyed);
+
+        // Из паузы прямой переход в Debrief матрицей запрещён: сначала Gameplay.
+        if (GameStateMachine.Current == GameState.Paused && GameStateMachine.CanTransitionTo(GameState.Gameplay))
+            GameStateMachine.TransitionTo(GameState.Gameplay);
 
         GameStateMachine.TransitionTo(GameState.Debrief);
     }

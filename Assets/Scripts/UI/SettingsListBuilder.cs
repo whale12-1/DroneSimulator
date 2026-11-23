@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Globalization;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,6 +22,10 @@ public class SettingDescriptor
     public bool WholeNumbers;
     public string ValueFormat;
     public bool RequiresRelease;
+    // true — изменение требует "тяжёлого" применения (Screen / QualitySettings /
+    // runtime URP-ассет / камеры). Для настроек управления/звука/геймплея
+    // достаточно ApplyInstant, иначе ApplyHeavy вызывался на каждый тик слайдера.
+    public bool AppliesHeavy;
     public string[] Options;
     public string ActionId;
     public int BindingIndex;
@@ -32,29 +37,53 @@ public class SettingDescriptor
     public System.Action<bool> SetBool;
 }
 
+/// <summary>
+/// Процедурная сборка строк настроек в едином тактическом стиле главного меню:
+/// TMP (LiberationSans SDF), спрайты HUF Pack, красный акцент только на опасных действиях.
+/// Разметка строки: подпись (растягивается) + значение (88 px) + контрол (320 px).
+/// </summary>
 public class SettingsListBuilder : MonoBehaviour
 {
     [SerializeField] private RectTransform content;
-    [SerializeField] private float rowHeight = 56f;
-    [SerializeField] private float sliderWidth = 260f;
-    [Tooltip("Высота кликабельной зоны слайдера (вся полоса попадания), px")]
-    [SerializeField] private float sliderHeight = 24f;
-    [Tooltip("Толщина видимой дорожки слайдера, px")]
-    [SerializeField] private float trackHeight = 10f;
-    [Tooltip("Размер ползунка слайдера, px")]
-    [SerializeField] private float handleSize = 14f;
-    [SerializeField] private Color labelColor = new Color(0.85f, 0.87f, 0.9f, 1f);
-    [SerializeField] private Color trackColor = new Color(0.2f, 0.2f, 0.22f, 1f);
-    [SerializeField] private Color fillColor = new Color(0.3f, 0.55f, 0.85f, 1f);
-    [SerializeField] private Color handleColor = new Color(0.95f, 0.95f, 0.95f, 1f);
-    [SerializeField] private Color checkColor = new Color(0.3f, 0.85f, 0.4f, 1f);
 
-    private Font labelFont;
+    [Header("Типографика")]
+    [SerializeField] private TMP_FontAsset fontAsset;
+
+    [Header("Спрайты HUF Pack")]
+    [SerializeField] private Sprite sliderTrackSprite;
+    [SerializeField] private Sprite sliderFillSprite;
+    [SerializeField] private Sprite sliderHandleSprite;
+    [SerializeField] private Sprite toggleOnSprite;
+    [SerializeField] private Sprite toggleOffSprite;
+    [SerializeField] private Sprite dropdownPlateSprite;
+    [SerializeField] private Sprite dropdownArrowSprite;
+
+    [Header("Метрики строки")]
+    [SerializeField] private float rowHeight = TacticalUITheme.RowHeight;
+    [SerializeField] private float sliderWidth = 320f;
+    [SerializeField] private float sliderHeight = 24f;
+    [SerializeField] private float trackHeight = 8f;
+    [SerializeField] private float handleSize = 16f;
+    [SerializeField] private float dropdownHeight = 40f;
+    [SerializeField] private float valueWidth = 88f;
+    [SerializeField] private float toggleSize = 32f;
+    [SerializeField] private float controlSpacing = 16f;
+
+    [Header("Цвета")]
+    [SerializeField] private Color labelColor = new Color(1f, 1f, 1f, 0.9f);
+    [SerializeField] private Color valueColor = new Color(1f, 1f, 1f, 0.62f);
+    [SerializeField] private Color trackColor = new Color(0.18f, 0.19f, 0.2f, 1f);
+    [SerializeField] private Color fillColor = new Color(0.72f, 0.75f, 0.78f, 1f);
+    [SerializeField] private Color handleColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+    [SerializeField] private Color dropdownColor = new Color(0.16f, 0.17f, 0.19f, 1f);
+    [SerializeField] private Color dropdownTextColor = Color.white;
+    [SerializeField] private Color optionColor = new Color(0.1f, 0.11f, 0.12f, 0.98f);
+    [SerializeField] private Color selectedOptionColor = new Color(0.22f, 0.23f, 0.25f, 1f);
 
     private string expandedId;
     private List<SettingDescriptor> lastDescriptors;
 
-    private float EffectiveRowHeight => Mathf.Max(24f, rowHeight);
+    private float EffectiveRowHeight => Mathf.Max(28f, rowHeight);
     private float EffectiveSliderHeight => sliderHeight > 0f ? sliderHeight : 24f;
 
     public void Build(List<SettingDescriptor> descriptors)
@@ -81,8 +110,7 @@ public class SettingsListBuilder : MonoBehaviour
             rt.SetParent(content, false);
 
             // VerticalLayoutGroup у Content не управляет высотой детей (childControlHeight = false),
-            // поэтому высоту строки задаём явно. Иначе строка остаётся 100 px (дефолтный
-            // RectTransform), LayoutElement.preferredHeight игнорируется и слайдеры выглядят толстыми.
+            // поэтому высоту строки задаём явно.
             SetHeight(rt, EffectiveRowHeight);
 
             LayoutElement le = row.GetComponent<LayoutElement>();
@@ -92,130 +120,150 @@ public class SettingsListBuilder : MonoBehaviour
 
             if (d.Type == SettingType.Dropdown && d.Id == expandedId) AddOptionRows(d);
         }
+
+        // Кнопки строк (дропдауны и их опции) создаются здесь — подписываем их на клик.
+        UISoundService.Attach(content.gameObject);
+    }
+
+    // Свёрнутый список должен оставаться свёрнутым: expandedId живёт на компоненте
+    // и раньше переживал закрытие панели, поэтому при следующем открытии настроек
+    // дропдаун был уже развёрнут и сдвигал строки.
+    public void CollapseDropdown()
+    {
+        if (string.IsNullOrEmpty(expandedId)) return;
+
+        expandedId = null;
+        if (lastDescriptors != null) Build(lastDescriptors);
     }
 
     public void Clear()
     {
         if (content == null) return;
+
+        // Destroy откладывается до конца кадра, поэтому строки сначала отвязываем
+        // от Content: иначе при повторной сборке в том же кадре (сброс настроек,
+        // выбор пункта дропдауна) в контейнере остаются дубликаты.
         for (int i = content.childCount - 1; i >= 0; i--)
-            Destroy(content.GetChild(i).gameObject);
-    }
-
-    private Font GetLabelFont()
-    {
-        if (labelFont == null)
         {
-            labelFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (labelFont == null) labelFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            Transform child = content.GetChild(i);
+            child.SetParent(null, false);
+            Destroy(child.gameObject);
         }
-
-        return labelFont;
     }
+
+    // ---------------------------------------------------------------- строки
 
     private GameObject CreateSliderRow(SettingDescriptor d)
     {
-        GameObject row = new GameObject(d.Id + "_Row", typeof(RectTransform));
-        ConfigureRowLayout(row);
+        GameObject row = CreateRow(d.Id + "_Row");
 
-        Text label = CreateLabel(row.transform, d.Title);
-        SetHeight((RectTransform)label.transform, EffectiveRowHeight);
-        LayoutElement labelLE = label.gameObject.AddComponent<LayoutElement>();
-        labelLE.flexibleWidth = 1f;
-        labelLE.minWidth = 180f;
+        TextMeshProUGUI label = CreateLabel(row.transform, d.Title, TacticalUITheme.FontLabel, labelColor);
+        CreateFlexibleLabelLayout(label, 220f);
 
-        GameObject slider = CreateSliderControl(row.transform, d, label);
+        TextMeshProUGUI value = CreateLabel(row.transform, Format(d, d.GetFloat != null ? d.GetFloat() : 0f), TacticalUITheme.FontValue, valueColor);
+        value.alignment = TextAlignmentOptions.MidlineRight;
+        SetHeight((RectTransform)value.transform, EffectiveRowHeight);
+        LayoutElement valueLE = value.gameObject.AddComponent<LayoutElement>();
+        valueLE.preferredWidth = valueWidth;
+        valueLE.minWidth = valueWidth;
+
+        GameObject slider = CreateSliderControl(row.transform, d, label, value);
         LayoutElement sliderLE = slider.AddComponent<LayoutElement>();
         sliderLE.preferredWidth = sliderWidth;
         sliderLE.preferredHeight = EffectiveSliderHeight;
+        sliderLE.minWidth = sliderWidth;
 
         return row;
     }
 
     private GameObject CreateToggleRow(SettingDescriptor d)
     {
-        GameObject row = new GameObject(d.Id + "_Row", typeof(RectTransform));
-        ConfigureRowLayout(row);
+        GameObject row = CreateRow(d.Id + "_Row");
 
-        Text label = CreateLabel(row.transform, d.Title);
-        SetHeight((RectTransform)label.transform, EffectiveRowHeight);
-        LayoutElement labelLE = label.gameObject.AddComponent<LayoutElement>();
-        labelLE.flexibleWidth = 1f;
-        labelLE.minWidth = 180f;
+        TextMeshProUGUI label = CreateLabel(row.transform, d.Title, TacticalUITheme.FontLabel, labelColor);
+        CreateFlexibleLabelLayout(label, 220f);
 
         GameObject toggleGO = new GameObject(d.Id + "_Toggle", typeof(RectTransform));
         toggleGO.transform.SetParent(row.transform, false);
-
-        // LayoutElement.preferredHeight не применяется (childControlHeight = false),
-        // поэтому размер чекбокса задаём через sizeDelta.
-        ((RectTransform)toggleGO.transform).sizeDelta = new Vector2(28f, 28f);
+        ((RectTransform)toggleGO.transform).sizeDelta = new Vector2(toggleSize, toggleSize);
 
         Image bg = toggleGO.AddComponent<Image>();
-        bg.color = trackColor;
+        ApplySprite(bg, toggleOffSprite, Color.white);
 
         GameObject checkGO = new GameObject("Checkmark", typeof(RectTransform));
         checkGO.transform.SetParent(toggleGO.transform, false);
-        Text check = checkGO.AddComponent<Text>();
-        check.font = GetLabelFont();
-        check.text = "✓";
-        check.fontSize = 20;
-        check.alignment = TextAnchor.MiddleCenter;
-        check.color = checkColor;
-        check.raycastTarget = false;
         Stretch((RectTransform)checkGO.transform);
+
+        Image check = checkGO.AddComponent<Image>();
+        ApplySprite(check, toggleOnSprite, Color.white);
+        check.raycastTarget = false;
 
         Toggle toggle = toggleGO.AddComponent<Toggle>();
         toggle.targetGraphic = bg;
         toggle.graphic = check;
-        toggle.isOn = d.GetBool != null ? d.GetBool() : false;
+        toggle.transition = Selectable.Transition.ColorTint;
+        toggle.colors = TacticalUITheme.ButtonColorBlock();
+        toggle.toggleTransition = Toggle.ToggleTransition.Fade;
+        toggle.isOn = d.GetBool != null && d.GetBool();
         toggle.onValueChanged.AddListener(v =>
         {
             if (d.SetBool != null) d.SetBool(v);
+            UISoundService.PlayClick();
             OnChanged(d, true);
         });
 
         LayoutElement toggleLE = toggleGO.AddComponent<LayoutElement>();
-        toggleLE.preferredWidth = 28f;
-        toggleLE.preferredHeight = 28f;
-        toggleLE.minWidth = 28f;
+        toggleLE.preferredWidth = toggleSize;
+        toggleLE.preferredHeight = toggleSize;
+        toggleLE.minWidth = toggleSize;
 
         return row;
     }
 
     private GameObject CreateDropdownRow(SettingDescriptor d)
     {
-        GameObject row = new GameObject(d.Id + "_Row", typeof(RectTransform));
-        ConfigureRowLayout(row);
+        GameObject row = CreateRow(d.Id + "_Row");
 
-        Text label = CreateLabel(row.transform, d.Title);
-        SetHeight((RectTransform)label.transform, EffectiveRowHeight);
-        LayoutElement labelLE = label.gameObject.AddComponent<LayoutElement>();
-        labelLE.flexibleWidth = 1f;
-        labelLE.minWidth = 180f;
+        TextMeshProUGUI label = CreateLabel(row.transform, d.Title, TacticalUITheme.FontLabel, labelColor);
+        CreateFlexibleLabelLayout(label, 220f);
 
         GameObject buttonObject = new GameObject(d.Id + "_Button", typeof(RectTransform));
         buttonObject.transform.SetParent(row.transform, false);
+        ((RectTransform)buttonObject.transform).sizeDelta = new Vector2(sliderWidth, dropdownHeight);
 
         Image image = buttonObject.AddComponent<Image>();
-        image.color = trackColor;
+        ApplySprite(image, dropdownPlateSprite, dropdownColor);
 
         Button button = buttonObject.AddComponent<Button>();
         button.targetGraphic = image;
+        button.transition = Selectable.Transition.ColorTint;
+        button.colors = TacticalUITheme.ButtonColorBlock();
 
         GameObject textObject = new GameObject("Text", typeof(RectTransform));
         textObject.transform.SetParent(buttonObject.transform, false);
         Stretch((RectTransform)textObject.transform);
 
-        Text value = textObject.AddComponent<Text>();
-        value.font = GetLabelFont();
-        value.text = GetOptionLabel(d);
-        value.fontSize = 16;
-        value.alignment = TextAnchor.MiddleCenter;
-        value.color = labelColor;
-        value.raycastTarget = false;
+        TextMeshProUGUI value = textObject.AddComponent<TextMeshProUGUI>();
+        ConfigureText(value, GetOptionLabel(d), TacticalUITheme.FontLabel, dropdownTextColor, TextAlignmentOptions.MidlineLeft);
+        value.margin = new Vector4(16f, 0f, 36f, 0f);
+
+        GameObject arrowObject = new GameObject("Arrow", typeof(RectTransform));
+        arrowObject.transform.SetParent(buttonObject.transform, false);
+        RectTransform arrowRT = (RectTransform)arrowObject.transform;
+        arrowRT.anchorMin = new Vector2(1f, 0.5f);
+        arrowRT.anchorMax = new Vector2(1f, 0.5f);
+        arrowRT.pivot = new Vector2(1f, 0.5f);
+        arrowRT.sizeDelta = new Vector2(16f, 10f);
+        arrowRT.anchoredPosition = new Vector2(-14f, 0f);
+
+        Image arrow = arrowObject.AddComponent<Image>();
+        ApplySprite(arrow, dropdownArrowSprite, new Color(1f, 1f, 1f, 0.8f));
+        arrow.raycastTarget = false;
 
         LayoutElement buttonLE = buttonObject.AddComponent<LayoutElement>();
         buttonLE.preferredWidth = sliderWidth;
-        buttonLE.preferredHeight = EffectiveRowHeight;
+        buttonLE.preferredHeight = dropdownHeight;
+        buttonLE.minWidth = sliderWidth;
 
         string id = d.Id;
         button.onClick.AddListener(() => ToggleDropdown(id));
@@ -275,40 +323,58 @@ public class SettingsListBuilder : MonoBehaviour
             int index = i;
 
             GameObject row = new GameObject(d.Id + "_Option" + i, typeof(RectTransform));
-            ConfigureRowLayout(row);
+            row.transform.SetParent(content, false);
 
             RectTransform rowRT = (RectTransform)row.transform;
-            rowRT.SetParent(content, false);
-            SetHeight(rowRT, EffectiveRowHeight);
+            SetHeight(rowRT, dropdownHeight);
 
             LayoutElement rowLE = row.AddComponent<LayoutElement>();
-            rowLE.preferredHeight = EffectiveRowHeight;
+            rowLE.preferredHeight = dropdownHeight;
             rowLE.flexibleWidth = 1f;
 
+            // Опции выравниваем по правому краю — под кнопкой дропдауна, а не на всю ширину строки.
             GameObject buttonObject = new GameObject("Option", typeof(RectTransform));
             buttonObject.transform.SetParent(row.transform, false);
+            RectTransform buttonRT = (RectTransform)buttonObject.transform;
+            buttonRT.anchorMin = new Vector2(1f, 0f);
+            buttonRT.anchorMax = new Vector2(1f, 1f);
+            buttonRT.pivot = new Vector2(1f, 0.5f);
+            buttonRT.sizeDelta = new Vector2(sliderWidth, 0f);
+            buttonRT.anchoredPosition = Vector2.zero;
 
             Image image = buttonObject.AddComponent<Image>();
-            image.color = i == current ? fillColor : trackColor;
+            ApplySprite(image, dropdownPlateSprite, i == current ? selectedOptionColor : optionColor);
 
             Button button = buttonObject.AddComponent<Button>();
             button.targetGraphic = image;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = TacticalUITheme.ButtonColorBlock();
+
+            if (i == current)
+            {
+                GameObject accent = new GameObject("Accent", typeof(RectTransform));
+                accent.transform.SetParent(buttonObject.transform, false);
+                RectTransform accentRT = (RectTransform)accent.transform;
+                accentRT.anchorMin = new Vector2(0f, 0f);
+                accentRT.anchorMax = new Vector2(0f, 1f);
+                accentRT.pivot = new Vector2(0f, 0.5f);
+                accentRT.sizeDelta = new Vector2(3f, 0f);
+                accentRT.anchoredPosition = Vector2.zero;
+
+                Image accentImage = accent.AddComponent<Image>();
+                accentImage.color = TacticalUITheme.AccentRed;
+                accentImage.raycastTarget = false;
+            }
 
             GameObject textObject = new GameObject("Text", typeof(RectTransform));
             textObject.transform.SetParent(buttonObject.transform, false);
             Stretch((RectTransform)textObject.transform);
 
-            Text optionText = textObject.AddComponent<Text>();
-            optionText.font = GetLabelFont();
-            optionText.text = "   " + d.Options[i];
-            optionText.fontSize = 16;
-            optionText.alignment = TextAnchor.MiddleLeft;
-            optionText.color = labelColor;
-            optionText.raycastTarget = false;
-
-            LayoutElement buttonLE = buttonObject.AddComponent<LayoutElement>();
-            buttonLE.flexibleWidth = 1f;
-            buttonLE.preferredHeight = EffectiveRowHeight;
+            TextMeshProUGUI optionText = textObject.AddComponent<TextMeshProUGUI>();
+            ConfigureText(optionText, d.Options[i], TacticalUITheme.FontValue,
+                i == current ? Color.white : valueColor, TextAlignmentOptions.MidlineLeft);
+            optionText.margin = new Vector4(18f, 0f, 12f, 0f);
+            optionText.overflowMode = TextOverflowModes.Ellipsis;
 
             SettingDescriptor descriptor = d;
             button.onClick.AddListener(() =>
@@ -328,25 +394,9 @@ public class SettingsListBuilder : MonoBehaviour
         if (lastDescriptors != null) Build(lastDescriptors);
     }
 
-    private static bool HasDescriptor(List<SettingDescriptor> descriptors, string id)
-    {
-        for (int i = 0; i < descriptors.Count; i++)
-        {
-            if (descriptors[i] != null && descriptors[i].Id == id) return true;
-        }
+    // ---------------------------------------------------------------- слайдер
 
-        return false;
-    }
-
-    private static string GetOptionLabel(SettingDescriptor d)
-    {
-        if (d.Options == null || d.Options.Length == 0) return "—";
-
-        int index = d.GetIndex != null ? Mathf.Clamp(d.GetIndex(), 0, d.Options.Length - 1) : 0;
-        return d.Options[index] + "  ▾";
-    }
-
-    private GameObject CreateSliderControl(Transform parent, SettingDescriptor d, Text label)
+    private GameObject CreateSliderControl(Transform parent, SettingDescriptor d, TMP_Text label, TMP_Text valueLabel)
     {
         float height = EffectiveSliderHeight;
         float track = Mathf.Clamp(trackHeight, 2f, height);
@@ -359,7 +409,7 @@ public class SettingsListBuilder : MonoBehaviour
         rootRT.sizeDelta = new Vector2(sliderWidth, height);
 
         // Прозрачная зона захвата на всю высоту слайдера: иначе по тонкой дорожке
-        // (10 px) тяжело попасть мышью, а клик мимо дорожки не считался бы кликом по Slider.
+        // (8 px) тяжело попасть мышью, а клик мимо дорожки не считался бы кликом по Slider.
         GameObject hitGO = new GameObject("Hit Area", typeof(RectTransform));
         hitGO.transform.SetParent(root.transform, false);
         Image hit = hitGO.AddComponent<Image>();
@@ -370,7 +420,7 @@ public class SettingsListBuilder : MonoBehaviour
         GameObject bgGO = new GameObject("Background", typeof(RectTransform));
         bgGO.transform.SetParent(root.transform, false);
         Image bg = bgGO.AddComponent<Image>();
-        bg.color = trackColor;
+        ApplySprite(bg, sliderTrackSprite, trackColor);
         Stretch((RectTransform)bgGO.transform);
         RectTransform bgRT = (RectTransform)bgGO.transform;
         bgRT.offsetMin = new Vector2(0f, trackInset);
@@ -383,7 +433,7 @@ public class SettingsListBuilder : MonoBehaviour
         GameObject fillGO = new GameObject("Fill", typeof(RectTransform));
         fillGO.transform.SetParent(fillArea.transform, false);
         Image fill = fillGO.AddComponent<Image>();
-        fill.color = fillColor;
+        ApplySprite(fill, sliderFillSprite, fillColor);
         Stretch((RectTransform)fillGO.transform);
         RectTransform fillRT = (RectTransform)fillGO.transform;
         fillRT.offsetMin = new Vector2(0f, trackInset);
@@ -396,7 +446,7 @@ public class SettingsListBuilder : MonoBehaviour
         GameObject handleGO = new GameObject("Handle", typeof(RectTransform));
         handleGO.transform.SetParent(handleArea.transform, false);
         Image handle = handleGO.AddComponent<Image>();
-        handle.color = handleColor;
+        ApplySprite(handle, sliderHandleSprite, handleColor);
         RectTransform handleRT = (RectTransform)handleGO.transform;
         handleRT.anchorMin = new Vector2(0.5f, 0.5f);
         handleRT.anchorMax = new Vector2(0.5f, 0.5f);
@@ -414,44 +464,102 @@ public class SettingsListBuilder : MonoBehaviour
         slider.maxValue = d.MaxValue;
         slider.wholeNumbers = d.WholeNumbers;
         slider.value = d.GetFloat != null ? d.GetFloat() : 0f;
-        label.text = BuildLabel(d, slider.value);
+
+        label.text = d.Title;
+        valueLabel.text = Format(d, slider.value);
+
         slider.onValueChanged.AddListener(v =>
         {
             if (d.SetFloat != null) d.SetFloat(v);
-            label.text = BuildLabel(d, v);
+            valueLabel.text = Format(d, v);
             OnChanged(d, false);
         });
 
         SliderReleaseNotifier notifier = root.AddComponent<SliderReleaseNotifier>();
-        notifier.OnRelease = () => OnChanged(d, true);
+        notifier.OnRelease = () =>
+        {
+            UISoundService.PlayClick();
+            OnChanged(d, true);
+        };
 
         return root;
     }
 
-    private void ConfigureRowLayout(GameObject row)
+    // ---------------------------------------------------------------- утилиты разметки
+
+    private GameObject CreateRow(string name)
     {
+        GameObject row = new GameObject(name, typeof(RectTransform));
         HorizontalLayoutGroup hlg = row.AddComponent<HorizontalLayoutGroup>();
-        hlg.padding = new RectOffset(0, 0, 4, 4);
-        hlg.spacing = 12f;
+        hlg.padding = new RectOffset(0, 0, 0, 0);
+        hlg.spacing = controlSpacing;
         hlg.childAlignment = TextAnchor.MiddleLeft;
         hlg.childControlWidth = true;
         hlg.childControlHeight = false;
         hlg.childForceExpandWidth = false;
         hlg.childForceExpandHeight = false;
+        return row;
     }
 
-    private Text CreateLabel(Transform parent, string text)
+    private static void CreateFlexibleLabelLayout(TextMeshProUGUI label, float minWidth)
+    {
+        SetHeight((RectTransform)label.transform, TacticalUITheme.RowHeight);
+        LayoutElement le = label.gameObject.AddComponent<LayoutElement>();
+        le.flexibleWidth = 1f;
+        le.minWidth = minWidth;
+    }
+
+    private TextMeshProUGUI CreateLabel(Transform parent, string text, float size, Color color)
     {
         GameObject go = new GameObject("Label", typeof(RectTransform));
         go.transform.SetParent(parent, false);
-        Text t = go.AddComponent<Text>();
-        t.font = GetLabelFont();
-        t.text = text;
-        t.fontSize = 18;
-        t.alignment = TextAnchor.MiddleLeft;
-        t.color = labelColor;
-        t.raycastTarget = false;
-        return t;
+
+        TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+        ConfigureText(label, text, size, color, TextAlignmentOptions.MidlineLeft);
+        return label;
+    }
+
+    private void ConfigureText(TMP_Text text, string value, float size, Color color, TextAlignmentOptions alignment)
+    {
+        text.font = GetFont();
+        text.text = value;
+        text.fontSize = size;
+        text.color = color;
+        text.alignment = alignment;
+        text.raycastTarget = false;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.overflowMode = TextOverflowModes.Ellipsis;
+    }
+
+    private TMP_FontAsset GetFont()
+    {
+        if (fontAsset != null) return fontAsset;
+        return TMP_Settings.defaultFontAsset;
+    }
+
+    private static void ApplySprite(Image image, Sprite sprite, Color color)
+    {
+        image.sprite = sprite;
+        image.type = sprite != null ? Image.Type.Sliced : Image.Type.Simple;
+        image.color = color;
+    }
+
+    private static bool HasDescriptor(List<SettingDescriptor> descriptors, string id)
+    {
+        for (int i = 0; i < descriptors.Count; i++)
+        {
+            if (descriptors[i] != null && descriptors[i].Id == id) return true;
+        }
+
+        return false;
+    }
+
+    private static string GetOptionLabel(SettingDescriptor d)
+    {
+        if (d.Options == null || d.Options.Length == 0) return "—";
+
+        int index = d.GetIndex != null ? Mathf.Clamp(d.GetIndex(), 0, d.Options.Length - 1) : 0;
+        return d.Options[index];
     }
 
     private void OnChanged(SettingDescriptor descriptor, bool released)
@@ -461,16 +569,20 @@ public class SettingsListBuilder : MonoBehaviour
 
         service.ApplyInstant();
 
-        if (descriptor == null || !descriptor.RequiresRelease || released)
+        // ApplyHeavy запускаем только для дескрипторов, помеченных AppliesHeavy,
+        // и (если требуется) только по отпусканию ползунка.
+        if (descriptor == null)
+            service.ApplyHeavy();
+        else if (descriptor.AppliesHeavy && (!descriptor.RequiresRelease || released))
             service.ApplyHeavy();
 
         service.MarkDirty();
     }
 
-    private string BuildLabel(SettingDescriptor d, float value)
+    private static string Format(SettingDescriptor d, float value)
     {
         string fmt = string.IsNullOrEmpty(d.ValueFormat) ? (d.WholeNumbers ? "F0" : "F2") : d.ValueFormat;
-        return d.Title + ": " + value.ToString(fmt, CultureInfo.InvariantCulture);
+        return value.ToString(fmt, CultureInfo.InvariantCulture);
     }
 
     private static void Stretch(RectTransform rt)

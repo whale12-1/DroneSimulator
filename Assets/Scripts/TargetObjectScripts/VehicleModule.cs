@@ -13,6 +13,8 @@ public class VehicleModule : MonoBehaviour, IDamageable
 
     [Header("Визуализация Повреждений")]
     [SerializeField] private GameObject destroyedVFX;
+    [Tooltip("Через сколько секунд удалять клон destroyedVFX. 0 = не удалять (эффект живёт до смены главы/сцены).")]
+    [SerializeField] private float destroyedVfxLifetime = 0f;
     [SerializeField] private GameObject smokeVFX;
     [SerializeField] private GameObject detachableMesh;
     [SerializeField] private Material burntMaterial;
@@ -60,12 +62,12 @@ public class VehicleModule : MonoBehaviour, IDamageable
 
     private void OnModuleDestroyed(Vector3 hitPoint)
     {
-        Vector3 spawnPos = hitPoint != Vector3.zero ? hitPoint : transform.position;
+        Vector3 spawnPos = hitPoint != Vector3.zero ? hitPoint : GetModuleCenter();
 
         if (destroyedVFX != null)
         {
             if (destroyedVFX.scene.rootCount == 0)
-                Instantiate(destroyedVFX, spawnPos, Quaternion.identity);
+                SpawnEffect(destroyedVFX, spawnPos);
             else
             {
                 destroyedVFX.transform.position = spawnPos;
@@ -73,7 +75,10 @@ public class VehicleModule : MonoBehaviour, IDamageable
             }
         }
 
-        if (smokeVFX != null) Instantiate(smokeVFX, spawnPos, Quaternion.identity);
+        // Раньше smokeVFX указывал на тот же префаб, что и destroyedVFX, поэтому
+        // на один модуль спавнилось два одинаковых (и вечных) огненных эффекта.
+        if (smokeVFX != null && smokeVFX != destroyedVFX)
+            SpawnEffect(smokeVFX, spawnPos);
 
         if (burntMaterial != null)
         {
@@ -105,5 +110,28 @@ public class VehicleModule : MonoBehaviour, IDamageable
 
         GameEvents.RaiseModuleDestroyed(this);
         mainVehicle?.OnModuleFunctionalityLost(moduleType);
+    }
+
+    private GameObject SpawnEffect(GameObject prefab, Vector3 position)
+    {
+        if (prefab == null) return null;
+
+        GameObject fx = Instantiate(prefab, position, Quaternion.identity);
+        if (destroyedVfxLifetime > 0f) Destroy(fx, destroyedVfxLifetime);
+        return fx;
+    }
+
+    // У модулей glb-модели transform.position совпадает с корнем танка, поэтому
+    // при нулевом hitPoint огонь появлялся бы внутри корпуса. Берём центр
+    // коллайдера/рендерера самого модуля.
+    private Vector3 GetModuleCenter()
+    {
+        Collider moduleCollider = GetComponent<Collider>();
+        if (moduleCollider != null) return moduleCollider.bounds.center;
+
+        Renderer moduleRenderer = GetComponent<Renderer>();
+        if (moduleRenderer != null) return moduleRenderer.bounds.center;
+
+        return transform.position;
     }
 }

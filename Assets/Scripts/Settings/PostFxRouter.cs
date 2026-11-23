@@ -10,6 +10,10 @@ public class PostFxRouter : MonoBehaviour
     private const float NvPriority = 20f;
     private const float SettingsPriority = 30f;
 
+    // Плотность эффекта при включённой настройке (раньше значение жёстко
+    // затиралось нулём, из-за чего Motion Blur не был виден никогда).
+    private const float MotionBlurIntensity = 0.6f;
+
     public static PostFxRouter Instance { get; private set; }
 
     private ChromaticAberration ewChromaticAberration;
@@ -46,9 +50,9 @@ public class PostFxRouter : MonoBehaviour
     {
         if (settingsMotionBlur == null) return;
 
-        settingsMotionBlur.active = enabled;
         settingsMotionBlur.intensity.overrideState = true;
-        settingsMotionBlur.intensity.value = 0f;
+        settingsMotionBlur.intensity.value = enabled ? MotionBlurIntensity : 0f;
+        settingsMotionBlur.active = enabled;
     }
 
     private void Awake()

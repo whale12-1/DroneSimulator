@@ -8,7 +8,15 @@ namespace DroneSimulator.Settings
     {
         public bool fullscreen = true;
         public int windowMode = 0;
+
+        // Легаси-поле схемы 3 и ниже: хранило индекс в списке Screen.resolutions.
+        // Индекс зависел от машины (набор режимов экрана), поэтому с версии 4
+        // настройка хранится в пикселях. Поле читается только миграцией.
         public int resolutionIndex = -1;
+
+        // 0 x 0 = "Текущее" (не менять разрешение, только режим окна).
+        public int resolutionWidth = 0;
+        public int resolutionHeight = 0;
         public bool vSync = true;
         public int fpsLimit = 0;
         public float renderScale = 1f;
@@ -37,15 +45,10 @@ namespace DroneSimulator.Settings
         public float droneFarClip = 15000f;
         public float droneShadowDistance = 250f;
         public float droneLodBias = 1.5f;
-        public bool droneFog = true;
-        public float droneFogDensity = 0.01f;
         public int ewPostFxQuality = 1;
-        public float ewVisualDistortion = 1f;
         public int ewNoiseResolution = 128;
         public int nightVisionColor = 0;
-        public float nightVisionGain = 1f;
         public int droneAntiAliasing = 0;
-        public bool droneLensDistortion = true;
     }
 
     [System.Serializable]
@@ -73,8 +76,8 @@ namespace DroneSimulator.Settings
     [System.Serializable]
     public class ControlSettings
     {
-        public float fpsMouseSensitivity = 1.67f;
-        public float droneMouseSensitivity = 1.67f;
+        public float fpsMouseSensitivity = 1f;
+        public float droneMouseSensitivity = 1f;
         public bool fpsInvertY = false;
         public bool droneInvertY = false;
         public bool gimbalInvertY = false;
@@ -113,7 +116,6 @@ namespace DroneSimulator.Settings
         public bool gimbalAutoCenter = false;
         public float gimbalAutoCenterDelay = 1.5f;
         public bool ewMotionComfort = false;
-        public bool reduceDangerousEffects = false;
         public bool trainingHints = true;
         public bool showSubtitlesOnPause = true;
     }
@@ -121,7 +123,10 @@ namespace DroneSimulator.Settings
     [System.Serializable]
     public class SettingsData
     {
-        public int version = 2;
+        // Должно совпадать с SettingsService.SchemaVersion (4). Раньше здесь стояло 2,
+        // из-за чего свежесозданный объект считался "старым" и проходил миграцию,
+        // перезаписывавшую выбранный пользователем windowMode из legacy-поля fullscreen.
+        public int version = 4;
         public GraphicsSettings graphics = new GraphicsSettings();
         public AudioSettings audio = new AudioSettings();
         public ControlSettings controls = new ControlSettings();

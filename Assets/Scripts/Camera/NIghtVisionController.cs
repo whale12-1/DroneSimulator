@@ -4,13 +4,13 @@ using UnityEngine.Rendering.Universal;
 
 public class NightVisionController : MonoBehaviour
 {
-    [Header("Профиль Дрона")]
+    [Header("пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ")]
     [SerializeField] private DroneConfig config;
 
-    [Header("Ссылки")]
-    [Tooltip("ИК-фонарь (Spotlight), который светит впереди дрона")]
+    [Header("пїЅпїЅпїЅпїЅпїЅпїЅ")]
+    [Tooltip("пїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ (Spotlight), пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ")]
     [SerializeField] private Light irSpotlight;
-    [Tooltip("Имя Full Screen Pass Renderer Feature в URP Asset")]
+    [Tooltip("пїЅпїЅпїЅ Full Screen Pass Renderer Feature пїЅ URP Asset")]
     [SerializeField] private string rendererFeatureName = "Night Vision Feature";
 
     public bool isNightVisionActive = false;
@@ -19,18 +19,18 @@ public class NightVisionController : MonoBehaviour
 
     private void Awake()
     {
-        // 1. Безопасный поиск фичи в текущем URP пайплайне
+        // 1. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ URP пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         var urpAsset = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
         if (urpAsset != null)
         {
-            // Получаем список рендереров (обычно это один PC_Renderer)
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ PC_Renderer)
             var rendererDataList = typeof(UniversalRenderPipelineAsset)
                 .GetField("m_RendererDataList", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
                 .GetValue(urpAsset) as ScriptableRendererData[];
 
             if (rendererDataList != null && rendererDataList.Length > 0)
             {
-                // Ищем фичу по имени
+                // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
                 foreach (var feature in rendererDataList[0].rendererFeatures)
                 {
                     if (feature.name == rendererFeatureName)
@@ -44,29 +44,30 @@ public class NightVisionController : MonoBehaviour
 
         if (nvFeature == null)
         {
-            Debug.LogError($"[NV] Не удалось найти Renderer Feature с именем '{rendererFeatureName}' в URP Asset!");
+            Debug.LogError($"[NV] пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ Renderer Feature пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ '{rendererFeatureName}' пїЅ URP Asset!");
         }
 
-        // 2. Настройка ИК-фонаря из конфига
+        // 2. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         if (irSpotlight != null && config != null)
         {
             irSpotlight.range = config.irRange;
             irSpotlight.spotAngle = config.irSpotAngle;
             irSpotlight.intensity = config.irIntensity;
-            // ИК-свет невидим для обычного глаза, но мы делаем его цветным для ПНВ
+            // пїЅпїЅ-пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ
             irSpotlight.color = Color.white;
         }
     }
 
     private void Start()
     {
-        // Гарантированно выключаем ПНВ на старте
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         SetNightVisionState(false);
     }
 
     private void Update()
     {
-        // Если в конфиге ПНВ запрещен, игнорируем ввод
+        if (Time.timeScale <= 0f) return; // РїР°СѓР·Р°: РєР»Р°РІРёС€Р° N РЅРµ РїРµСЂРµРєР»СЋС‡Р°РµС‚ РџРќР’
+
         if (config != null && !config.hasNightVision)
         {
             if (isNightVisionActive) SetNightVisionState(false);
@@ -85,21 +86,21 @@ public class NightVisionController : MonoBehaviour
     {
         isNightVisionActive = active;
 
-        // Включаем/выключаем сам пост-эффект
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ
         if (nvFeature != null)
         {
             nvFeature.SetActive(active);
         }
 
-        // Включаем/выключаем ИК-фонарь (он нужен для реального усиления света)
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
         if (irSpotlight != null)
         {
             irSpotlight.enabled = active;
         }
     }
 
-    // Архитектурная защита: если дрон выключается (переключаемся на другой), 
-    // ПНВ гарантированно выключается, чтобы не "протечь" на камеру другого дрона.
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ), 
+    // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ" пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.
     private void OnDisable()
     {
         if (isNightVisionActive)
