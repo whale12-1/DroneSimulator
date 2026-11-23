@@ -554,7 +554,9 @@ public static class GrassOptimizationTools
         if (captureCamera == null)
         {
             var go = new GameObject("~GrassOptCaptureCamera");
-            go.hideFlags = HideFlags.DontSave;
+            // No HideFlags.DontSave and no "MainCamera" tag on purpose: an interrupted
+            // capture used to leave this object alive (outside any scene) and Camera.main
+            // then returned it, making missions start from the capture viewpoint.
             captureCamera = go.AddComponent<Camera>();
             captureCamera.fieldOfView = 60f;
             captureCamera.nearClipPlane = 0.1f;
@@ -562,7 +564,6 @@ public static class GrassOptimizationTools
             captureCamera.depth = 100f;
             captureCamera.allowHDR = false;
             captureCamera.allowMSAA = false;
-            go.tag = "MainCamera";
             var listener = go.AddComponent<AudioListener>();
             listener.enabled = false;
 
@@ -842,6 +843,74 @@ public static class GrassOptimizationTools
         }
     }
 
+
+
+    // =====================================================================
+    // 7. Safety: never leave capture objects behind
+    // =====================================================================
+    [InitializeOnLoadMethod]
+    static void InitSafety()
+    {
+        EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+        CleanupLeftoverObjects();
+    }
+
+    static void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state != PlayModeStateChange.EnteredEditMode) return;
+
+        // A capture/benchmark session that was stopped manually leaves SessionState
+        // flags set; clear them so the next play session is not hijacked.
+        if (SessionState.GetBool(CaptureKey, false))
+        {
+            SessionState.SetBool(CaptureKey, false);
+            SessionState.SetInt(CaptureStepKey, 0);
+            Debug.Log("[GrassOpt] Interrupted capture session detected, state cleared.");
+        }
+
+        if (SessionState.GetBool(BenchKey, false))
+        {
+            SessionState.SetBool(BenchKey, false);
+            SessionState.SetInt(BenchStepKey, 0);
+            Debug.Log("[GrassOpt] Interrupted benchmark session detected, state cleared.");
+        }
+
+        captureCamera = null;
+        captureRT = null;
+        captureRead = null;
+        hiddenCameras = null;
+        hiddenCanvases = null;
+
+        CleanupLeftoverObjects();
+    }
+
+    [MenuItem("Tools/DroneSimulator/Grass Optimization/9. Cleanup Leftover Capture Objects")]
+    public static void CleanupLeftoverObjects()
+    {
+        // Objects created by the capture tool must never survive into a mission.
+        // Unscoped search is required because leaked objects live outside any scene.
+        GameObject[] objects = Resources.FindObjectsOfTypeAll<GameObject>();
+        for (int i = 0; i < objects.Length; i++)
+        {
+            GameObject go = objects[i];
+            if (go == null) continue;
+            if (go.name != "~GrassOptCaptureCamera" && go.name != "~GrassViewTarget") continue;
+
+            string name = go.name;
+            Object.DestroyImmediate(go);
+            Debug.Log("[GrassOpt] Removed leftover object: " + name);
+        }
+
+        RenderTexture[] textures = Resources.FindObjectsOfTypeAll<RenderTexture>();
+        for (int i = 0; i < textures.Length; i++)
+        {
+            RenderTexture rt = textures[i];
+            if (rt == null || rt.name != "~GrassOptCaptureRT") continue;
+            Object.DestroyImmediate(rt);
+            Debug.Log("[GrassOpt] Removed leftover render texture.");
+        }
+    }
 
 
 }
