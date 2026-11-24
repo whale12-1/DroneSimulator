@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 public class MissionController : MonoBehaviour
@@ -133,21 +132,20 @@ public class MissionController : MonoBehaviour
         if (isEnded) return; // Если миссия уже завершена, крушение игнорируем
         if (mission == null) return;
 
-        // В обучении потерю борта обрабатывает TrainingManager (замена через 1.5 с):
-        // панель краха там только мешала — она замораживала время и отменяла респавн.
-        if (FindAnyObjectByType<TrainingManager>() != null) return;
+        // Потеря борта сама по себе НЕ останавливает миссию: DroneManager уже
+        // переключил управление на следующий живой борт. Раньше здесь на каждый
+        // крах открывалась панель краха (Time.timeScale = 0 + AudioListener.pause),
+        // из-за чего игра замирала без видимого UI.
+        int alive = droneManager != null ? droneManager.GetAliveDronesCount() : 0;
+        if (alive > 0)
+        {
+            Debug.Log($"[MissionController] Борт потерян, осталось живых: {alive}. Продолжаем без паузы.");
+            return;
+        }
 
-        StartCoroutine(DelayedCrashPanel());
-    }
-
-    private IEnumerator DelayedCrashPanel()
-    {
-        yield return new WaitForSecondsRealtime(0.5f);
-
-        if (isEnded) yield break;
-
-        MissionUIManager ui = FindAnyObjectByType<MissionUIManager>();
-        if (ui != null) ui.ShowCrashPanel();
+        // Потерян последний борт: обучение заменяет его само (TrainingManager),
+        // в остальных миссиях поражение фиксирует LateUpdate() → Debrief.
+        Debug.Log("[MissionController] Потерян последний борт. Поражение.");
     }
 
     private void LateUpdate()
@@ -156,7 +154,8 @@ public class MissionController : MonoBehaviour
 
         if (droneManager.GetAliveDronesCount() <= 0)
         {
-            Debug.Log("[MissionController] Все дроны потеряны. Провал.");
+            // Единственный путь поражения по бортам: запись прогресса + Debrief.
+            // Панель краха не используется, чтобы не дублировать экран итогов.
             EndMission(MissionResult.Failed);
         }
     }

@@ -324,26 +324,6 @@ public class SettingsPanel : UIScreen
             MakeSlider("throttleSpeed", "Скорость газа", 1f, 3f, false, "F1", () => c.throttleSpeed, v => c.throttleSpeed = v),
             MakeSlider("deadZone", "Мёртвая зона стика", 0f, 0.2f, false, "F2", () => c.stickDeadZone, v => c.stickDeadZone = v),
             MakeToggle("throttleHold", "Фиксация газа", () => c.throttleMode == 1, v => c.throttleMode = v ? 1 : 0),
-            MakeKey("key_throttleUp", "Клавиша: газ вперёд", GameInput.Throttle, RebindService.AxisBindingPositiveIndex),
-            MakeKey("key_throttleDown", "Клавиша: газ назад", GameInput.Throttle, RebindService.AxisBindingNegativeIndex),
-            MakeKey("key_yawRight", "Клавиша: рыскание вправо", GameInput.Yaw, RebindService.AxisBindingPositiveIndex),
-            MakeKey("key_yawLeft", "Клавиша: рыскание влево", GameInput.Yaw, RebindService.AxisBindingNegativeIndex),
-            MakeKey("key_pitchUp", "Клавиша: тангаж вверх", GameInput.Pitch, RebindService.AxisBindingPositiveIndex),
-            MakeKey("key_pitchDown", "Клавиша: тангаж вниз", GameInput.Pitch, RebindService.AxisBindingNegativeIndex),
-            MakeKey("key_rollRight", "Клавиша: крен вправо", GameInput.Roll, RebindService.AxisBindingPositiveIndex),
-            MakeKey("key_rollLeft", "Клавиша: крен влево", GameInput.Roll, RebindService.AxisBindingNegativeIndex),
-            MakeKey("key_gimbalUp", "Клавиша: гимбал вверх", GameInput.Gimbal, RebindService.VectorBindingUpIndex),
-            MakeKey("key_gimbalDown", "Клавиша: гимбал вниз", GameInput.Gimbal, RebindService.VectorBindingDownIndex),
-            MakeKey("key_gimbalLeft", "Клавиша: гимбал влево", GameInput.Gimbal, RebindService.VectorBindingLeftIndex),
-            MakeKey("key_gimbalRight", "Клавиша: гимбал вправо", GameInput.Gimbal, RebindService.VectorBindingRightIndex),
-            MakeKey("key_zoomIn", "Клавиша: зум приблизить", GameInput.Zoom, RebindService.AxisBindingPositiveIndex),
-            MakeKey("key_zoomOut", "Клавиша: зум отдалить", GameInput.Zoom, RebindService.AxisBindingNegativeIndex),
-            MakeKey("key_primary", "Клавиша: захват / сброс / детонация", GameInput.PrimaryAction, RebindService.ButtonBindingIndex),
-            MakeKey("key_nightVision", "Клавиша: ночное видение", GameInput.NightVision, RebindService.ButtonBindingIndex),
-            MakeKey("key_motorStart", "Клавиша: запуск моторов", GameInput.MotorStart, RebindService.ButtonBindingIndex),
-            MakeKey("key_hover", "Клавиша: режим зависания", GameInput.HoverToggle, RebindService.ButtonBindingIndex),
-            MakeKey("key_angle", "Клавиша: режим углов", GameInput.AngleToggle, RebindService.ButtonBindingIndex),
-            MakeKey("key_gimbalReset", "Клавиша: центрирование гимбала", GameInput.GimbalReset, RebindService.ButtonBindingIndex),
         };
     }
 
@@ -427,18 +407,6 @@ public class SettingsPanel : UIScreen
             Options = options,
             GetIndex = get,
             SetIndex = set
-        };
-    }
-
-    private SettingDescriptor MakeKey(string id, string title, string actionName, int bindingIndex)
-    {
-        return new SettingDescriptor
-        {
-            Id = id,
-            Type = SettingType.Key,
-            Title = title,
-            ActionId = actionName,
-            BindingIndex = bindingIndex
         };
     }
 }

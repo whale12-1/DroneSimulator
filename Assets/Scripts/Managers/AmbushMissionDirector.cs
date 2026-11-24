@@ -49,12 +49,43 @@ public class AmbushMissionDirector : MonoBehaviour
         StartCoroutine(MissionSequence());
     }
 
+    private void OnEnable()
+    {
+        // Миссию может завершить не только режиссёр: например, потеряны все борта
+        // (MissionController.LateUpdate → Failed → Debrief) или игрок вышел в меню.
+        // В этом случае сценарий засады обязан остановиться, иначе титры продолжат
+        // идти поверх дебрифа и повторно вызовут CompleteMission.
+        GameStateMachine.StateChanged += OnGameStateChanged;
+    }
+
+    private void OnDisable()
+    {
+        GameStateMachine.StateChanged -= OnGameStateChanged;
+    }
+
+    private void OnGameStateChanged(GameState previous, GameState next)
+    {
+        if (next != GameState.Debrief && next != GameState.MainMenu && next != GameState.Loading)
+            return;
+
+        if (missionEnded)
+            return;
+
+        missionEnded = true;
+        StopAllCoroutines();
+        CancelInvoke();
+        HideSubtitle();
+        Debug.Log($"[AmbushMissionDirector] Сценарий засады остановлен внешним завершением миссии (переход в {next}).");
+    }
+
     private void ValidateReferences()
     {
         if (btrHealth == null) Debug.LogError("[AmbushMissionDirector] Не назначена ссылка btrHealth!");
         if (himarsHealth == null) Debug.LogError("[AmbushMissionDirector] Не назначена ссылка himarsHealth!");
         if (himarsEscapePoint == null) Debug.LogError("[AmbushMissionDirector] Не назначена ссылка himarsEscapePoint!");
         if (himarsPatrol == null) Debug.LogError("[AmbushMissionDirector] Не назначена ссылка himarsPatrol (нужна для отступления РСЗО)!");
+        if (subtitlePanel == null || subtitleText == null)
+            Debug.LogWarning("[AmbushMissionDirector] Субтитры не назначены — цели и титры миссии не будут показаны игроку.");
     }
 
     private IEnumerator MissionSequence()
@@ -115,6 +146,11 @@ public class AmbushMissionDirector : MonoBehaviour
     {
         if (missionEnded) return;
         missionEnded = true;
+
+        // Миссию уже завершил MissionController (например, потеряны все борта):
+        // повторный CompleteMission перезаписал бы результат и прогресс.
+        if (missionController != null && missionController.IsEnded)
+            return;
 
         if (success)
         {

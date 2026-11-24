@@ -73,16 +73,16 @@ public class VehicleHealth : MonoBehaviour, IDamageable
         var ai = GetComponent<VehicleSmartAI>();
         if (ai != null) ai.enabled = false;
 
-        // 3. Обнуляем скорость Rigidbody, чтобы машина не катилась по инерции
+        // 3. Обнуляем скорость Rigidbody, чтобы машина не катилась по инерции.
+        // ВАЖНО: скорости обнуляем ДО перевода в kinematic — у кинематического тела
+        // Unity игнорирует запись linearVelocity/angularVelocity и пишет warning
+        // "Setting linear velocity of a kinematic body is not supported".
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
-            // СНАЧАЛА делаем кинематическим, чтобы физика перестала работать
-            rb.isKinematic = true;
-
-            // Теперь обнуляем скорости (это безопасно, так как машина уже заморожена)
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
         }
 
         // 4. Останавливаем колеса (если они есть)

@@ -122,15 +122,25 @@ public class MissionUIManager : MonoBehaviour
         TogglePause();
     }
 
-    public void ShowCrashPanel()
+    /// <summary>
+    /// Модальное окно «все борта потеряны». Возвращает true только если панель
+    /// реально показана: без назначенного crashPanel метод ничего не морозит,
+    /// иначе игра замирала на статичном кадре без единой кнопки.
+    /// </summary>
+    public bool ShowCrashPanel()
     {
         if (GameStateMachine.Current == GameState.Debrief)
-            return;
+            return false;
+
+        if (crashPanel == null)
+        {
+            Debug.LogWarning("[MissionUIManager] crashPanel не назначен — панель краха пропущена. Завершение миссии выполнит MissionController (Debrief).", this);
+            return false;
+        }
 
         SetHudVisible(false);
 
-        if (crashPanel != null)
-            crashPanel.SetActive(true);
+        crashPanel.SetActive(true);
 
         if (pausePanel != null)
             pausePanel.SetActive(false);
@@ -143,6 +153,7 @@ public class MissionUIManager : MonoBehaviour
         // курсор только при lockState == None (см. LateUpdate ниже).
         Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
+        return true;
     }
 
     public void ResumeGame()
