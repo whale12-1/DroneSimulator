@@ -37,6 +37,8 @@ public class BunkerStorySubtitles : MonoBehaviour
     [Header("Настройки")]
     [SerializeField] private float defaultDuration = 4f;
     [SerializeField] private float fadeSpeed = 8f;
+    [Tooltip("Отступ плашки от нижнего края, если она оказалась за пределами канваса.")]
+    [SerializeField] private float defaultBottomOffset = 64f;
 
     private readonly Queue<Entry> pending = new Queue<Entry>();
     private Coroutine pump;
@@ -65,6 +67,41 @@ public class BunkerStorySubtitles : MonoBehaviour
             voiceSource.playOnAwake = false;
             voiceSource.loop = false;
         }
+    }
+
+    private void Start()
+    {
+        EnsureOnScreenLayout();
+    }
+
+    // Страховка от «невидимых» субтитров: если якорь/смещение уводят плашку
+    // за пределы канваса, возвращаем её к нижнему краю над SittingHint.
+    // Именно так ломался вид: pivot внизу + anchoredPosition.y = -365 держали
+    // плашку целиком ниже экрана, хотя alpha доходила до 1.
+    private void EnsureOnScreenLayout()
+    {
+        RectTransform rect = transform as RectTransform;
+        if (rect == null) return;
+
+        RectTransform canvasRect = rect.parent as RectTransform;
+        if (canvasRect == null) return;
+
+        Rect area = canvasRect.rect;
+        if (area.height < 1f) return;
+
+        Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(canvasRect, rect);
+
+        bool belowScreen = bounds.max.y < area.yMin + 1f;
+        bool aboveScreen = bounds.min.y > area.yMax - 1f;
+
+        if (!belowScreen && !aboveScreen) return;
+
+        rect.anchorMin = new Vector2(0.5f, 0f);
+        rect.anchorMax = new Vector2(0.5f, 0f);
+        rect.pivot = new Vector2(0.5f, 0f);
+        rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, defaultBottomOffset);
+
+        Debug.Log($"[BunkerStorySubtitles] Плашка субтитров была за пределами канваса и возвращена к нижнему краю (y = {defaultBottomOffset}).", this);
     }
 
     // Ставит реплику в очередь. onFinished вызывается после скрытия строки —

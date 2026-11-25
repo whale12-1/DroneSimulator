@@ -706,6 +706,59 @@
 * Пока открыт `ComputerOS`, пауза или настройки (`BunkerModalStack`, `timeScale = 0`), время стоит: обычный тик идёт по `Time.deltaTime`, а перемотка сна — по `Time.unscaledDeltaTime`.
 * `Assets/Scripts/UI/ScreenFader.cs` до правки содержал повреждённые кириллические `[Header]` (U+FFFD); файл перезаписан в UTF-8 без смены пути, GUID и ссылка `StoryFade` из сцены сохранены.
 
+---
+
+## 16. Ветка `bunker/story`: исправление субтитров и рука от первого лица (25.11.2026)
+
+Задача: субтитры должны реально отображаться при старте и при взятии рации, обновились реплики героя/командира, а взятие `Prop_WalkieTalkie` сопровождается процедурной анимацией правой руки от первого лица.
+
+### 16.1 Причина пропажи субтитров
+
+`InteractionCanvas/StorySubtitles` имел `anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)` и `anchoredPosition.y = −365`. При таком пивоте это означает «нижняя кромка на 365 px ниже нижнего края канваса»: плашка целиком уходила за экран (верх на −233 px). Очередь реплик, `CanvasGroup`, привязки `speakerText`/`lineText` и корутина показа работали — `alpha` доходил до 1, поэтому прежняя проверка (§14.3) считала баг отсутствующим: контролировалось только значение `alpha`, а не положение rect.
+
+### 16.2 Что изменено
+
+| Область | Результат |
+|---|---|
+| Раскладка | `anchoredPosition (0, 64)` при `pivot (0.5, 0)` и `sizeDelta (1120, 132)`: плашка занимает 64…196 px от низа, стоит над `SittingHint` (12…48 px) и не перекрывает центр |
+| Страховка | `BunkerStorySubtitles.EnsureOnScreenLayout()` в `Start()`: если bounds плашки вышли за канвас, она возвращается к `defaultBottomOffset = 64` (запись в консоль) |
+| Реплики | `firstRunLine` = `Персонаж / «Я в бункере, что мне делать?» / 4 с`; `briefingLine` = `Командир / «Ну что, Слава, готов к службе? Пройди сначала инструктаж.» / 5 с` — и дефолты в коде, и сериализованные значения в сцене |
+| Рука | `Main Camera/FirstPersonRightArm`: `Cuff`, `Forearm`, `Palm`, `Finger_Index/Middle/Ring`, `Thumb`, `FillLight` (Point 0.6 / 0.9 м, без теней). Слой `Default`, материал `Assets/Materials/BunkerHand_Tactical.mat` (URP/Lit), меши без теней и без коллайдеров |
+| Анкер | `WalkieTalkieHandAnchor` перенесён внутрь ладони (`localPos 0.015, 0.030, 0.395`); рация крепится с `handLocalEuler (270, 180, 0)`, `handScaleMultiplier 0.7` и выравниванием центра `Renderer.bounds` по точке хвата |
+| Анимация | 4 фазы в `BunkerWalkieTalkieEvent`: подъём/потягивание (`reachDuration 0.3 с`) → захват и телепорт рации (звонок и мигание off) → поза удержания (`holdBlendDuration 0.22 с`) под реплику командира → опускание (`lowerDuration 0.3 с`) и возврат модели на стену. Всё на unscaled-времени |
+| Сборка | Editor-билдер `Assets/Scripts/Editor/BunkerFirstPersonArmBuilder.cs`, меню `Tools ▸ DroneSimulator ▸ Bunker ▸ Build First Person Right Arm`: идемпотентно собирает руку и материал, переносит анкер, привязывает позы/реплики и правит плашку субтитров, затем сохраняет сцену |
+
+### 16.3 Параметры в Inspector
+
+| Компонент | Поле | Значение |
+|---|---|---|
+| `Prop_WalkieTalkie/BunkerWalkieTalkieEvent` | `armRoot` | `Main Camera/FirstPersonRightArm` |
+| | `handAnchor` | `FirstPersonRightArm/WalkieTalkieHandAnchor` |
+| | `armRestPosition` / `armRestEuler` | `(0.30, −0.55, 0.06)` / `(−60, 0, 0)` |
+| | `armReachPosition` / `armReachEuler` | `(0.10, −0.18, 0.05)` / `(−10, −8, 0)` |
+| | `armHoldPosition` / `armHoldEuler` | `(0.24, −0.19, 0.02)` / `(−14, −16, 6)` |
+| | `reachDuration` / `holdBlendDuration` / `lowerDuration` | `0.3` / `0.22` / `0.3` |
+| | `handScaleMultiplier` / `handLocalEuler` | `0.7` / `(270, 180, 0)` |
+| | `alignBoundsToGrip` / `gripLocalOffset` | `true` / `(0, 0, 0)` |
+| `InteractionCanvas/StorySubtitles` | RectTransform | `pivot (0.5, 0)`, `anchoredPosition (0, 64)`, `size (1120, 132)` |
+| | `BunkerStorySubtitles.defaultBottomOffset` | `64` |
+
+### 16.4 Проверка (Play Mode, `Bunker(main)`, 25.11.2026)
+
+| Сценарий | Результат |
+|---|---|
+| Старт | `StorySubtitles.activeInHierarchy = true`, `alpha = 1.00`, спикер «Персонаж», текст «Я в бункере, что мне делать?», плашка 64…196 px от низа, рука выключена |
+| Взятие рации | `armActive = true`, `armPos (0.24, −0.19, 0.02)`, `Prop_WalkieTalkie.parent = WalkieTalkieHandAnchor`, `scale 0.0185`; bounds рации во вьюпорте `x 0.59…0.72`, `y 0.14…0.59`; кисть `(0.68, 0.28)` — над плашкой; субтитр командира `alpha = 1.00` |
+| Завершение | через 6.1 с: рука выключена, рация в `BunkerStoryProps` с `localPos (2.80, −0.49, 1.10)` и `scale 0.0264`, `BriefingDone = true`, субтитры `alpha = 0` |
+| Консоль Unity | **0 ошибок и 0 предупреждений** (после компиляции и после Play-прогона) |
+
+### 16.5 Известные нюансы
+
+* Рука рендерится основной камерой (отдельная viewmodel-камера не вводилась): вплотную к стене возможен визуальный клиппинг геометрии. Поза подобрана близко к камере (~0.35 м) и рассчитана численно: кисть `(0.68, 0.28)`, низ рации `y ≈ 0.14` — ниже верха плашки, поэтому нижние ~45 px рации могут попадать за полупрозрачную подложку субтитров.
+* Лайтпроб в сцене нет, ambient слишком тусклый для динамической геометрии — поэтому у руки свой `FillLight` (Point, 0.6, 0.9 м, без теней). Он слегка подсвечивает и ближайшую стену.
+* Поза в руке и кадрирование настраиваются без кода: `armHoldPosition/Euler`, `armReachPosition/Euler`, `handScaleMultiplier`, `gripLocalOffset`; повторный запуск билдера перезапишет позы значениями из его констант.
+* Прогресс по-прежнему не сохраняется (`persistProgress = false`): каждый вход в бункер — реплика героя, звонок и брифинг заново.
+
 
 
 

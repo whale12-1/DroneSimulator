@@ -94,7 +94,8 @@
 | `InteractionCanvas/StorySubtitles` | `BunkerStorySubtitles`, `CanvasGroup` | Канал субтитров: реплики героя и командира, опциональная озвучка (шина `Voice`) |
 | `InteractionCanvas/StoryFade` | `CanvasGroup`, `Image`, `ScreenFader` | Затемнение при сне и титры; unscaled-время, последний сиблинг канваса. С 25.11.2026 `ScreenFader.SetMessage` обновляет текст на чёрном экране, `FadeOut(message, holdOverride)` задаёт свою паузу |
 | `InteractionCanvas/StoryClockHUD` | `BunkerClockHUD`, `Image`, `TextMeshProUGUI` | Часы HUD `ДЕНЬ 1  \|  06:00` в левом верхнем углу (360×72, акцент `#DB143D`); первый сиблинг канваса — `ComputerOS`/пауза его перекрывают; обновление только по событиям (см. §3.3) |
-| `Main Camera/WalkieTalkieHandAnchor` | — (Transform) | Точка удержания рации в руке перед камерой |
+| `Main Camera/FirstPersonRightArm` | — (viewmodel из примитивов, слой `Default`, материал `BunkerHand_Tactical`) | Правая рука от первого лица: манжета, предплечье, ладонь, пальцы и `FillLight`; в покое выключена и опущена за нижний край кадра (см. §3.4) |
+| `Main Camera/FirstPersonRightArm/WalkieTalkieHandAnchor` | — (Transform) | Точка хвата рации внутри ладони (перенесена из-под камеры 25.11.2026; рация выравнивается по центру габаритов) |
 | `Canvas`, `EventSystem` | — | UI |
 
 **«Мозг» сцены:** единого нет, сцена управляется связкой:
@@ -144,12 +145,12 @@
 | Объект | Скрипт | Поведение |
 |---|---|---|
 | `Prop_MilitaryBed` | `BunkerBedInteractable` | Подсказка `E — Спать`; затемнение через `ScreenFader`, на чёрном экране — ускоренная прокрутка часов до `06:00` (`BunkerTimeManager`), управление отключается только на время перехода, затем `BunkerStoryProgress.AdvanceDay()` → `OnDayPassed(newDay)` и субтитр «День N.» (см. §3.3) |
-| `Prop_WalkieTalkie` | `BunkerWalkieTalkieEvent` | Первый запуск: реплика героя → звонок (луп) + пульсирующий `Point Light`; `E — Взять рацию` → перенос на `WalkieTalkieHandAnchor`, реплика командира → `OnCommanderBriefingFinished`, звонок/свет выключаются, модель возвращается на стену |
+| `Prop_WalkieTalkie` | `BunkerWalkieTalkieEvent` | Первый запуск: реплика героя «Я в бункере, что мне делать?» → звонок (луп) + пульсирующий `Point Light`; `E — Взять рацию` → **4 фазы** (рука из-за нижнего края тянется вперёд → рация телепортируется в `WalkieTalkieHandAnchor` → поза удержания → опускание руки и возврат на стену) + реплика командира «Ну что, Слава, готов к службе? Пройди сначала инструктаж.» → `OnCommanderBriefingFinished` (см. §3.4) |
 | `Prop_RadioReceiver` | `BunkerRadioController` | `E` — вкл/выкл с плавным фейдом и подсветкой шкалы; `R` / колесо мыши — переключение волны по кругу со щелчком; пустой список треков → процедурный радиошум без ошибок |
 
 Дети пропсов, созданные в сцене: `RingAudio` (`AudioSource`, шина `SFX`), `GlowLight` (`Point Light`) у рации; `RadioSpeaker` (`AudioSource`, шина `RadioMusic`), `SwitchClick` (`AudioSource`, шина `SFX`), `DialLight` (`Point Light`) у радио.
 
-UI: `StoryClockHUD` (часы, см. §3.3) стоит первым сиблингом канваса, `StorySubtitles` (тёмная плашка + красный акцент + `Speaker` 26 / `Line` 30 с `Outline`) — четвёртым: над подсказками, под модалками; `StoryFade` — последний сиблинг, у всех графиков `raycastTarget = false`.
+UI: `StoryClockHUD` (часы, см. §3.3) стоит первым сиблингом канваса, `StorySubtitles` (тёмная плашка + красный акцент + `Speaker` 26 / `Line` 30 с `Outline`) — четвёртым: над подсказками, под модалками; `StoryFade` — последний сиблинг, у всех графиков `raycastTarget = false`. С 25.11.2026 плашка субтитров стоит на `anchoredPosition (0, 64)` при `pivot (0.5, 0)` — 64…196 px от нижнего края, над `SittingHint` (12…48 px); раньше `pivot` внизу + `y = −365` уводили её целиком за нижнюю границу экрана (см. §3.4).
 
 Аудио: в `Resources/Audio/MainMixer.mixer` добавлена группа **`RadioMusic`** (ребёнок `Master`) и Exposed Parameter **`RadioVolume`**; `AudioBus.RadioParameter`/`AudioBus.Radio`, в `AudioApplier` радио идёт по громкости музыки (с учётом `duckOnMenus`).
 
@@ -169,6 +170,24 @@ API `BunkerTimeManager`: свойства `CurrentHour`, `CurrentMinute`, `Total
 * **HUD без `Update`.** `BunkerClockHUD` подписан на `OnMinuteChanged`/`OnDayPassed` и собирает строку только по событиям (раз в игровую минуту).
 
 Проверка (Play Mode 25.11.2026): старт `06:00` и HUD `ДЕНЬ 1  |  06:00`; `05:59 + 1 мин → 06:00` даёт `День 2`; сон с `06:30` прокручивает `1410` минут, фиксируется на `06:00`, подпись `День 2 — 06:00`, управление возвращается, HUD `ДЕНЬ 2  |  06:00`; консоль — 0 ошибок.
+
+### 3.4 Исправление субтитров и рука от первого лица (25.11.2026)
+
+**Симптом.** При входе в бункер и при взятии рации субтитры не появлялись, хотя `CanvasGroup.alpha` доходил до 1.
+
+**Причина.** У `InteractionCanvas/StorySubtitles` стояли `anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)` и `anchoredPosition = (0, −365)`: нижняя кромка плашки висела на 365 px ниже нижней границы канваса, верхняя — на 233 px ниже. Плашка целиком была за экраном; очередь реплик, привязки текстов и корутина показа работали.
+
+**Исправление.**
+
+| Что | Значение |
+|---|---|
+| `StorySubtitles` RectTransform | `anchorMin/Max (0.5, 0)`, `pivot (0.5, 0)`, `anchoredPosition (0, 64)`, `sizeDelta (1120, 132)`, сиблинг-индекс 3 |
+| Страховка | `BunkerStorySubtitles.EnsureOnScreenLayout()` в `Start()`: если bounds плашки вышли за канвас, она возвращается к `defaultBottomOffset = 64` с записью в консоль |
+| Реплики | `firstRunLine` — `Персонаж / «Я в бункере, что мне делать?» / 4 с`; `briefingLine` — `Командир / «Ну что, Слава, готов к службе? Пройди сначала инструктаж.» / 5 с` (и дефолты в коде, и значения в сцене) |
+
+**Рука от первого лица.** Под `Main Camera` собран `FirstPersonRightArm` (viewmodel из примитивов на слое `Default`, один PBR-материал `Assets/Materials/BunkerHand_Tactical.mat`, мягкий `FillLight`), а `WalkieTalkieHandAnchor` перенесён внутрь ладони: `localPos (0.015, 0.030, 0.395)`, поворот рации `(270, 180, 0)`, масштаб `0.7 × 0.0264`. В покое рука выключена; при `E` она поднимается и тянется вперёд, рация телепортируется в кисть с выравниванием по центру габаритов, удерживается в правой нижней части кадра под реплику командира и уходит вниз перед возвратом модели на стену (подробности — `03` §4.4).
+
+**Проверка (Play Mode, 25.11.2026).** Плашка: `alpha = 1.00`, 64…196 px от низа, текст героя; после `E` — реплика командира при `alpha = 1.00`, рация в руке (вьюпорт `x 0.59…0.72`, `y 0.14…0.59`), кисть `(0.68, 0.28)` над плашкой; через 6.1 с рука скрыта, рация на стене, субтитры `alpha = 0`. Консоль — 0 ошибок и 0 предупреждений.
 
 ---
 

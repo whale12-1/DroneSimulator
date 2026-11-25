@@ -32,7 +32,7 @@ public class BunkerStoryProgress : MonoBehaviour
     // расширения для будущих сюжетных этапов и веток.
     public int CurrentDay { get; private set; } = FirstDay;
 
-    // Показана ли стартовая реплика героя («Так, я в бункере...»).
+    // Показана ли стартовая реплика героя («Я в бункере, что мне делать?»).
     public bool IntroSeen { get; private set; }
 
     // Завершён ли брифинг командира по рации.
