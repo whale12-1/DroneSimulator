@@ -33,6 +33,9 @@ public static class AudioApplier
         AudioBus.SetVolume(AudioBus.EwParameter, audio.ewVolume);
         AudioBus.SetVolume(AudioBus.UiParameter, audio.uiVolume);
         AudioBus.SetVolume(AudioBus.VoiceParameter, audio.voiceVolume);
+        // Радио бункера живёт в категории «Музыка»: ползунок музыки и duck
+        // на паузе/в меню действуют и на него.
+        AudioBus.SetVolume(AudioBus.RadioParameter, audio.musicVolume * MusicDuckFactor(audio));
     }
 
     // duckOnMenus: приглушаем музыку вне геймплея (главное меню, пауза, дебриф).

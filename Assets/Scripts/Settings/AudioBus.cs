@@ -10,6 +10,7 @@ public static class AudioBus
     public const string EwParameter = "EwVolume";
     public const string UiParameter = "UiVolume";
     public const string VoiceParameter = "VoiceVolume";
+    public const string RadioParameter = "RadioVolume";
 
     private const string ResourcePath = "Audio/MainMixer";
 
@@ -21,6 +22,7 @@ public static class AudioBus
     private static AudioMixerGroup motorsGroup;
     private static AudioMixerGroup ewGroup;
     private static AudioMixerGroup uiGroup;
+    private static AudioMixerGroup radioGroup;
 
     public static AudioMixer Mixer
     {
@@ -85,6 +87,16 @@ public static class AudioBus
         }
     }
 
+    // Отдельная шина радиоприёмника бункера (RadioMusic в MainMixer).
+    public static AudioMixerGroup Radio
+    {
+        get
+        {
+            Load();
+            return radioGroup;
+        }
+    }
+
     public static bool Ready
     {
         get
@@ -114,6 +126,7 @@ public static class AudioBus
         motorsGroup = null;
         ewGroup = null;
         uiGroup = null;
+        radioGroup = null;
     }
 
     private static void Load()
@@ -134,6 +147,7 @@ public static class AudioBus
         motorsGroup = FindGroup("DroneMotors");
         ewGroup = FindGroup("EW");
         uiGroup = FindGroup("UI");
+        radioGroup = FindGroup("RadioMusic");
     }
 
     private static AudioMixerGroup FindGroup(string groupName)
@@ -141,6 +155,15 @@ public static class AudioBus
         if (mixer == null) return null;
 
         AudioMixerGroup[] groups = mixer.FindMatchingGroups(groupName);
-        return groups != null && groups.Length > 0 ? groups[0] : null;
+        if (groups == null || groups.Length == 0) return null;
+
+        // FindMatchingGroups ищет по подстроке: "Music" теперь матчит и
+        // "RadioMusic". Сначала ищем точное совпадение имени группы.
+        for (int i = 0; i < groups.Length; i++)
+        {
+            if (groups[i] != null && groups[i].name == groupName) return groups[i];
+        }
+
+        return groups[0];
     }
 }

@@ -35,11 +35,48 @@ public class PlayerInteractionDetector : MonoBehaviour
                 {
                     interactable.Interact(gameObject);
                 }
+
+                HandleSecondaryAction(interactable);
                 return;
             }
         }
 
         if (uiController != null)
             uiController.HideHint();
+    }
+
+    // R и колесо мыши — дополнительное действие при взгляде на объект (радио).
+    // Работает только если объект в фокусе и сам подтверждает готовность через
+    // ISecondaryInteractable, поэтому остальные интеракторы не затронуты.
+    private void HandleSecondaryAction(IInteractable interactable)
+    {
+        if (!(interactable is ISecondaryInteractable secondary)) return;
+        if (!secondary.CanInteractSecondary(gameObject)) return;
+
+        float direction = 0f;
+        bool triggered = false;
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.rKey.wasPressedThisFrame)
+            triggered = true;
+
+        Mouse mouse = Mouse.current;
+        if (mouse != null)
+        {
+            float scroll = mouse.scroll.ReadValue().y;
+
+            if (scroll > 0.01f)
+            {
+                direction = 1f;
+                triggered = true;
+            }
+            else if (scroll < -0.01f)
+            {
+                direction = -1f;
+                triggered = true;
+            }
+        }
+
+        if (triggered) secondary.OnSecondaryInteract(gameObject, direction);
     }
 }

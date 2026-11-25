@@ -66,7 +66,7 @@
 | `SettingsListBuilder` | Процедурная генерация строк настроек (слайдер/тумблер/дропдаун), `CollapseDropdown()` (сворачивает раскрытый список при закрытии панели), `SliderReleaseNotifier`; `AppliesHeavy` ограничивает `ApplyHeavy()` только графикой; `Clear()` отвязывает строки от `Content` до `Destroy` (нет дубликатов при пересборке в одном кадре). С 22.11.2026 строки — TMP `LiberationSans SDF` + спрайты HUF Pack, 50 px: подпись / значение (88 px) / контрол (320 px), опции дропдауна выровнены вправо и не растягиваются на всю ширину | `SettingDescriptor`, `SliderReleaseNotifier`, `UISoundService`, `TacticalUITheme` |
 | `SliderReleaseNotifier` | Сообщает «отпустил ползунок» для настроек, применяемых по отпусканию | `Slider` |
 | `UISoundService` (static) | Клики интерфейса: 2D-`AudioSource` (`UISoundHost`, `DontDestroyOnLoad`) в шине `AudioBus.UI`, идемпотентная подписка кнопок через `Attach()` | `ProceduralClips`, `AudioBus` |
-| `ScreenFader` | Затемнение экрана с текстом (титры глав обучения) | `CanvasGroup`, `TMP_Text` |
+| `ScreenFader` | Затемнение экрана с текстом (титры глав обучения, сон в бункере). С 25.11.2026: `SetMessage(string)` обновляет текст без перезапуска корутины, `FadeOut(message, holdOverride)` задаёт собственную паузу после полного затемнения | `CanvasGroup`, `TMP_Text` |
 | `FpsCounterHud` | Автосоздаваемый `OnGUI`-счётчик FPS; рисуется в `MainMenu` и `Gameplay` (скрыт в `Boot`/`Loading`/`Paused`/`Debrief`, при `timeScale = 0` и во время загрузки) | `SettingsService`, `HudStyleService`, `GameStateMachine`, `SceneLoader` |
 
 **Особенности:**
@@ -96,7 +96,16 @@
 | `MissionMenuController` | Открыть/закрыть меню миссий, `Populate` карточек, запуск миссии, кнопка «Назад». С 22.11.2026: guard `if (IsOpen) return;` (нет дублей карточек), один `Esc` закрывает всю панель (как «НАЗАД»), `UISoundService.Attach` для «Назад»/«ЗАПУСТИТЬ»/карточек, состояние FSM доводит `BunkerStateRestorer` (самовольный `Boot → MainMenu` из `Awake` удалён) | `MissionRegistry`, `MissionSelectScreen`, `MissionContext`, `SceneLoader`, `GameStateMachine`, `BunkerModalStack` |
 | `BunkerModalStack` (static) | **Новое (22.11.2026).** Единый координатор модальных окон бункера: окна регистрируются в `Awake`, `AnyOpen` опрашивает живые `IsOpen`, `Apply()` держит `Time.timeScale` (0/1) и курсор (`None`+visible / `Locked`+hidden). `NotifySettingsChanged` участвует только при наличии бункерного контекста, поэтому `SettingsPanel` в `MainMenu` не захватывает курсор | `ComputerUIController`, `MissionMenuController`, `BunkerPauseController`, `SettingsPanel` |
 | `BunkerPauseController` | Пауза по `Esc`, блокировка ввода, настройки, выход в главное меню. С 22.11.2026: `timeScale`/курсор через `BunkerModalStack`, сам регистрируется в координаторе | `ComputerUIController`, `MissionMenuController`, `BunkerStateRestorer`, `PlayerInteractionDetector`, `ChairInteractable`, `InteractionUIController`, `PlayerController`, `SettingsPanel`, `BunkerModalStack` |
-| `BunkerStateRestorer` | Восстановление позы после миссии: посадка, открытие ОС, меню миссий. С 22.11.2026: `EnsureGameplayState()` доводит FSM до `Gameplay` при прямом старте сцены (`Boot → MainMenu → Loading → Gameplay`), поэтому пауза работает и без прохода через `Boot` | `ChairInteractable`, `ComputerUIController`, `MissionMenuController`, `MissionContext`, `GameStateMachine` |
+| `BunkerStateRestorer` | Восстановление позы после миссии: посадка, открытие ОС, меню миссий. С 22.11.2026: `EnsureGameplayState()` доводит FSM до `Gameplay` при прямом старте сцены (`Boot → MainMenu → Loading → Gameplay`), поэтому пауза работает и без прохода через `Boot`. Спавн у кровати не перезаписывает: корутина запускается только при `MissionContext.ReturnedFromMission` | `ChairInteractable`, `ComputerUIController`, `MissionMenuController`, `MissionContext`, `GameStateMachine` |
+| `ISecondaryInteractable` | **Новое (25.11.2026).** Контракт доп. действия при наведении: `CanInteractSecondary()`, `OnSecondaryInteract(interactor, direction)`; `direction = 0` — клавиша `R`, `±1` — колесо мыши. Расширяет `IInteractable`, не заменяя его | — |
+| `BunkerStoryProgress` | **Новое (25.11.2026).** Сюжетный прогресс бункера: `CurrentDay`, `IntroSeen`, `BriefingDone`, события `OnDayPassed(int)`, `MarkIntroSeen()`, `MarkBriefingDone()`, `AdvanceDay()`, `[ContextMenu] ResetStoryProgress()`. По умолчанию `persistProgress = false`: прогресс только в памяти сессии, ключи `BunkerStory.*` при старте удаляются; при включённом флаге — `PlayerPrefs` | `PlayerPrefs` |
+| `BunkerStorySubtitles` | **Новое (25.11.2026).** Канал субтитров: очередь реплик `BunkerStoryLine { speaker, text, duration, voice }`, `ShowLine(line, onFinished)`, `Hide()`, `IsPlaying`; плавное появление/скрытие на unscaled-времени, опциональная озвучка в шине `Voice` | `CanvasGroup`, `TMP_Text`, `AudioSource` |
+| `BunkerBedInteractable` | **Новое (25.11.2026).** `IInteractable` кровати: `E — Спать` → блокировка `PlayerController`/`PlayerInteractionDetector` → `ScreenFader.FadeOut` → **прокрутка часов на чёрном экране до 06:00** (`BunkerTimeManager`) → `AdvanceDay()` → `FadeIn`, субтитр «День N.» | `BunkerStoryProgress`, `BunkerTimeManager`, `ScreenFader`, `BunkerStorySubtitles`, `PlayerController`, `PlayerInteractionDetector`, `BunkerModalStack` |
+| `BunkerTimeManager` | **Новое (25.11.2026).** Игровое время бункера: старт `06:00`, `minutesPerRealSecond = 1`, тик по `Time.deltaTime` (само останавливается при `timeScale = 0`), `IsSleeping` отключает автoтик на время сна. API: `CurrentHour/CurrentMinute/TotalMinutesFromMidnight/FormattedTime`, `SetTime`, `AddMinutes`, `GetMinutesUntilMorning` (`06:30 → 1410`, `02:15 → 225`, `06:00 → 1440`), `SetSleeping`; события `OnMinuteChanged`/`OnHourChanged`; при естественном переходе через `06:00` один раз вызывает `AdvanceDay()` | `BunkerStoryProgress` |
+| `BunkerClockHUD` | **Новое (25.11.2026).** HUD часов `ДЕНЬ N  \|  HH:mm` на `InteractionCanvas/StoryClockHUD`: подписка на `OnMinuteChanged`/`OnDayPassed`, без `Update` и аллокаций на кадр, формат в `dayTimeFormat` | `TMP_Text`, `BunkerTimeManager`, `BunkerStoryProgress` |
+| `BunkerWalkieTalkieEvent` | **Новое (25.11.2026).** Сюжет рации: стартовая реплика героя (один раз), звонок (`AudioClip` или процедурный) + пульсация `Light`/эмиссии, `E — Взять рацию` → перенос на `WalkieTalkieHandAnchor`, реплика командира, событие `OnCommanderBriefingFinished`, возврат модели на стену | `BunkerStoryProgress`, `BunkerStorySubtitles`, `BunkerProceduralAudio`, `InteractionUIController` |
+| `BunkerRadioController` | **Новое (25.11.2026).** `List<AudioClip> tracks`, `E` — вкл/выкл с плавным фейдом и подсветкой шкалы, `R`/колесо — волна по кругу со щелчком; пустой список → процедурный шум; `RadioSpeaker` выведен в шину `RadioMusic` | `ISecondaryInteractable`, `AudioBus`, `BunkerProceduralAudio` |
+| `BunkerProceduralAudio` (static) | **Новое (25.11.2026).** Процедурные клипы-заглушки: `Ring()` (двухтоновый вызов), `RadioStatic()` (эфирный шум), `Click()` (щелчок настройки) | — |
 | `MissionUIManager` | Пауза в миссии, скрытие HUD (`IsHudHidden`), crash-панель, рестарт, возврат в бункер | `GameStateMachine`, `SceneLoader`, `MissionContext` |
 
 **Особенности:**
@@ -125,6 +134,66 @@
 | `PlayerInteractionDetector` | при `AnyOpen` → `HideHint()` и выход из `Update()` (подсказка не висит поверх терминала, рейкаст не крутится при `timeScale = 0`) |
 
 Проверено в Play Mode 22.11.2026: панель миссий без ОС → закрытие возвращает `timeScale = 1` и захват курсора; панель поверх ОС → после закрытия остаётся `timeScale = 0`; прямой старт `Bunker(main)` → `state = Gameplay`, `Esc` открывает паузу; подсказка «Войти в систему [E]» скрывается при открытии терминала и возвращается после закрытия.
+
+### 4.2 Сюжетная интерактивность бункера (25.11.2026)
+
+Новый слой поверх существующего конвейера взаимодействий, без второго raycast-детектора:
+
+```
+PlayerInteractionDetector (каждый кадр)
+  └─ IInteractable             → подсказка + E
+       └─ ISecondaryInteractable → R / колесо мыши (только радио)
+```
+
+| Ключ / событие | Назначение |
+|---|---|
+| `E` | универсальное взаимодействие: спать, взять рацию, вкл/выкл радио |
+| `R`, `Mouse ScrollWheel` | смена волны радио (работает только при взгляде на `Prop_RadioReceiver`) |
+| `BunkerStoryProgress.OnDayPassed(int newDay)` | точка расширения сюжета на смену суток |
+| `BunkerWalkieTalkieEvent.OnCommanderBriefingFinished` | завершение брифинга: сюда добавляется выдача рации в инвентарь вместо возврата на стену |
+| `BunkerWalkieTalkieEvent.OnWalkiePickup` | момент, когда рация взята в руку (SFX/анимация) |
+
+Особенности:
+
+* **Прогресс по умолчанию не сохраняется.** `BunkerStoryProgress.persistProgress = false` → `CurrentDay = 1`, `IntroSeen = false`, `BriefingDone = false` при каждом входе в сцену; в `Awake()` удаляются ключи `BunkerStory.Day/IntroSeen/BriefingDone`, чтобы старые тестовые значения не влияли на прогон. Включение флага переводит класс на `PlayerPrefs` (запись в `AdvanceDay`/`MarkIntroSeen`/`MarkBriefingDone`). `ResetStoryProgress()` доступен из контекстного меню компонента.
+* **Спавн.** `Player` стоит в `(-0.55, -1.60, -3.40)`. `BunkerStateRestorer` телепортирует на стул только после миссии, поэтому обычный вход сохраняет эту точку.
+* **Слой `Interactable`.** Детектор ищет только слой 7 (`interactableLayer = 128`), поэтому кровать, рация и радио переведены на него; матрица коллизий `Default ↔ Interactable` не отключена — игрок по-прежнему упирается в кровать.
+* **Затемнение.** Переиспользован `ScreenFader` (unscaled-время): `FadeOut(message)` → действие → `FadeIn()`, поэтому переход не зависает при `Time.timeScale = 0`.
+* **Подсветка.** `GlowLight`/`DialLight` — `Point Light` с пульсацией на `Time.unscaledTime`; эмиссия ставится на **инстанс** материала (`renderer.material`, свойства `emissiveFactor`/`_EmissionColor`), общие материалы GLB-моделей не меняются.
+* **Аудио.** В `Resources/Audio/MainMixer.mixer` добавлена группа `RadioMusic` (ребёнок `Master`) и Exposed Parameter `RadioVolume`; `AudioBus.Radio`/`AudioBus.RadioParameter`, `AudioApplier` выставляет радио по громкости музыки с учётом `duckOnMenus`. `AudioBus.FindGroup()` теперь сначала ищет точное имя (иначе `FindMatchingGroups("Music")` матчил и `RadioMusic`).
+* **Заглушки без ассетов.** `BunkerProceduralAudio` даёт вызов рации, эфирный шум и щелчок, если `AudioClip` не назначены — консоль остаётся чистой.
+* **Точки настройки в Inspector:** тексты/длительности реплик — у `BunkerWalkieTalkieEvent` (`firstRunLine`, `briefingLine`) и `BunkerBedInteractable`; поза рации в руке — `handLocalPosition/Euler/ScaleMultiplier` + `WalkieTalkieHandAnchor`; треки радио — список `tracks` у `BunkerRadioController`; флаг сохранения — `persistProgress` у `BunkerStoryProgress`.
+
+### 4.3 Игровое время и перемотка во сне (25.11.2026)
+
+```
+BunkerTimeManager (Update, Time.deltaTime)
+  ├─ OnMinuteChanged ──► BunkerClockHUD.Refresh  («ДЕНЬ N  |  HH:mm»)
+  └─ утро 06:00 ───────► BunkerStoryProgress.AdvanceDay() → OnDayPassed → BunkerClockHUD
+
+BunkerBedInteractable.SleepRoutine (Time.unscaledDeltaTime)
+  ├─ SetSleeping(true) → автотик выключен
+  ├─ ScreenFader.FadeOut(message, 0.25) → полностью чёрный экран
+  ├─ прокрутка sleepTimelapseDuration (3 с, smoothstep) + ScreenFader.SetMessage
+  └─ SetTime(06:00) → AdvanceDay() → «День N — 06:00» (0.4 с) → FadeIn → SetSleeping(false)
+```
+
+| Возможность | Реализация |
+|---|---|
+| Старт и скорость | `startHour = 6`, `startMinute = 0`, `minutesPerRealSecond = 1` (Inspector) |
+| Пауза времени в модалках | тик на `Time.deltaTime`; `BunkerModalStack` ставит `timeScale = 0` — время стоит без отдельных проверок |
+| Естественная смена суток | индекс утра от `absoluteMinutes`, один `AdvanceDay()` на переход через `morningHour` (`06:00`) |
+| Сон | `SetSleeping(true)` → перемотка ведётся кроватью, автопереход через `06:00` подавлен, `AdvanceDay()` вызывает кровать |
+| Текст на чёрном экране | `ScreenFader.SetMessage(string)` — без перезапуска корутины; `FadeOut(message, holdOverride)` — своя пауза после затемнения |
+| HUD | `BunkerClockHUD` на `InteractionCanvas/StoryClockHUD`, обновление только по событиям, без `Update` |
+| Сборка UI | Editor-билдер `Assets/Scripts/Editor/BunkerClockHudBuilder.cs` (`Tools ▸ DroneSimulator ▸ UI ▸ Build Bunker Clock HUD (Bunker)`) |
+
+Особенности:
+
+* `GetMinutesUntilMorning` считает до **ближайшего** утра: `06:30 → 1410`, `02:15 → 225`, ровно `06:00 → 1440` (полные сутки).
+* `AddMinutes` корректно проходит полночь (`23:59 + 1 → 00:00`), `SetTime` меняет только время внутри суток и не двигает день.
+* Прокрутка сна не вызывает `AddMinutes`: время ставится через `SetTime`, чтобы не сработал автопереход и не было двойной смены суток.
+* Прогресс по-прежнему не сохраняется (`persistProgress = false`), время сбрасывается в `Awake()` — `День 1, 06:00` на каждый запуск.
 
 ## 5. Дроны (`DroneTypes/`, `Physics/`)
 

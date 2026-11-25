@@ -34,6 +34,7 @@
 * ✅ Единый тактический стиль UI бункера (22.11.2026): `MissionSelectPanel` — непрозрачный терминал с рамкой, **вертикальным списком карточек 840×150** (было горизонтальная лента 400×400), детали 860×814, красный `#DB143D` у «Назад»/«Запустить»; `PausePanel` — модалка 560×620 с металлическими кнопками 460×60, красным выходом и футером-подсказкой; подсказки взаимодействия — компактные белые надписи 20/18 px с обводкой `Outline`, без плашек (`InteractionHint` на 75 % высоты, `SittingHint` у нижнего края — см. §9.5); `ComputerOS` — металлическая иконка «МИССИИ» 160×160 + декоративные шапка/футер терминала (логика ввода и `Time.timeScale` не менялись). Удалены просвечивание рабочего стола сквозь меню миссий, тёмный заголовок на светлом фоне, «вымытая» полупрозрачная плашка списка и внутренние линии спрайтов-плашек поверх текста. Невидимость карточек списка исправлена отдельно — см. §9.6.
 * ✅ Пауза (`Esc`), настройки, выход в главное меню.
 * ✅ (22.11.2026) Единый координатор модальных окон `BunkerModalStack`: `Time.timeScale` и курсор больше не правятся каждым окном по отдельности; закрытие панели миссий без открытого ОС возвращает управление, прямой старт `Bunker(main)` доводит FSM до `Gameplay` (пауза работает).
+* ✅ (25.11.2026) Игровое время и сон: `BunkerTimeManager` на объекте `BunkerStory` (старт `06:00`, `1 реальная секунда = 1 игровая минута`, смена суток при переходе через `06:00`), HUD `ДЕНЬ N  |  HH:mm` на `InteractionCanvas/StoryClockHUD`, ускоренная перемотка часов на чёрном экране при сне на кровати ровно до `06:00` следующего дня (см. §15).
 * ✅ Кнопка «Сброс» в настройках паузы (22.11.2026): работает и мгновенно обновляет строки. Раньше persistent `OnClick` имел `m_Target: {fileID: 0}` (вызов не выполнялся), а `resetButton` не был назначен — теперь кнопка ищется по имени и подписывается кодом. Сама кнопка живёт в `SettingsPanel.prefab`, сценовый дубликат удалён.
 * ✅ Возврат из миссии с восстановлением позы за компьютером (`BunkerStateRestorer`).
 * ⚠️ Окна «Магазин» и «Карта миссий» в `InteractionUIController` — пустые контейнеры без контента.
@@ -604,6 +605,107 @@
 * На столешнице под `Prop_RadioReceiver` остаются декоративные предметы интерьера `Cup`/`Cup5` (статика `Bunker07Anim`, без коллайдеров). Их объём попадает внутрь AABB радиоприёмника — так же, как у старой модели Marconi; визуально они полностью скрыты корпусом. Убирать/двигать их в этой задаче было нельзя (вне границ правки).
 * Модели `Asylum Bed` и `Citizen Radio` используют встроенные материалы GLB (`Shader Graphs/glTF-pbrMetallicRoughness`), отдельных `.mat`-ассетов в проекте не создавалось.
 * Кровать подогнана неравномерным масштабом (`0.082 × 0.1061 × 0.1061`): исходная модель шире «реальных» `0.9–1.1 м`, поэтому ширина сжата сильнее длины. Пропорции при этом остаются читаемыми (2.05 × 1.09 м).
+
+---
+
+## 14. Ветка `bunker/story`: сюжетная интерактивность (25.11.2026)
+
+Задача: базовая сюжетная интерактивность в `Bunker(main)` — спавн у кровати, сон со сменой суток, стартовые субтитры и звонок рации, брифинг командира, радиоприёмник с переключением волн и `AudioMixer`.
+
+### 14.1 Что сделано
+
+| Область | Результат |
+|---|---|
+| Спавн | `Player.position = (-0.55, -1.60, -3.40)`, `rotation.y = 10°` — у кровати, лицом в комнату; точка проверена `OverlapCapsule` (пересечение только с `COL_Floor`) |
+| Слой | `Prop_MilitaryBed`, `Prop_WalkieTalkie`, `Prop_RadioReceiver` переведены на слой **`Interactable` (7)** — детектор игрока ищет только его (`interactableLayer = 128`) |
+| Кровать | `BunkerBedInteractable`: `E — Спать` → блокировка `PlayerController`/`PlayerInteractionDetector` → `ScreenFader` («Проходят сутки...») → `AdvanceDay()` → плавный возврат → субтитр «День N.» |
+| Рация | `BunkerWalkieTalkieEvent`: первая реплика героя → звонок + пульсирующий `Point Light` → `E — Взять рацию` → модель на `WalkieTalkieHandAnchor` → реплика командира → `OnCommanderBriefingFinished` → звонок/свет off, возврат на стену |
+| Радио | `BunkerRadioController`: `E` — вкл/выкл с фейдом и подсветкой шкалы; `R`/колесо — волна по кругу со щелчком; пустой `tracks` → процедурный шум |
+| Субтитры | `BunkerStorySubtitles` + `StorySubtitles` (плашка, красный спикер, `Outline`); очередь реплик, опциональная озвучка в шине `Voice` |
+| Затемнение | `StoryFade` с существующим `ScreenFader` (unscaled-время), последний сиблинг `InteractionCanvas` |
+| Прогресс | `BunkerStoryProgress` на объекте `BunkerStory`: `CurrentDay`, `IntroSeen`, `BriefingDone`, `OnDayPassed(int)`; **`persistProgress = false` по умолчанию** |
+| Аудио | Группа `RadioMusic` + `RadioVolume` в `Resources/Audio/MainMixer.mixer`; `AudioBus.Radio`; радио следует громкости музыки (и `duckOnMenus`) |
+| Заглушки | `BunkerProceduralAudio`: вызов рации, эфирный шум, щелчок — если `AudioClip` не назначены |
+
+### 14.2 Тестирование без сохранения прогресса
+
+`BunkerStoryProgress.persistProgress` по умолчанию **выключен**:
+
+* прогресс живёт только в полях компонента (сессия), `PlayerPrefs` не пишется;
+* в `Awake()` удаляются ключи `BunkerStory.Day`, `BunkerStory.IntroSeen`, `BunkerStory.BriefingDone` (если были);
+* каждый вход в `Bunker(main)` — «как в первый раз»: `CurrentDay = 1`, `IntroSeen = false`, `BriefingDone = false`, стартовая реплика и звонок повторяются;
+* сон в текущей сессии увеличивает день (`День 2.` и т.д.);
+* включение галочки переводит класс на `PlayerPrefs` (запись в `AdvanceDay`/`MarkIntroSeen`/`MarkBriefingDone`);
+* `ResetStoryProgress()` (контекстное меню компонента) сбрасывает поля и чистит ключи.
+
+### 14.3 Проверка (Play Mode, `Bunker(main)`, 25.11.2026)
+
+| Сценарий | Результат |
+|---|---|
+| Запуск сцены | `fsm = Gameplay`, `timeScale = 1`, `Player` в `(-0.550, -1.612, -3.400)` (осел на пол), `ReturnedFromMission = false` — спавн не перезаписан |
+| Стартовая реплика | `StorySubtitles.alpha = 1`, `speaker = «Персонаж»`, текст «Так, я в бункере. Что я буду делать?»; после завершения — `alpha = 0`, `IntroSeen = true` |
+| Звонок рации | `IsRinging = true`, `AudioSource.isPlaying = true`, клип `Bunker_WalkieRing` (процедурный), `GlowLight.intensity ≈ 0.61` (пульсация) |
+| Взятие рации | рация → `Main Camera/WalkieTalkieHandAnchor` (`localPos 0.200,-0.160,0.340`), коллайдер выключен, звонок и свет off, субтитр командира |
+| Завершение брифинга | `BriefingDone = true`, модель вернулась в `BunkerStoryProps` с исходными `localPos (2.804,-0.492,1.097)` и `scale 0.0264`, коллайдер включён, повторное взаимодействие недоступно |
+| Сон | затемнение с текстом «Проходят сутки...», `PlayerController`/детектор выключены на время перехода и включены обратно, `CurrentDay = 2`, субтитр «День 2.» |
+| Радио | `E` → `isOn = true`, процедурный `Bunker_RadioStatic`, `DialLight` включён; `R`/колесо → щелчок в шине `SFX`; повторный `E` → `isOn = false`, свет off, плавное затухание |
+| Микшер | `FindMatchingGroups("RadioMusic") = 1`, Exposed Parameters = 8 (добавлен `RadioVolume`), `RadioSpeaker` в группе `RadioMusic`, `RingAudio`/`SwitchClick` — `SFX` |
+| Консоль Unity | **0 ошибок и 0 предупреждений** |
+
+### 14.4 Известные ограничения
+
+* В бункере нет `Volume`-профиля с Bloom, поэтому «свечение» рации — это пульсирующий `Point Light` (+ эмиссия на инстансе материала). Эффект читается, но без «ореола» bloom.
+* Эмиссия зависит от шейдера GLB (`Shader Graphs/glTF-pbrMetallicRoughness`): меняются свойства `emissiveFactor`/`_EmissionColor` у рантайм-инстанса; если конкретная модель не реагирует — визуальную индикацию даёт свет.
+* Текст подсказки радио компактный (`E — Вкл/Выкл · R/колесо — волна 1/3`) из-за `InteractionHint` 560×40 со шрифтом 35 и `NoWrap`; длинный вариант из ТЗ в этот rect не влезает.
+* Отдельный `BunkerAudioMixer.mixer` не создавался: мастер-громкость применяется только параметром `MasterVolume` в `MainMixer`, а `AudioListener.volume` принудительно = 1 — отдельный микшер не реагировал бы на общий ползунок. Группа `RadioMusic` добавлена в существующий `MainMixer` (бэкап правки: `Temp/MainMixer.backup.mixer`).
+* Если в `tracks` ещё нет клипов, «станция» одна — процедурный шум; переключение волны при этом меняет только щелчок (список пуст).
+
+## 15. Ветка `bunker/story`: игровое время, HUD часов и перемотка во сне (25.11.2026)
+
+Задача: системное время в `Bunker(main)` (старт `06:00`, `1 реальная секунда = 1 игровая минута`), часы в HUD и перемотка времени на чёрном экране во время сна на `Prop_MilitaryBed` — ровно до `06:00` следующего дня.
+
+### 15.1 Что сделано
+
+| Область | Результат |
+|---|---|
+| `BunkerTimeManager` | Новый скрипт на объекте `BunkerStory` рядом с `BunkerStoryProgress`: старт `06:00`, тик `Time.deltaTime × minutesPerRealSecond`, `IsSleeping` отключает автотик на время сна. Монотонные `absoluteMinutes` + индекс утра дают ровно один `AdvanceDay()` на переход через `06:00` (в том числе если игрок не спал, а дождался утра) |
+| API | Свойства `CurrentHour`, `CurrentMinute`, `TotalMinutesFromMidnight`, `FormattedTime`, `IsSleeping`; методы `SetTime`, `AddMinutes` (переход `23:59 → 00:00`), `GetMinutesUntilMorning` (`06:30 → 1410`, `02:15 → 225`, ровно `06:00 → 1440`), `SetSleeping`; события `OnMinuteChanged(hour, minute)`, `OnHourChanged(hour)` |
+| HUD | `InteractionCanvas/StoryClockHUD` (скрипт `BunkerClockHUD`): плашка 360×72 в левом верхнем углу (`32, −28`), акцент `#DB143D` 4 px, разделитель `(1,1,1,0.16)`, белый TMP 22 с `Outline`; текст `ДЕНЬ N  \|  HH:mm`; все графики `raycastTarget = false`; первый сиблинг канваса — `ComputerOS`/`PausePanel` перекрывают часы |
+| `ScreenFader` | `SetMessage(string)` — обновление текста на затемнённом экране без перезапуска корутины; `FadeOut(message, holdOverride)` — собственная пауза после полного затемнения (кровать передаёт `0.25 с`), старые вызовы `FadeOut(message)` работают как раньше |
+| Сон | `BunkerBedInteractable`: `E — Спать` → `SetSleeping(true)` + блокировка `PlayerController`/`PlayerInteractionDetector` → `FadeOut` → прокрутка `sleepTimelapseDuration = 3 с` на `Time.unscaledDeltaTime` с smoothstep (`t²(3−2t)`) → ровно `06:00`, `AdvanceDay()`, подпись `День N — 06:00` (`0.4 с`) → `FadeIn`, управление возвращается, субтитр «День N.» |
+| Сборка UI | Editor-билдер `Assets/Scripts/Editor/BunkerClockHudBuilder.cs`, меню `Tools ▸ DroneSimulator ▸ UI ▸ Build Bunker Clock HUD (Bunker)`: идемпотентно собирает виджет и привязывает `BunkerTimeManager` к `BunkerStory` и кровати |
+
+### 15.2 Параметры в Inspector
+
+| Компонент | Поле | Значение |
+|---|---|---|
+| `BunkerStory/BunkerTimeManager` | `startHour` / `startMinute` | `6` / `0` |
+| | `minutesPerRealSecond` | `1` |
+| | `morningHour` / `advanceDayAtMorning` | `6` / `true` |
+| `Prop_MilitaryBed/BunkerBedInteractable` | `sleepTimelapseDuration` | `3` |
+| | `blackPauseSeconds` / `morningHoldSeconds` | `0.25` / `0.4` |
+| | `sleepMessageFormat` / `morningMessageFormat` | `Сон...\n{0}` / `День {0} — 06:00` |
+| `InteractionCanvas/StoryClockHUD/BunkerClockHUD` | `dayTimeFormat` | `ДЕНЬ {0}  \|  {1}` |
+| `StoryFade/ScreenFader` | `fadeSpeed` / `holdSeconds` | `1.5` / `1.2` (для сна используется `holdOverride`) |
+
+### 15.3 Проверка (Play Mode, `Bunker(main)`, 25.11.2026)
+
+| Сценарий | Результат |
+|---|---|
+| Старт сцены | `time = 06:00`, `CurrentDay = 1`, HUD `ДЕНЬ 1  \|  06:00` |
+| `GetMinutesUntilMorning(6)` | `06:00 → 1440`, `06:30 → 1410`, `02:15 → 225` |
+| Полночь | `23:59 + 1 мин → 00:00` |
+| Естественное утро | `05:59 + 1 мин → 06:00`, `CurrentDay 1 → 2`, HUD `ДЕНЬ 2  \|  06:00` (смена дня ровно одна) |
+| Сон с `06:30` | после `Interact`: `IsSleeping = true`, `PlayerController.enabled = false`; через ~6 с: `06:00`, `CurrentDay = 2`, `IsSleeping = false`, `PlayerController.enabled = true`, HUD `ДЕНЬ 2  \|  06:00`, последний текст фейдера `День 2 — 06:00`, `CanvasGroup.alpha = 0` |
+| Консоль Unity | **0 ошибок** (после компиляции и после Play-прогона) |
+
+### 15.4 Известные нюансы
+
+* Время живёт только в сессии: `persistProgress = false` у `BunkerStoryProgress` и `ResetToStartTime()` в `Awake()` у `BunkerTimeManager` дают `День 1, 06:00` при каждом входе в бункер, в `PlayerPrefs` ничего не пишется.
+* Перемотка сна ставит время через `SetTime`, а не `AddMinutes`: поэтому автопереход через `06:00` внутри `BunkerTimeManager` подавлен (`IsSleeping`), а `AdvanceDay()` вызывает кровать — ровно один раз за сон.
+* Пока открыт `ComputerOS`, пауза или настройки (`BunkerModalStack`, `timeScale = 0`), время стоит: обычный тик идёт по `Time.deltaTime`, а перемотка сна — по `Time.unscaledDeltaTime`.
+* `Assets/Scripts/UI/ScreenFader.cs` до правки содержал повреждённые кириллические `[Header]` (U+FFFD); файл перезаписан в UTF-8 без смены пути, GUID и ссылка `StoryFade` из сцены сохранены.
+
 
 
 
