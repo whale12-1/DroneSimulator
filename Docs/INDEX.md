@@ -283,6 +283,9 @@ AI техники → Assets/Scripts/TargetObjectScripts/VehicleSmartAI.cs
 
 Новая сцена базы (бункер) → Assets/Scenes/Bunker(main).unity
 Модель бункера → Assets/Models/Buildings/Base_v1/source/Bunker07Anim.fbx
+Реквизит бункера (кровать, рация, радио) → Assets/Scenes/Bunker(main).unity → BunkerStoryProps (Prop_MilitaryBed, Prop_WalkieTalkie, Prop_RadioReceiver)
+Модели реквизита бункера (.glb) → Assets/Models/Props/Bunker/
+Лицензии и авторы реквизита → Docs/CREDITS.md
 
 Физическая оболочка бункера → Assets/Scenes/Bunker(main).unity → Collision_SHELL
 Пол бункера → Assets/Scenes/Bunker(main).unity → Collision_SHELL/COL_Floor
@@ -392,6 +395,8 @@ InputActionAsset карты Drone → не объект сцены и не ас�
 
 Инструменты обслуживания (Tools и Editor)
 Перекодировка скриптов cp1251 → UTF-8 и починка mojibake → Tools/FixScriptEncodings.ps1 (бэкапы в Logs/encoding_backup/)
+
+Скачивание моделей Sketchfab (likes / info / download / thumb) → Tools/sketchfab_fetch.py (токен в SKETCHFAB_API_TOKEN)
 
 Вставка карты Drone в .inputactions (одноразово, история правки) → Tools/AddDroneInputMap.ps1
 

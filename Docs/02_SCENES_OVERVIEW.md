@@ -89,6 +89,7 @@
 | `InteractionCanvas` | `InteractionUIController` | Подсказки взаимодействия (компактные надписи на 75 % высоты и у нижнего края, без плашек), окна «магазин» и «карта миссий» |
 | `PauseManager` | `BunkerPauseController` | Пауза по `Esc`, настройки, выход в главное меню |
 | `SettingsPanel` (prefab instance) | `SettingsPanel` | Настройки в паузе |
+| `BunkerStoryProps` | — (контейнер) | Сюжетный реквизит: кровать, рация, радио (см. §3.1) |
 | `Canvas`, `EventSystem` | — | UI |
 
 **«Мозг» сцены:** единого нет, сцена управляется связкой:
@@ -100,7 +101,7 @@
 
 **Скрипты (14 привязок):** `PlayerController`, `PlayerInteractionDetector`, `CameraFollowHead`, `ChairInteractable`, `ComputerInteractable`, `ComputerUIController`, `DesktopIcon`, `DesktopRadarSweep`, `MissionMenuController`, `MissionSelectScreen`, `InteractionUIController`, `BunkerPauseController`, `BunkerStateRestorer`, `SettingsPanel`.
 
-**Ассеты:** `Bunker(main)/LightingData.asset`, `Models/Player/Swat.fbx`, `Models/Player/PlayerAnimator.controller` (параметры `Speed`, `Direction`, `Strafe`, `IsGrounded`, `IsSitting`, `IsTyping`, состояние `SitIdle`), `Materials/Soldier_body1.mat`, `Soldier_head6.mat`, `Textures/DesktopBackground/DesktopBackground_plate.png` (статичная пластина рабочего стола), `Textures/DesktopBackground/DesktopBackground_sweep.png` (вращаемый лепесток радара).
+**Ассеты:** `Bunker(main)/LightingData.asset`, `Models/Player/Swat.fbx`, `Models/Player/PlayerAnimator.controller` (параметры `Speed`, `Direction`, `Strafe`, `IsGrounded`, `IsSitting`, `IsTyping`, состояние `SitIdle`), `Materials/Soldier_body1.mat`, `Soldier_head6.mat`, `Textures/DesktopBackground/DesktopBackground_plate.png` (статичная пластина рабочего стола), `Textures/DesktopBackground/DesktopBackground_sweep.png` (вращаемый лепесток радара), `Models/Props/Bunker/Asylum_Bed_*.glb` / `Military_Radio_Transceiver_*.glb` / `Citizen_Radio_*.glb` (реквизит `BunkerStoryProps`, см. §3.1).
 
 **Вход:** из `MainMenu` (Play) и из `Debrief` («Вернуться на базу»).
 **Выход:** `MissionMenuController.StartMission` → сцена миссии; `BunkerPauseController.ExitToMainMenu` → `MainMenu`.
@@ -112,6 +113,24 @@
 * `MissionMenuController.FindBackButton()` ищет кнопку по имени `BackButton` среди всех `Button` в детях, иначе берёт первую попавшуюся — хрупкая привязка.
 * `BunkerPauseController` держит **10** сериализованных ссылок и вручную выключает `PlayerInteractionDetector` и `ChairInteractable` (`BlockInput()` / `ReleaseInput()`).
 * `BunkerStateRestorer` — единственное место, где «сцена» знает о возврате из миссии; `SceneLoader` её явно ищет и **ждёт** до 3 секунд (`restoreWaitTimeout`).
+
+### 3.1 Реквизит сюжетной ветки: контейнер `BunkerStoryProps` (25.11.2026)
+
+В корне сцены появился пустой контейнер `BunkerStoryProps` (позиция `0,0,0`, без скриптов), в котором лежит весь сюжетный реквизит бункера. Кровать, рация и радио заменены на новые модели из Sketchfab (CC-BY, см. `CREDITS.md`), старые `.glb` удалены.
+
+| Объект | Модель | Мировая позиция (AABB center) | Поворот | Масштаб | Габариты AABB, м | `BoxCollider` (world) |
+|---|---|---|---|---|---|---|
+| `Prop_MilitaryBed` | Asylum Bed | `(-1.650, -1.035, -3.520)` | `(270, 0, 0)` | `(0.082, 0.1061, 0.1061)` | `1.090 × 1.098 × 2.051` | `1.090 × 1.098 × 2.051` |
+| `Prop_WalkieTalkie` | Military Radio Transceiver | `(2.632, -0.121, 0.791)` | `(270, 270, 0)` | `0.0264` (uniform) | `0.053 × 0.300 × 0.083` | `0.053 × 0.300 × 0.083` |
+| `Prop_RadioReceiver` | Citizen Radio | `(2.947, -0.376, 3.617)` | `(270, 270, 0)` | `0.713` (uniform) | `0.236 × 0.232 × 0.380` | `0.236 × 0.232 × 0.380` |
+
+Привязка к геометрии (проверено рейкастами по мешам `Bunker07Anim`):
+
+* **Кровать** — низ ножек `y = -1.5844` (визуальный пол), западная стена `x = -2.200` (зазор 4.8 мм), южная стена `z = -4.550` (зазор 4.5 мм). Стоит в углу рядом с `Door1`, ориентация — изголовьем к южной стене, ножками вниз.
+* **Рация** — висит на передней панели шкафа `ControlPanel` (плоскость `x = 2.658`), задняя стенка модели прижата вплотную (`max.x = 2.658`), антенной вверх, лицевой панелью в комнату (`-X`). Заменила старый настенный `Prop_FieldTelephone` на том же месте.
+* **Радио** — стоит на столешнице консоли (`y = -0.497`), низ модели `y = -0.492` (зазор 5 мм), задняя стенка `x = 3.0656` вплотную к панели индикаторов, передняя панель с верньером развёрнута к оператору. Мониторы (`BigScreenAnim02`, `AVGScreenAnim04`) не перекрываются.
+
+У всех трёх объектов **по одному простому `BoxCollider`** на корне (центр/размер совпадают с AABB рендереров), `MeshCollider` и дочерних коллайдеров нет. Скриптов на объектах нет.
 
 ---
 
