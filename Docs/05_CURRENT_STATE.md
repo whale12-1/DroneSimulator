@@ -1,6 +1,6 @@
 # 05 — Текущее состояние проекта
 
-Дата аудита: **21.11.2026**. Обновлено: **22.11.2026** (унификация UI и вёрстка `MainMenu` / `Bunker(main)`); **25.11.2026** — ветка `bunker/story`: новый реквизит `BunkerStoryProps` в `Bunker(main)` (кровать, рация, радио). Оценка сделана по коду и ассетам (комментариев-маркеров `TODO/FIXME` в проекте **нет** — их искали по всем `.cs`).
+Дата аудита: **21.11.2026**. Обновлено: **22.11.2026** (унификация UI и вёрстка `MainMenu` / `Bunker(main)`); **25.11.2026** — ветка `bunker/story`: новый реквизит `BunkerStoryProps` в `Bunker(main)` (кровать, рация, радио), исправление субтитров и viewmodel-рука, а затем **замена примитивной руки на Mixamo-модель** с обрезанными клипами `WalkieReach` / `WalkieHold` (§17). Оценка сделана по коду и ассетам (комментариев-маркеров `TODO/FIXME` в проекте **нет** — их искали по всем `.cs`).
 
 ---
 
@@ -728,6 +728,8 @@
 | Анимация | 4 фазы в `BunkerWalkieTalkieEvent`: подъём/потягивание (`reachDuration 0.3 с`) → захват и телепорт рации (звонок и мигание off) → поза удержания (`holdBlendDuration 0.22 с`) под реплику командира → опускание (`lowerDuration 0.3 с`) и возврат модели на стену. Всё на unscaled-времени |
 | Сборка | Editor-билдер `Assets/Scripts/Editor/BunkerFirstPersonArmBuilder.cs`, меню `Tools ▸ DroneSimulator ▸ Bunker ▸ Build First Person Right Arm`: идемпотентно собирает руку и материал, переносит анкер, привязывает позы/реплики и правит плашку субтитров, затем сохраняет сцену |
 
+> **Примечание (25.11.2026, позже).** Строки «Рука», «Анкер», «Анимация» и часть «Сборки» описывают **примитивную** руку; она удалена — viewmodel заменён Mixamo-моделью, поля `BunkerWalkieTalkieEvent` переписаны под `Animator`, материал `BunkerHand_Tactical.mat` больше не используется. Актуальное состояние — §17. Плашка субтитров, тексты реплик и логика звонка/брифинга не менялись.
+
 ### 16.3 Параметры в Inspector
 
 | Компонент | Поле | Значение |
@@ -765,3 +767,185 @@
 
 
 
+
+---
+
+## 17. Mixamo-рука вместо примитивов (25.11.2026)
+
+Задача: убрать временную руку из капсул, показать в первом лице настоящую руку персонажа, обрезать Mixamo-анимации под сюжет рации и привязать `Prop_WalkieTalkie` к кости правой кисти.
+
+> **Заменено 26.11.2026 (см. §18):** отдельная рука на камере удалена, рацию держит родная правая рука `Player/Visual/SWAT` через `AvatarMask` `RightArmOnly.mask` и слой `WalkieArmLayer` в `PlayerAnimator.controller`.
+
+### 17.1 Что нашлось в `Assets/Models/Player/`
+
+| Файл | Содержимое | Импорт до правки |
+|---|---|---|
+| `Swat.fbx` (5.6 МБ) | **Меш + скин + аватар**: `Soldier_body` (7 518 верт., 1 сабмеш, 51 `bindpose`), `Soldier_head` (5 068 верт.), `SwatAvatar` (humanoid, valid), скелет `mixamorig:*` (73 трансформа), материалы `Materials/Soldier_body1.mat` / `Soldier_head6.mat` | `Humanoid`, `CreateFromThisModel`, материалы уже `Universal Render Pipeline/Lit` с `_BaseMap`/`_BumpMap` (переизвлекать не пришлось — «розового» нет) |
+| `Animations/Button Pushing.fbx` (388 КБ) | **Только скелет** (70 трансформов, 0 SMR), клип `mixamo.com` — 1.20 с / 30 fps / 36 кадров | `Generic`, `NoAvatar` |
+| `Animations/Texting.fbx` (1.7 МБ) | **Только скелет**, клип `mixamo.com` — 18.53 с / 30 fps / 556 кадров | `Generic`, `NoAvatar` |
+
+Замеры траектории `mixamorig:RightHand` (сэмплирование клипа на скелете FBX, координаты от корня модели): в `Button Pushing` кисть висит у бедра (`y 0.93, z 0.02`) и поднимается вперёд до **кадра 34 — максимум выноса `z = 0.268` (`y = 1.160`)**; f33 `0.267`, f35…36 уже откат. В `Texting` рука поднимается до f28 и с **f29 застывает в позе удержания перед собой `(0.098, 1.168, 0.204)`**; дальше до f520 идёт только «печатание» пальцами (скорость кисти 0.01–0.11 м/с).
+
+### 17.2 Что сделано
+
+| Область | Реализация |
+|---|---|
+| Клипы | `Button Pushing.fbx` → **`WalkieReach`**, кадры **0…34** (1.133 с), `loopTime = false`; `Texting.fbx` → **`WalkieHold`**, кадры **29…30** (0.033 с), `loopTime = true` — двухкадровый луп держит позу без дёрганья пальцев. Оба FBX переведены в `Humanoid` + `avatarSetup = CopyFromOther` с `sourceAvatar = SwatAvatar`, обрезка — через `clipAnimations` (`ModelImporter`) |
+| Меш руки | `Assets/Models/Player/PlayerRightArm.asset` — из `Soldier_body` оставлены только треугольники правой руки (сумма весов по `RightArm`, `RightForeArm`, `RightHand`, `RightHand*` ≥ 0.5). Плечевой сустав (`RightShoulder`, вес ≥ 0.10) и верхняя треть бицепса (`RightArm` при `t < 0.34` вдоль кости плечо → локоть; головки костей берутся из `bindposes`) вырезаны, треугольники продублированы с обратной намоткой (двусторонний меш). Вершины, веса и `bindposes` не менялись → **1 636 «лицевых» треугольников (3 272 в ассете)**, работает на штатном скелете. Голова, торс, левая рука и ноги не рендерятся вообще (не «прячутся» — их нет в меше) |
+| Контроллер | `Assets/Animations/Player/PlayerArmViewmodel.controller`: `Idle` (без клипа), `WalkieReach`, `WalkieHold`; переключение кодом, переходы не нужны |
+| Сцена | `Main Camera/FirstPersonPlayerArm` — инстанс `Swat.fbx`: удалён объект с `Soldier_head`, `Soldier_body` получил `PlayerRightArm.asset` и `Soldier_body1.mat`, тени off, слой `Default`, `Animator` (`SwatAvatar`, `applyRootMotion = false`, `AlwaysAnimate`), корень выключен; `localPos (0.14, −1.30, 0.24)`, `localEuler (−2, 8, 0)`. Старый `FirstPersonRightArm` (капсулы/кубы/пальцы) удалён |
+| Анкер | `WalkieTalkieHandAnchor` — дочерний объект кости `mixamorig:RightHand`, `localPos (0.004, 0.085, 0.038)` — карман ладони между её поверхностью (`z ≈ 0.023`) и согнутыми пальцами (`z ≈ 0.045`), `rotation/scale` = identity. Посадка корпуса в ладонь — `gripLocalOffset (−0.026599, 0.009152, 0.046776)` (середина корпуса, а не центр полного AABB) |
+| Скрипт | `BunkerWalkieTalkieEvent` работает через `Animator`: `Play(WalkieReach, 0, 0)` + `Update(0)` (рендерер гаснет на кадр, чтобы не мелькнула T-поза) → в конце клипа `AttachToHand()` → `CrossFadeInFixedTime(WalkieHold, 0.15f)` → реплика командира → ручная прокрутка клипа назад → `ReturnToWall()` + `SetArmVisible(false)`. В `LateUpdate`, пока рация в руке, каждый кадр: `AlignUprightToCamera()` → `AlignBoundsToGrip()` (пронация предплечья выключена, `forearmRollAngle = 0`) |
+| Билдеры | `PlayerArmAssetBuilder` (меню `Tools ▸ DroneSimulator ▸ Bunker ▸ Build Player Arm Assets`): импорт клипов, меш, контроллер. `BunkerFirstPersonArmBuilder` (меню `… ▸ Build First Person Right Arm`): рука в сцене, анкер, `FillLight`, привязка полей, плашка субтитров, сохранение сцены. Оба идемпотентны, GUID ассетов сохраняются |
+
+
+### 17.3 Параметры в Inspector (`Prop_WalkieTalkie/BunkerWalkieTalkieEvent`)
+
+| Поле | Значение | Зачем |
+|---|---|---|
+| `armRoot` / `armAnimator` / `armRenderer` | `Main Camera/FirstPersonPlayerArm` / его `Animator` / `Soldier_body` | Корень viewmodel, клипы и гейт первого кадра |
+| `reachStateName` / `holdStateName` | `WalkieReach` / `WalkieHold` | Имена состояний контроллера |
+| `reachSpeed` | `1.2` | Скорость потягивания (клип 1.133 с → ~0.94 с) |
+| `holdBlendDuration` | `0.15` | Плавность перехода в позу удержания |
+| `lowerSpeed` | `1.0` | Скорость обратной прокрутки при опускании |
+| `handAnchor` | `…/mixamorig:RightHand/WalkieTalkieHandAnchor` | Точка хвата рации |
+| `handScaleMultiplier` | `0.66` (0.0174 от стеновых 0.0264) | Размер рации в руке — корпус 5.1 юнита (≈8.9 см) помещается в ладонь и не выпирает за согнутые пальцы |
+| `handLocalEuler` | `(0, 0, 0)` | Доворот рации поверх выравнивания |
+| `alignBoundsToGrip` / `gripLocalOffset` | `true` / `(−0.026599, 0.009152, 0.046776)` | Центр `Renderer.bounds` → точка хвата в ладони; смещение поднимает рацию на 5.78 см, чтобы в ладони оказалась середина корпуса, а не основание антенны |
+| `alignUprightToCamera` | `true` | Антенна вверх, лицевая панель к игроку; пересчитывается в `LateUpdate` каждый кадр |
+| `forearmBone` / `forearmRollAngle` | `mixamorig:RightForeArm` / `0` | Пронация выключена: кисть в `WalkieHold` смотрит ладонью внутрь/вверх, рация ложится в ладонь. Срез рукава убран обрезкой меша (плечо + верх бицепса), а не закруткой; при ненулевом угле механизм `ApplyForearmRoll` работает как раньше |
+| `hideArmWhenIdle` | `true` | В покое объект руки выключен (`SetActive(false)`) |
+| `cameraTransform` | `None` → берётся `Camera.main` в `Awake()` | Ось для доворота рации |
+
+### 17.4 Проверка (Play Mode, `Bunker(main)`, 25.11.2026)
+
+| Сценарий | Результат |
+|---|---|
+| Старт | Рука выключена (`FirstPersonPlayerArm.activeSelf = false`), рация звонит; в консоли `[BunkerStory] Стартовая реплика показана: IntroSeen = true` — стартовые субтитры проиграны |
+| `E` (Interact) | Рука включена, Animator в `WalkieReach`; через 0.94 с состояние `WalkieHold` (`normalizedTime` зациклен), `Prop_WalkieTalkie.parent = WalkieTalkieHandAnchor`, `scale 0.0174`, коллайдер off, звонок и мигание off |
+| Кадр в позе удержания | Ладонь `(0.698, 0.363)` на `z = 0.419 м`, запястье `(0.789, 0.254)`, локоть `(1.708, −0.423)` вне кадра; срез рукава (`13` вершин) — `0` видимых вершин (`BakeMesh` + `WorldToViewportPoint`); рация: полный AABB во вьюпорте `x 0.663…0.741`, `y 0.274…0.624`, `dot(антенна, up) = 1.0000`, панель `−Y` → `dot(к камере) = 0.8583`, середина корпуса в ладони (`0.00033 м`), ближняя грань корпуса на `−0.00026 м` от поверхности ладони, центр полного AABB на `0.0578 м` выше; `FillLight` — `0.3 / 1.0 м` в `0.429 м` от кисти; субтитр командира `alpha = 1.00` с текстом «Ну что, Слава, готов к службе? Пройди сначала инструктаж.» |
+| Завершение | `BriefingDone = true`, `IsInHand = false`, рука выключена (кисть уходит за нижний край кадра), рация в `BunkerStoryProps` с `localPos (2.804, −0.492, 1.097)` и `scale 0.0264`, коллайдер включён, субтитры `alpha = 0`; `IntroSeen = true`, `Day = 1` (`persistProgress = false` сохранён) |
+| Консоль Unity | **0 ошибок** (после компиляции и после Play-прогона; единственное сообщение — штатное предупреждение URP о размере shadow atlas, оно не связано с рукой: `FillLight` без теней) |
+
+### 17.5 Известные нюансы
+
+* Обратное проигрывание сделано вручную (`Play(state, 0, t)` каждый кадр): у незацикленного клипа отрицательная `Animator.speed` упирается в конец состояния (`state.speed` становится 0), и рука остаётся в позе удержания.
+* `Animator` идёт по `Time.timeScale`, а не по unscaled-времени (в отличие от прежней процедурной руки). Последовательность запускается только при `timeScale = 1`: `CanInteract` возвращает `false` при `BunkerModalStack.AnyOpen`.
+* Срез рукава убран геометрической обрезкой: в меш не попадают плечевой сустав (`RightShoulder`, вес ≥ 0.10) и верхняя треть бицепса (`RightArm`, `t < 0.34` вдоль кости плечо → локоть). Открытая граница теперь — кольцо посреди бицепса (`13` вершин), оно целиком уходит под нижнюю границу кадра (`0` видимых). Дополнительно меш двусторонний (`1 636 × 2 = 3 272` треугольника), поэтому продольный шов рукава (`134` реально открытых ребра, ещё `136` — UV-швы с совпадающими вершинами) не просвечивает ни в одной позе.
+* Ладонь в позе удержания — `x = 0.698`, `y = 0.363` (в коридоре `0.60…0.78` / `0.25…0.48`) на глубине `0.419 м`; запястье `(0.789, 0.254)`, локоть `(1.708, −0.423)` — рука идёт диагонально из правого нижнего угла, среза плеча в кадре нет. Кадр правится константами `ModelLocalPosition` / `ModelLocalEuler` в `BunkerFirstPersonArmBuilder`.
+* Рация в позе удержания — `y 0.274…0.624`: корпус сидит в ладони (`0.00033 м` от точки хвата, ближняя грань на `−0.00026 м` от поверхности ладони), антенна доходит до `0.624`, нижняя кромка `0.274` остаётся над плашкой субтитров (`y 0.06…0.18`).
+* `FillLight` теперь на корне руки (`localPos −0.14, 1.46, 0.02`, `0.3 / 1.0 м`), в `0.429 м` от кисти; в кости кисти он стоял в 8 см и выжигал перчатку в белый. Свет статичен в пространстве камеры и не следует за костью — в позе удержания это ровное заполнение.
+* `ApplyForearmRoll` по умолчанию выключен (`forearmRollAngle = 0`) — при нулевом угле метод выходит сразу, и кисть сохраняет ориентацию из клипа. Если угол задать ненулевым, пронация применяется в `LateUpdate` поверх позы Animator, а при `timeScale = 0` базой берётся сохранённый `forearmBaseRotation`.
+* `Assets/Materials/BunkerHand_Tactical.mat` остался на диске, но ссылок из сцены больше не имеет.
+
+---
+
+## 18. Рация в родной руке `SWAT`: AvatarMask + слой аниматора (26.11.2026)
+
+Задача: убрать отдельную камерную руку (`Main Camera/FirstPersonPlayerArm`, меш `PlayerRightArm.asset`) и перевести взятие/удержание `Prop_WalkieTalkie` на настоящую правую руку основного персонажа в `Bunker(main)` через `AvatarMask` и отдельный слой `PlayerAnimator`.
+
+### 18.1 Что сделано
+
+| Область | Реализация |
+|---|---|
+| Маска | `Assets/Animations/Player/RightArmOnly.mask` — humanoid-маска (`transformCount = 0`), включены только `RightArm` + `RightFingers`; ноги, туловище, голова и левая рука остаются под `Base Layer` |
+| Слой | `PlayerAnimator.controller`, слой **`WalkieArmLayer`** (индекс 1): `Override`, `defaultWeight = 0`, `IK Pass` off, `m_Mask` = `RightArmOnly`; состояния `Empty` (без клипа, `writeDefaultValues = false`, дефолтное), `WalkieReach`, `WalkieHold`; параметр `WalkieSpeed` (Float, 1) подключён как `speedParameter` у обоих клиповых состояний, чтобы скорость не зависела от глобального `Animator.speed` |
+| Клипы | `WalkieReach` (Button Pushing, кадры 0…34, 1.133 с, без лупа) и `WalkieHold` (Texting, кадры 29…30, 0.033 с, `loopTime = true`) — оба `Humanoid` + `CopyFromOther(SwatAvatar)`, поэтому играют на скелете персонажа как есть |
+| Сцена | `Player/Visual/SWAT` — Animator персонажа (`SwatAvatar`, `PlayerAnimator`); внутри родной кости `mixamorig:RightHand` создан `WalkieTalkieHandAnchor` (`localPos 0.004, 0.085, 0.038`) |
+| Скрипт | `BunkerWalkieTalkieEvent` управляет слоем: вес `0 → 1` за `layerWeightInDuration = 0.15 с` вместе с `WalkieReach`; `CrossFadeInFixedTime(WalkieHold, 0.15)` после захвата; обратная ручная прокрутка клипа при опускании; вес `1 → 0` за `layerWeightOutDuration = 0.25 с` |
+| Коррекция позы | `LateUpdate` доворачивает `mixamorig:RightShoulder (40, 0, 20)`, `mixamorig:RightArm (−50, −40, 45)`, `mixamorig:RightForeArm (−30, −40, 0)`; угол масштабируется весом слоя, есть защита от накопления (база берётся, если Animator в кадре кость не писал) |
+| Ориентация и посадка рации | «Антенна вверх, панель к игроку» считается один раз при захвате и уточняется после `CrossFade`; дальше `localRotation` фиксируется и рация жёстко следует за кистью. Масштаб: `0.0264 × 0.66 / 1.2 = 0.0145` локально → `0.017424` в мире |
+| `FillLight` | Перенесён с удаляемой руки на `Main Camera`: `localPos (0, 0.16, 0.26)`, Point 0.3 / 1.0 м, без теней |
+| Удалено | `Main Camera/FirstPersonPlayerArm` (вместе с копией скелета и `Soldier_body`), `Assets/Models/Player/PlayerRightArm.asset`, `Animations/Player/PlayerArmViewmodel.controller`; билдеры `PlayerArmAssetBuilder` и `BunkerFirstPersonArmBuilder` заменены на `PlayerWalkieAssetBuilder` и `BunkerWalkieHandBuilder` |
+| Фикс | `SetLayerWeight` / `PlayState` / `SetAnimatedSpeed` проверяют `characterAnimator == null`: при остановке Play Mode Animator уже уничтожен, и обращение к нему давало `MissingReferenceException` из `OnDisable` |
+
+### 18.2 Параметры в Inspector (`Prop_WalkieTalkie/BunkerWalkieTalkieEvent`)
+
+| Поле | Значение |
+|---|---|
+| `characterAnimator` | `Player/Visual/SWAT` (Animator персонажа) |
+| `layerName` | `WalkieArmLayer` |
+| `emptyStateName` / `reachStateName` / `holdStateName` | `Empty` / `WalkieReach` / `WalkieHold` |
+| `speedParameterName` | `WalkieSpeed` |
+| `reachSpeed` / `holdBlendDuration` / `holdDuration` | `0.85` / `0.15` / `5` (5 — ровно столько рука держит рацию в кадре) |
+| `lowerSpeed` | `0.85` |
+| `layerWeightInDuration` / `layerWeightOutDuration` | `0.2` / `0.25` |
+| `handAnchor` | `Player/Visual/SWAT/…/mixamorig:RightHand/WalkieTalkieHandAnchor` |
+| `handScaleMultiplier` / `gripLocalOffset` | `0.66` / `(−0.026599, 0.009152, 0.046776)` |
+| `alignUprightToCamera` / `alignBoundsToGrip` | `1` / `1` (применяются одноразово при захвате) |
+| `shoulderLocalEulerOffset` / `shoulderBone` | `(0, 0, 0)` / `mixamorig:RightShoulder` — ключицу не трогаем |
+| `upperArmLocalEulerOffset` / `upperArmBone` | `(0, 0, 20)` / `mixamorig:RightArm` — единственная лёгкая правка |
+| `foreArmLocalEulerOffset` / `foreArmBone` | `(0, 0, 0)` / `mixamorig:RightForeArm` |
+| `handLocalEulerOffset` / `handBone` | `(0, 0, 0)` / `mixamorig:RightHand` — новый 4-й слот доворота |
+
+### 18.3 Проверка (Play Mode, `Bunker(main)`, 26.11.2026)
+
+| Сценарий | Результат |
+|---|---|
+| Покой | `weight = 0.000`, состояние `Empty`, рация на стене, кисть вне кадра |
+| `E` (Interact) | вес `0 → 1` за 0.15 с, `WalkieReach`, кисть входит в кадр (`0.87 / −0.11` → `0.81 / 0.43`) |
+| `WalkieHold` | анкер кисти `x = 0.682`, `y = 0.357`, `z = 0.417 м`; разброс за время реплики `x 0.669…0.686`, `y 0.287…0.386` (коридор `0.55…0.82` / `0.15…0.55`); `parent = WalkieTalkieHandAnchor`, мировой масштаб `0.01742`, коллайдер off |
+| Завершение | `weight = 0.000`, `Empty`, рация в `BunkerStoryProps` (`localPos 2.804, −0.4919, 1.097`, `scale 0.0264`, коллайдер on), `BriefingDone = true` |
+| Консоль Unity | **0 ошибок и 0 предупреждений** (после компиляции, после Play-прогона и после выхода из Play Mode) |
+
+### 18.4 Известные нюансы
+
+* Humanoid-маска бинарная: «мягкое» плечо делается offset-углами в `LateUpdate` (масштаб по весу слоя), а не весом маски.
+* Коррекция из этого раздела **устарела**: см. §19 — «перекрученные» углы (`40 / 20`, `−50 / −40 / 45`, `−30 / −40`) убраны, остался один лёгкий подъём `mixamorig:RightArm (0, 0, 20)`.
+* Рация в руке жёстко следует за кистью (`localRotation` не переписывается каждый кадр), поэтому при опускании руки она не «выкручивается» из ладони; ориентация «панелью к игроку» гарантирована в момент захвата, а не при каждом повороте головы.
+* `FillLight` больше не привязан к кости и стоит в пространстве камеры — ровное заполнение кисти и рации.
+* В редакторе Play Mode почти не тикает, если окно Unity не в фокусе (`Run In Background` выключен): для численных прогонов через MCP на время сессии выставлялся `Application.runInBackground = true` (в проект не вносилось).
+
+---
+
+## 19. Рация: чистый сток Mixamo, 5 с удержания и возврат на панель (26.11.2026)
+
+Задача: убрать «перекрученные» углы костей при взятии/удержании/возврате `Prop_WalkieTalkie` в `Bunker(main)`, сделать удержание рации в кадре ровно 5 секунд и вернуть рацию на панель до опускания руки.
+
+### 19.1 Что сделано
+
+| Область | Решение |
+|---|---|
+| Сброс углов | `shoulderLocalEulerOffset (0, 0, 0)` — ключицу не трогаем (ломала куртку), `foreArmLocalEulerOffset (0, 0, 0)`, `handLocalEulerOffset (0, 0, 0)`; остался **один** лёгкий подъём `upperArmLocalEulerOffset (0, 0, 20)` |
+| Новое поле | `handBone` (`mixamorig:RightHand`) + `handLocalEulerOffset` — 4-й слот `LateUpdate`-доворота (`poseStates[4]`), резолвится в `ResolveCharacterArm()` |
+| Тайминги | `reachSpeed 0.85`, `lowerSpeed 0.85`, `layerWeightInDuration 0.2`, `layerWeightOutDuration 0.25`, `holdBlendDuration 0.15` |
+| Удержание | Новое поле `holdDuration = 5` с: `HoldBriefingPose()` держит руку в позе `WalkieHold` не меньше 5 с, реплика командира идёт параллельно |
+| Захват | `RaiseArm()` ждёт фактический конец клипа (`GetReachNormalizedTime() >= 0.98`), а не расчётное время: раньше захват срабатывал на `nt = 0.753` |
+| Возврат | `ReturnWalkieRoutine()` = `PlayReachToWall()` (`WalkieReach` вперёд `0 → 1`, рация в руке) → **`ReturnToWall()` на `t = 1`** → `PlayLowerAndFade()` (`WalkieReach` назад `1 → 0` + вес слоя `1 → 0` в хвосте, финал `Empty`). Раньше рация уезжала вниз вместе с рукой |
+| Билдер | `BunkerWalkieHandBuilder` пишет те же значения (константы `UpperArmLocalEulerOffset`, `HoldDuration`, `ReachSpeed` и т.д.), добавил `handBone`/`handLocalEulerOffset`; `FindFirstObjectByType` → `FindAnyObjectByType` (снято предупреждение CS0618) |
+| Сцена | `Bunker(main).unity` сохранена билдером: `reachSpeed 0.85`, `lowerSpeed 0.85`, `layerWeightInDuration 0.2`, `layerWeightOutDuration 0.25`, `holdDuration 5`, `upperArmLocalEulerOffset {0, 0, 20}`, остальные офсеты `{0, 0, 0}`, `handBone: 221989738` |
+
+### 19.2 Выбор единственной правки (численный зонд)
+
+Play Mode, поза `WalkieHold`, время заморожено (`Time.timeScale = 0`), `Camera.WorldToViewportPoint(WalkieTalkieHandAnchor)`, pitch 15°:
+
+| Офсет `upperArmLocalEulerOffset` | `vp.y` | `vp.x` | Вывод |
+|---|---|---|---|
+| `(0, 0, 0)` | −0.286 | 0.563 | кисть под кадром |
+| `(20, 0, 0)` | −0.335 | 0.502 | ниже |
+| `(−20, 0, 0)` | −0.213 | 0.617 | чуть выше, вправо |
+| `(0, 20, 0)` | −0.724 | 0.419 | сильно ниже |
+| `(0, −20, 0)` | −0.094 | 0.695 | выше, у правой кромки |
+| **`(0, 0, 20)`** | **−0.023** | **0.490** | подъём + центрирование — выбрано |
+| `(0, 0, −20)` | −0.674 | 0.666 | сильно ниже |
+
+### 19.3 Проверка (Play Mode, 4 кадра напрямую с `Main Camera`)
+
+Игрок стоит в 1.3 м от панели лицом к рации, взгляд вниз 20°; кадры сняты через `RenderTexture` → `ReadPixels` → PNG (временные файлы удалены).
+
+| Кадр | Момент | Замер |
+|---|---|---|
+| `01_reach_mid` | середина потягивания | `WalkieReach nt 0.453`, вес `1.000`, рация на панели, анкер `vp (0.658, −0.448)` — кисть ещё ниже кадра |
+| `02_grab_end` | захват | `nt 0.987`, `inHand = true`, анкер `vp (0.514, 0.260, 0.505)` — кисть с рацией в кадре, запястье без залома |
+| `03_hold` | удержание | `WalkieHold`, вес `1.000`, анкер `vp (0.489, 0.035, 0.280)`, `d 0.338 м` — корпус рации и антенна видны у нижней кромки |
+| `04_return_place` | возврат | `WalkieReach nt 0.860`, `inHand = true`, анкер `vp (0.488, 0.185)` — рука с рацией вытянута к панели; `ReturnToWall()` на `nt = 0.996` |
+
+* Удержание в кадре — **5.41 с** (`holdDuration 5.0` + бленд входа 0.15 с + фейды субтитра 0.25 с); рука не опускается раньше, чем закончится реплика.
+* Финал: `state = Empty`, `weight = 0.000`, рация в `BunkerStoryProps` (`localPos 2.804, −0.492, 1.097`), `BriefingDone = true`, коллайдер включён.
+* Консоль Unity — **0 ошибок и 0 предупреждений**: после компиляции (45 записей — только предсуществующие CS0618/CS0414/UAC проекта + 1 лог URP), после Play-прогона (6 записей — только `Log`: сброс прогресса, время 06:00, `IntroSeen`, `BriefingDone`, URP-атлас) и после выхода из Play Mode.
+
+### 19.4 Известные нюансы
+
+* Стоковая поза `WalkieHold` держит кисть на уровне груди, поэтому в кадр она попадает при взгляде вниз (в игре — мышь); 20° подъёма верхней части руки лишь поднимают её к нижней кромке кадра, но не «выносят к лицу».
+* Кадры `01`/`04` показывают руку частично — в этих фазах кисть ещё/уже ниже кадра; это ожидаемо для клипа Mixamo и не является ошибкой позы.
+* Субтитры — `Screen Space - Overlay`, в `RenderTexture`-съёмку с камеры не попадают; 5-секундное удержание подтверждено таймером (`HOLD measured = 5.411 s`), а поза — кадром `03_hold`.

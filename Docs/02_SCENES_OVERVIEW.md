@@ -94,8 +94,9 @@
 | `InteractionCanvas/StorySubtitles` | `BunkerStorySubtitles`, `CanvasGroup` | Канал субтитров: реплики героя и командира, опциональная озвучка (шина `Voice`) |
 | `InteractionCanvas/StoryFade` | `CanvasGroup`, `Image`, `ScreenFader` | Затемнение при сне и титры; unscaled-время, последний сиблинг канваса. С 25.11.2026 `ScreenFader.SetMessage` обновляет текст на чёрном экране, `FadeOut(message, holdOverride)` задаёт свою паузу |
 | `InteractionCanvas/StoryClockHUD` | `BunkerClockHUD`, `Image`, `TextMeshProUGUI` | Часы HUD `ДЕНЬ 1  \|  06:00` в левом верхнем углу (360×72, акцент `#DB143D`); первый сиблинг канваса — `ComputerOS`/пауза его перекрывают; обновление только по событиям (см. §3.3) |
-| `Main Camera/FirstPersonRightArm` | — (viewmodel из примитивов, слой `Default`, материал `BunkerHand_Tactical`) | Правая рука от первого лица: манжета, предплечье, ладонь, пальцы и `FillLight`; в покое выключена и опущена за нижний край кадра (см. §3.4) |
-| `Main Camera/FirstPersonRightArm/WalkieTalkieHandAnchor` | — (Transform) | Точка хвата рации внутри ладони (перенесена из-под камеры 25.11.2026; рация выравнивается по центру габаритов) |
+| `Player/Visual/SWAT` | `Animator` (`PlayerAnimator.controller`: `Base Layer` + слой **`WalkieArmLayer`** с `AvatarMask` `Animations/Player/RightArmOnly.mask`, `Override`, `weight 0`), `Geo/Soldier_body` (слой `Default`), `Geo/Soldier_head` (слой 6 `PlayerBody` — камера его не видит), скелет `mixamorig:*` | Основной персонаж от первого лица: родная правая рука поднимается слоем `WalkieArmLayer` (состояния `Empty` / `WalkieReach` / `WalkieHold`), остальное тело остаётся под `Base Layer`; отдельной руки на камере больше нет (см. §3.5) |
+| `Player/Visual/SWAT/…/mixamorig:RightHand/WalkieTalkieHandAnchor` | — (Transform внутри родной кости кисти) | Точка хвата рации: `localPos (0.004, 0.085, 0.038)` — карман ладони между большим и согнутыми пальцами; рация доворачивается антенной вверх/панелью к игроку один раз при захвате и дальше жёстко следует за кистью |
+| `Main Camera/FillLight` | `Light` (Point, **0.3 / 1.0 м**, без теней) | Мягкая подсветка кисти и рации; `localPos (0, 0.16, 0.26)` — то же место, где раньше стоял свет на корне viewmodel-руки |
 | `Canvas`, `EventSystem` | — | UI |
 
 **«Мозг» сцены:** единого нет, сцена управляется связкой:
@@ -107,7 +108,7 @@
 
 **Скрипты (14 привязок):** `PlayerController`, `PlayerInteractionDetector`, `CameraFollowHead`, `ChairInteractable`, `ComputerInteractable`, `ComputerUIController`, `DesktopIcon`, `DesktopRadarSweep`, `MissionMenuController`, `MissionSelectScreen`, `InteractionUIController`, `BunkerPauseController`, `BunkerStateRestorer`, `SettingsPanel`.
 
-**Ассеты:** `Bunker(main)/LightingData.asset`, `Models/Player/Swat.fbx`, `Models/Player/PlayerAnimator.controller` (параметры `Speed`, `Direction`, `Strafe`, `IsGrounded`, `IsSitting`, `IsTyping`, состояние `SitIdle`), `Materials/Soldier_body1.mat`, `Soldier_head6.mat`, `Textures/DesktopBackground/DesktopBackground_plate.png` (статичная пластина рабочего стола), `Textures/DesktopBackground/DesktopBackground_sweep.png` (вращаемый лепесток радара), `Models/Props/Bunker/Asylum_Bed_*.glb` / `Military_Radio_Transceiver_*.glb` / `Citizen_Radio_*.glb` (реквизит `BunkerStoryProps`, см. §3.1).
+**Ассеты:** `Bunker(main)/LightingData.asset`, `Models/Player/Swat.fbx`, `Models/Player/PlayerAnimator.controller` (параметры `Speed`, `Direction`, `Strafe`, `IsGrounded`, `IsSitting`, `IsTyping`, `WalkieSpeed`; слои `Base Layer` и `WalkieArmLayer` с маской `Animations/Player/RightArmOnly.mask`; состояния `Idle`, `Walk`, `WalkBackward`, `StrafeLeft`, `StrafeRight`, `SitDown`, `SitIdle`, `SitTyping`, `Empty`, `WalkieReach`, `WalkieHold`), клипы `WalkieReach`/`WalkieHold` в `Models/Player/Animations/*.fbx`, `Materials/Soldier_body1.mat`, `Soldier_head6.mat`, `Textures/DesktopBackground/DesktopBackground_plate.png` (статичная пластина рабочего стола), `Textures/DesktopBackground/DesktopBackground_sweep.png` (вращаемый лепесток радара), `Models/Props/Bunker/Asylum_Bed_*.glb` / `Military_Radio_Transceiver_*.glb` / `Citizen_Radio_*.glb` (реквизит `BunkerStoryProps`, см. §3.1).
 
 **Вход:** из `MainMenu` (Play) и из `Debrief` («Вернуться на базу»).
 **Выход:** `MissionMenuController.StartMission` → сцена миссии; `BunkerPauseController.ExitToMainMenu` → `MainMenu`.
@@ -145,7 +146,7 @@
 | Объект | Скрипт | Поведение |
 |---|---|---|
 | `Prop_MilitaryBed` | `BunkerBedInteractable` | Подсказка `E — Спать`; затемнение через `ScreenFader`, на чёрном экране — ускоренная прокрутка часов до `06:00` (`BunkerTimeManager`), управление отключается только на время перехода, затем `BunkerStoryProgress.AdvanceDay()` → `OnDayPassed(newDay)` и субтитр «День N.» (см. §3.3) |
-| `Prop_WalkieTalkie` | `BunkerWalkieTalkieEvent` | Первый запуск: реплика героя «Я в бункере, что мне делать?» → звонок (луп) + пульсирующий `Point Light`; `E — Взять рацию` → **4 фазы** (рука из-за нижнего края тянется вперёд → рация телепортируется в `WalkieTalkieHandAnchor` → поза удержания → опускание руки и возврат на стену) + реплика командира «Ну что, Слава, готов к службе? Пройди сначала инструктаж.» → `OnCommanderBriefingFinished` (см. §3.4) |
+| `Prop_WalkieTalkie` | `BunkerWalkieTalkieEvent` | Первый запуск: реплика героя «Я в бункере, что мне делать?» → звонок (луп) + пульсирующий `Point Light`; `E — Взять рацию` → вес слоя `WalkieArmLayer` у родной правой руки `SWAT` плавно растёт `0 → 1` за 0.2 с, в слое играет обрезанный `WalkieReach`, захват срабатывает по фактическому концу клипа (`normalizedTime ≈ 1`) → рация переносится в `WalkieTalkieHandAnchor` (родная кость `mixamorig:RightHand`) → `CrossFade` в застывшую позу `WalkieHold` и **ровно 5 с** удержания под реплику командира «Ну что, Слава, готов к службе? Пройди сначала инструктаж.» → рука с рацией снова протягивается к панели (`WalkieReach 0 → 1`), в точке максимального выноса рация возвращается на стену, и только потом пустая рука опускается (`WalkieReach 1 → 0` + вес слоя `1 → 0`) → `OnCommanderBriefingFinished` (см. §3.6) |
 | `Prop_RadioReceiver` | `BunkerRadioController` | `E` — вкл/выкл с плавным фейдом и подсветкой шкалы; `R` / колесо мыши — переключение волны по кругу со щелчком; пустой список треков → процедурный радиошум без ошибок |
 
 Дети пропсов, созданные в сцене: `RingAudio` (`AudioSource`, шина `SFX`), `GlowLight` (`Point Light`) у рации; `RadioSpeaker` (`AudioSource`, шина `RadioMusic`), `SwitchClick` (`AudioSource`, шина `SFX`), `DialLight` (`Point Light`) у радио.
@@ -185,9 +186,70 @@ API `BunkerTimeManager`: свойства `CurrentHour`, `CurrentMinute`, `Total
 | Страховка | `BunkerStorySubtitles.EnsureOnScreenLayout()` в `Start()`: если bounds плашки вышли за канвас, она возвращается к `defaultBottomOffset = 64` с записью в консоль |
 | Реплики | `firstRunLine` — `Персонаж / «Я в бункере, что мне делать?» / 4 с`; `briefingLine` — `Командир / «Ну что, Слава, готов к службе? Пройди сначала инструктаж.» / 5 с` (и дефолты в коде, и значения в сцене) |
 
-**Рука от первого лица.** Под `Main Camera` собран `FirstPersonRightArm` (viewmodel из примитивов на слое `Default`, один PBR-материал `Assets/Materials/BunkerHand_Tactical.mat`, мягкий `FillLight`), а `WalkieTalkieHandAnchor` перенесён внутрь ладони: `localPos (0.015, 0.030, 0.395)`, поворот рации `(270, 180, 0)`, масштаб `0.7 × 0.0264`. В покое рука выключена; при `E` она поднимается и тянется вперёд, рация телепортируется в кисть с выравниванием по центру габаритов, удерживается в правой нижней части кадра под реплику командира и уходит вниз перед возвратом модели на стену (подробности — `03` §4.4).
+**Рука от первого лица.** Отдельной руки на камере больше нет: рацию держит родная правая рука основного персонажа (`Player/Visual/SWAT`), а поднимает её слой `WalkieArmLayer` с маской только на правую руку — см. §3.5. `Main Camera/FirstPersonPlayerArm`, меш `PlayerRightArm.asset` и `PlayerArmViewmodel.controller` удалены.
 
-**Проверка (Play Mode, 25.11.2026).** Плашка: `alpha = 1.00`, 64…196 px от низа, текст героя; после `E` — реплика командира при `alpha = 1.00`, рация в руке (вьюпорт `x 0.59…0.72`, `y 0.14…0.59`), кисть `(0.68, 0.28)` над плашкой; через 6.1 с рука скрыта, рация на стене, субтитры `alpha = 0`. Консоль — 0 ошибок и 0 предупреждений.
+**Проверка (Play Mode, 25.11.2026).** Плашка: `alpha = 1.00`, 64…196 px от низа, текст героя; после `E` — реплика командира при `alpha = 1.00`, кисть с рацией в кадре (вьюпорт `x 0.67…0.69`, `y 0.29…0.39`); после брифинга рация на стене, субтитры `alpha = 0`. Консоль — 0 ошибок и 0 предупреждений. (Актуальные замеры руки и рации — §3.5.)
+
+### 3.5 Рация в родной руке `SWAT`: AvatarMask + слой аниматора (26.11.2026)
+
+Отдельная viewmodel-рука на камере удалена. Рацию держит **родная правая рука основного персонажа**: анимация поднимает её отдельным слоем `PlayerAnimator`, а маска не даёт слою трогать ноги, туловище, голову и левую руку.
+
+| Что | Решение |
+|---|---|
+| Маска | `Assets/Animations/Player/RightArmOnly.mask` — humanoid-маска (`transformCount = 0`), включены только `RightArm` + `RightFingers`; плечо `mixamorig:RightShoulder` входит в группу `RightArm`. Маска generic-типа (с transform-путями) здесь не годится: мышечные каналы humanoid-клипов на неё не мапятся |
+| Слой | `PlayerAnimator.controller`, слой **`WalkieArmLayer`** (индекс 1): `Override`, `defaultWeight = 0`, `IK Pass` off, маска `RightArmOnly`. В покое вес `0` — рука живёт под `Base Layer` и спокойно висит вдоль тела |
+| Состояния | `Empty` (без клипа, `writeDefaultValues = false`, дефолтное), `WalkieReach`, `WalkieHold`; переходов нет — переключение кодом (`Play` / `CrossFadeInFixedTime`). Скорость клипов слоя масштабируется параметром **`WalkieSpeed`**, а не глобальным `Animator.speed` (иначе замедлялась бы и ходьба) |
+| Клипы | `Models/Player/Animations/Button Pushing.fbx` → **`WalkieReach`** (кадры **0…34** = 1.13 с, без лупа); `Texting.fbx` → **`WalkieHold`** (кадры **29…30** = 0.033 с, `loopTime = true`). Оба FBX — `Humanoid` + `avatarSetup = CopyFromOther` c `sourceAvatar = SwatAvatar`, т.е. тот же аватар, что у `Animator` персонажа |
+| Анкер | `Player/Visual/SWAT/…/mixamorig:RightHand/WalkieTalkieHandAnchor`, `localPos (0.004, 0.085, 0.038)` — карман ладони между её поверхностью (`z ≈ 0.023`) и согнутыми пальцами (`z ≈ 0.045`); `gripLocalOffset (−0.026599, 0.009152, 0.046776)` садит в ладонь середину корпуса рации, а не центр полного AABB |
+| Коррекция позы | Клипы Mixamo ставят кисть в позу удержания сама по себе, поэтому в `LateUpdate` доворачивается **только верхняя часть руки**: `mixamorig:RightArm (0, 0, 20)`; плечо `mixamorig:RightShoulder (0, 0, 0)` (ключицу не трогаем — иначе ломается куртка), предплечье `(0, 0, 0)`, кисть `(0, 0, 0)`. Угол масштабируется текущим весом слоя, поэтому коррекция плавно вводится и снимается. Без правки кисть в `WalkieHold` уходит под кадр (`vp.y = −0.286`), с 20° — поднимается к нижней кромке (`vp.y ≈ 0.03`) без выворота локтя/кисти (см. §3.6) |
+| Ориентация рации | «Антенна вверх, панель к игроку» считается **один раз** (при захвате и после `CrossFade` в `WalkieHold`); дальше `localRotation` фиксируется, и рация жёстко следует за кистью — при опускании руки мировая вертикаль не перезаписывается |
+| Масштаб рации | `wallWorldScale × 0.66 = 0.0174` делится на `lossyScale` анкера (`1.2`, скелет `SWAT` отмасштабирован) → локальный масштаб `0.0145` |
+| Подсветка | `FillLight` переехал с удаляемой руки на `Main Camera`: `localPos (0, 0.16, 0.26)`, Point **0.3 / 1.0 м**, без теней |
+| Удалено | `Main Camera/FirstPersonPlayerArm` (со своей копией скелета), `Models/Player/PlayerRightArm.asset`, `Animations/Player/PlayerArmViewmodel.controller` |
+| Сборка | `Tools ▸ DroneSimulator ▸ Bunker ▸ Build Walkie Arm Assets` (`Scripts/Editor/PlayerWalkieAssetBuilder.cs`: клипы, маска, слой) и `Tools ▸ DroneSimulator ▸ Bunker ▸ Attach Walkie To Player Hand` (`Scripts/Editor/BunkerWalkieHandBuilder.cs`: сцена, анкер, `FillLight`, привязка полей, удаление старых ассетов). Оба идемпотентны |
+
+Проверка (Play Mode, 26.11.2026, игрок стоит в 1.4 м от шкафа лицом к рации): в покое `weight = 0.000` (состояние `Empty`, рация на стене, кисть вне кадра); после `E` вес `0 → 1`, состояние `WalkieReach`, кисть входит в кадр; после субтитров `weight = 0.000`, состояние `Empty`, рация в `BunkerStoryProps` с исходными `localPos/scale`, коллайдер on, `BriefingDone = true`. Консоль — **0 ошибок и 0 предупреждений** (включая выход из Play Mode). Актуальные углы, тайминги и замеры после разбора «перекрученных» смещений — §3.6.
+
+### 3.6 Чистый сток Mixamo, 5 секунд удержания и возврат рации на панель (26.11.2026)
+
+**Симптом.** Рука с рацией в позе `WalkieHold` выглядела вывернутой: локти/кисть ломались офсетными углами `RightShoulder (40, 0, 20)`, `RightArm (−50, −40, 45)`, `RightForeArm (−30, −40, 0)`, которые подбирались численно «чтобы кисть попала в кадр»; в сцене вдобавок лежали другие значения (`(0, −30, 0)`, `(−10, 0, 30)`, `(10, −40, 0)`), а `reachSpeed` был `0.1` — рассинхрон со скриптом и билдером.
+
+**Решение.**
+
+| Что | Значение |
+|---|---|
+| Офсеты костей | `shoulderLocalEulerOffset (0, 0, 0)`, `foreArmLocalEulerOffset (0, 0, 0)`, `handLocalEulerOffset (0, 0, 0)`; остался **один** лёгкий подъём `upperArmLocalEulerOffset (0, 0, 20)` (см. таблицу замеров ниже) |
+| Новые поля компонента | `handBone` (`mixamorig:RightHand`) + `handLocalEulerOffset` — четвёртый слот доворота (`poseStates[4]`); резолвится в `ResolveCharacterArm()` по имени кости |
+| Скорости | `reachSpeed = 0.85`, `lowerSpeed = 0.85`, `layerWeightInDuration = 0.2`, `layerWeightOutDuration = 0.25`, `holdBlendDuration = 0.15` |
+| Удержание | Новое поле `holdDuration = 5` с: после `CrossFade` в `WalkieHold` рука держит рацию не меньше 5 с (реплика командира идёт параллельно, если она длиннее — ждём и её) |
+| Захват | `RaiseArm()` ждёт не расчётное время, а фактический конец клипа: цикл `while (elapsed < reachDuration \|\| GetReachNormalizedTime() < 0.98f)`. Раньше захват срабатывал на `nt = 0.753` — рука не успевала вытянуться |
+| Возврат | `ReturnWalkieRoutine()`: `PlayReachToWall()` (`WalkieReach` вперёд `0 → 1` с рацией в руке, вход из `WalkieHold` через `CrossFade` 0.15 с) → **`ReturnToWall()` в точке `t = 1`** → `PlayLowerAndFade()` (`WalkieReach` назад `1 → 0`, вес слоя `1 → 0` за последние `layerWeightOutDuration`, затем `Empty`) |
+
+**Замеры для выбора единственной правки** (Play Mode, поза `WalkieHold`, время заморожено `Time.timeScale = 0`, `Camera.WorldToViewportPoint(WalkieTalkieHandAnchor)`, pitch 15°):
+
+| Офсет верхней руки | `vp.y` кисти | `vp.x` кисти | Комментарий |
+|---|---|---|---|
+| `(0, 0, 0)` — сток | −0.286 | 0.563 | кисть под нижней кромкой кадра |
+| `(20, 0, 0)` | −0.335 | 0.502 | ниже |
+| `(−20, 0, 0)` | −0.213 | 0.617 | немного выше, уводит вправо |
+| `(0, 20, 0)` | −0.724 | 0.419 | сильно ниже |
+| `(0, −20, 0)` | −0.094 | 0.695 | выше, но кисть у правой кромки |
+| `(0, 0, 20)` | **−0.023** | **0.490** | лучший вариант: подъём + центрирование |
+| `(0, 0, −20)` | −0.674 | 0.666 | сильно ниже |
+
+**Проверка (Play Mode, 26.11.2026, игрок в 1.3 м от панели, взгляд вниз 20°; 4 кадра сняты напрямую с `Main Camera` через `RenderTexture` → `ReadPixels` → PNG):**
+
+| Кадр | Момент | Замер |
+|---|---|---|
+| `01_reach_mid` | середина потягивания | `WalkieReach nt = 0.453`, вес `1.000`, рация ещё на панели (`inHand = false`), анкер `vp = (0.658, −0.448)` |
+| `02_grab_end` | захват | `nt = 0.987` (≈ максимальный вынос), `inHand = true`, анкер `vp = (0.514, 0.260, 0.505)` — кисть с рацией в кадре, запястье без залома |
+| `03_hold` | удержание (5 с) | `WalkieHold`, вес `1.000`, анкер `vp = (0.489, 0.035, 0.280)`, `d = 0.338 м` — кисть поднята к нижней кромке, рация (корпус + антенна) видна |
+| `04_return_place` | возврат к панели | `WalkieReach nt = 0.860`, `inHand = true`, анкер `vp = (0.488, 0.185)` — рука вытянута к панели с рацией; `ReturnToWall()` сработал на `nt = 0.996` |
+
+Итог прогона: удержание в кадре **5.41 с** (таймер `holdDuration 5.0` + 0.15 с бленда входа + 0.25 с фейдов субтитра), после возврата — `state = Empty`, `weight = 0.000`, рация в `BunkerStoryProps` с исходными `localPos (2.804, −0.492, 1.097)`. Консоль — **0 ошибок и 0 предупреждений**.
+
+
+
 
 ---
 
