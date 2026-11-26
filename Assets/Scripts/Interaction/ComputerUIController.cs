@@ -16,6 +16,11 @@ public class ComputerUIController : MonoBehaviour
     // кадр, пока открыт рабочий стол (и ещё раз в ToggleDesktop).
     private MissionMenuController missionMenu;
 
+    // Магазин-витрина: пока он открыт, рабочий стол скрыт (CanvasGroup.alpha = 0),
+    // но остаётся логически открытым — иначе Esc закрыл бы его под магазином,
+    // а ChairInteractable разрешил бы встать из-за стола.
+    private DroneShopController droneShop;
+
     public bool IsOpen { get; private set; }
     public bool IsOpenAnimationComplete { get; private set; }
 
@@ -24,6 +29,7 @@ public class ComputerUIController : MonoBehaviour
         if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
         if (panelTransform == null) panelTransform = GetComponent<RectTransform>();
         if (missionMenu == null) missionMenu = FindAnyObjectByType<MissionMenuController>(FindObjectsInactive.Include);
+        if (droneShop == null) droneShop = FindAnyObjectByType<DroneShopController>(FindObjectsInactive.Include);
 
         BunkerModalStack.Register(this);
     }
@@ -39,6 +45,11 @@ public class ComputerUIController : MonoBehaviour
         if (Time.unscaledTime - lastOpenTime < 0.2f) return;
 
         if (missionMenu != null && (missionMenu.IsOpen || Time.unscaledTime - missionMenu.LastClosedTime < 0.2f)) return;
+
+        // Пока открыта 3D-витрина магазина, Esc/E принадлежат ей: иначе рабочий
+        // стол закрывался бы «под» магазином и ломал возврат на него.
+        if (droneShop == null) droneShop = FindAnyObjectByType<DroneShopController>(FindObjectsInactive.Include);
+        if (droneShop != null && droneShop.IsOpen) return;
 
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && (keyboard.eKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
@@ -97,6 +108,54 @@ public class ComputerUIController : MonoBehaviour
         if (playerController == null) playerController = FindAnyObjectByType<PlayerController>();
         // Игрок мог уже встать (Space при открытом рабочем столе) — не возвращаем позу сидения.
         if (playerController != null && playerController.isSitting) playerController.ForceSitIdle();
+    }
+
+    /// <summary>
+    /// Скрывает окно рабочего стола на время 3D-витрины магазина, оставляя его
+    /// логически открытым: timeScale и курсор ведёт BunkerModalStack, а
+    /// ChairInteractable по-прежнему не даёт встать из-за стола.
+    /// </summary>
+    public void HideForShop()
+    {
+        if (openRoutine != null)
+        {
+            StopCoroutine(openRoutine);
+            openRoutine = null;
+        }
+
+        IsOpenAnimationComplete = true;
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.blocksRaycasts = false;
+        }
+
+        if (panelTransform != null) panelTransform.localScale = Vector3.one;
+    }
+
+    /// <summary>Возвращает рабочий стол после закрытия магазина.</summary>
+    public void ShowAfterShop()
+    {
+        gameObject.SetActive(true);
+
+        if (openRoutine != null)
+        {
+            StopCoroutine(openRoutine);
+            openRoutine = null;
+        }
+
+        IsOpen = true;
+        IsOpenAnimationComplete = true;
+        lastOpenTime = Time.unscaledTime;
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+            canvasGroup.blocksRaycasts = true;
+        }
+
+        if (panelTransform != null) panelTransform.localScale = Vector3.one;
     }
 
     public void ToggleDesktop()

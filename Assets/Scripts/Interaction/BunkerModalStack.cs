@@ -16,18 +16,23 @@ public static class BunkerModalStack
     private static MissionMenuController missionMenu;
     private static BunkerPauseController pause;
     private static SettingsPanel settings;
+    private static DroneShopController droneShop;
 
     // Есть ли вообще бункерный контекст. SettingsPanel живёт и в MainMenu,
     // где курсор должен оставаться свободным, поэтому настройки участвуют
     // в координации только когда в сцене есть бункерные окна.
-    public static bool HasBunkerContext => pause != null || computerUI != null || missionMenu != null;
+    public static bool HasBunkerContext => pause != null || computerUI != null || missionMenu != null || droneShop != null;
 
     public static bool AnyOpen =>
-        IsOpen(computerUI) || IsOpen(missionMenu) || IsOpen(pause) || IsOpen(settings);
+        IsOpen(computerUI) || IsOpen(missionMenu) || IsOpen(pause) || IsOpen(settings) || IsOpen(droneShop);
 
     public static void Register(ComputerUIController controller) => computerUI = controller;
     public static void Register(MissionMenuController controller) => missionMenu = controller;
     public static void Register(BunkerPauseController controller) => pause = controller;
+
+    // Магазин-витрина тоже модальное окно бункера: пока он открыт, timeScale = 0
+    // и курсор свободен (дрон осматривают мышью), но пауза не открывается.
+    public static void Register(DroneShopController controller) => droneShop = controller;
 
     public static void Unregister(ComputerUIController controller)
     {
@@ -42,6 +47,11 @@ public static class BunkerModalStack
     public static void Unregister(BunkerPauseController controller)
     {
         if (ReferenceEquals(pause, controller)) pause = null;
+    }
+
+    public static void Unregister(DroneShopController controller)
+    {
+        if (ReferenceEquals(droneShop, controller)) droneShop = null;
     }
 
     public static void NotifySettingsChanged(SettingsPanel panel)
@@ -71,4 +81,5 @@ public static class BunkerModalStack
     private static bool IsOpen(MissionMenuController controller) => controller != null && controller.IsOpen;
     private static bool IsOpen(BunkerPauseController controller) => controller != null && controller.IsOpen;
     private static bool IsOpen(SettingsPanel panel) => panel != null && panel.IsOpen;
+    private static bool IsOpen(DroneShopController controller) => controller != null && controller.IsOpen;
 }

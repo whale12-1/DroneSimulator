@@ -85,6 +85,9 @@
 | `ComputerOS` | `ComputerUIController`, `Image` (пластина фона) (+ `CanvasGroup`, `RectTransform`) | Анимированное окно «рабочего стола»; фон — `Textures/DesktopBackground/DesktopBackground_plate.png` |
 | `DesktopSweep` | `Image` (лепесток радара), `DesktopRadarSweep` | Дочерний слой фона (индекс 0): вращающийся сектор радара, крутится и при `Time.timeScale = 0` |
 | `Btn_Missions` | `DesktopIcon` + `Button` | Иконка «Миссии» на рабочем столе (в свободной левой зоне фона) |
+| `Btn_Shop` | `DesktopShopIcon` + `Button` | Иконка «МАГАЗИН» (`anchoredPos (150, −380)`, спрайт `UI Starter Pack_16`): запускает 3D-витрину дронов, а не плоское окно (см. §3.7) |
+| `DroneShop` | `DroneShopController` (+ дочерний `DroneShopUI`) | Состояние витрины: каталог `DroneShopEntry`, переключение камеры, спавн/удаление витринной копии дрона (см. §3.7) |
+| `DroneShopCamera`, `DroneShopSpawnPoint`, `DroneShopLight` | `Camera` (без `AudioListener`), `Transform`, `Light` | Камера витрины `(0.24, −0.22, 4.49)` → взгляд на `(−1.00, −0.45, 4.96)`; точка спавна над деревянным столом `(−1.00, −0.46, 4.95)`; мягкая подсветка над столом. Все выключены вне магазина |
 | `MissionSelectPanel` (prefab instance) | `MissionSelectScreen`, `MissionMenuController` | Меню выбора миссий внутри ОС |
 | `InteractionCanvas` | `InteractionUIController` | Подсказки взаимодействия (компактные надписи на 75 % высоты и у нижнего края, без плашек), окна «магазин» и «карта миссий» |
 | `PauseManager` | `BunkerPauseController` | Пауза по `Esc`, настройки, выход в главное меню |
@@ -247,6 +250,37 @@ API `BunkerTimeManager`: свойства `CurrentHour`, `CurrentMinute`, `Total
 | `04_return_place` | возврат к панели | `WalkieReach nt = 0.860`, `inHand = true`, анкер `vp = (0.488, 0.185)` — рука вытянута к панели с рацией; `ReturnToWall()` сработал на `nt = 0.996` |
 
 Итог прогона: удержание в кадре **5.41 с** (таймер `holdDuration 5.0` + 0.15 с бленда входа + 0.25 с фейдов субтитра), после возврата — `state = Empty`, `weight = 0.000`, рация в `BunkerStoryProps` с исходными `localPos (2.804, −0.492, 1.097)`. Консоль — **0 ошибок и 0 предупреждений**.
+
+### 3.7 Магазин-витрина дронов на рабочем столе (26.11.2026)
+
+Иконка **«МАГАЗИН»** (`ComputerOS/Btn_Shop` — копия `Btn_Missions`: 160×160, `anchoredPos (150, −380)`, спрайт `UI Starter Pack_16` из `HUF Pack.png`, TMP 16 `LiberationSans SDF`) запускает не плоское окно внутри монитора, а **3D-витрину**: `DesktopShopIcon.OnIconClicked()` → `DroneShopController.Open()`.
+
+| Объект сцены | Компоненты | Роль / координаты |
+|---|---|---|
+| `ComputerOS/Btn_Shop` | `Image`, `Button`, `DesktopShopIcon` | Иконка «МАГАЗИН»; persistent `onClick → DesktopShopIcon.OnIconClicked` |
+| `DroneShop` | `DroneShopController` (+ дочерний `DroneShopUI`) | Состояние витрины, каталог из двух `DroneShopEntry`, ссылки на камеру/свет/точку/`ComputerOS`/`StoryClockHUD` |
+| `DroneShopUI` | `DroneShopUI` | В `Awake` собирает собственный Canvas (ScreenSpaceOverlay, `sortingOrder = 200`, 1920×1080, ScaleWithScreenSize) — иерархию `InteractionCanvas` не трогает |
+| `DroneShopCamera` | `Camera` + `UniversalAdditionalCameraData`, **без `AudioListener`**, `enabled = false` | Позиция `(0.24, −0.22, 4.49)` (1.37 м над полом), смотрит на `(−1.00, −0.45, 4.96)` — Эйлер `(9.8, 290.8, 0)`; FOV 48, near 0.05, far 60, `cullingMask` как у `Main Camera` |
+| `DroneShopSpawnPoint` | — (Transform) | `(−1.00, −0.46, 4.95)` — 0.30 м над столешницей деревянного стола (`y = −0.758`, прямоугольник `x −2.0…0.0`, `z 4.3…5.6`) |
+| `DroneShopLight` | `Light` (Point), `enabled = false` | `(−0.60, 0.60, 4.60)`, intensity 2.2, range 3, мягкие тени — дрон читается на тёмной стене |
+
+**Поток:**
+
+1. Клик по иконке → `Open()`: рабочий стол остаётся **логически открытым** (`IsOpen = true`), но `ComputerUIController.HideForShop()` ставит `CanvasGroup.alpha = 0` и `blocksRaycasts = false`; скрывается `StoryClockHUD`; `Main Camera` выключается, `DroneShopCamera` и `DroneShopLight` включаются; показывается HUD; спавнится дрон №1. Магазин зарегистрирован в `BunkerModalStack`, поэтому `Time.timeScale = 0`, курсор свободен и пауза по `Esc` не открывается.
+2. Листание: `A`/`D`, `←`/`→` или кнопки `◄`/`►` — HUD перерисовывает карточку и счётчик `1 / 2`, копия дрона пересобирается.
+3. `R` или «СБРОСИТЬ РАКУРС» — плавный возврат к исходной ориентации лицом к камере.
+4. `Esc` или «НАЗАД» → `CloseShop()`: копия **уничтожается** (`Destroy`, на столе `0` объектов `DroneShopStage`), HUD скрывается, камера и свет выключаются, `Main Camera` включается, `ComputerUIController.ShowAfterShop()` возвращает рабочий стол.
+
+**Витринная копия** (`DroneShopController.SpawnDrone`):
+
+* префаб инстанцируется под **неактивным** контейнером `DroneShopStage` — `Awake` скриптов полёта не выполняется вообще;
+* затем с копии снимаются все компоненты, кроме `Transform`/`MeshFilter`/`MeshRenderer`/`SkinnedMeshRenderer`. Скрипты удаляются **первым проходом и с конца массива**: `UniversalAdditionalCameraData` объявлен с `[RequireComponent(typeof(Camera))]` и мгновенно возвращает удалённую камеру, `DroneFlightController` → `DroneMotors` → `Rigidbody` — та же цепочка (иначе Unity пишет «Can't remove … depends on it»). После этого удаляются `Rigidbody`, `Collider`, `Camera`, `AudioListener`, `AudioSource`, свет, партиклы;
+* корневой узел модели принудительно включается (у `ReconDrone.prefab` он выключен, поэтому запись разведчика переведена на `GimbalDrone Variant.prefab` — именно он используется в миссиях), масштаб нормируется по `Renderer.bounds` под `displaySize` (0.62 м разведчик, 0.55 м страйк-дрон), модель центрируется в точке спавна;
+* иерархия витрины: `DroneShopStage → YawPitch → Hover → модель`. `DroneShopShowcase` вращает `YawPitch` (yaw и pitch без ограничений, ЛКМ + мышь вне кнопок UI), `Hover` качается по синусоиде ±0.015 м с микро-креном; `DroneShopPropellers` вращает 4 ротора в якорях `MotorFl/Fr/Bl/Br` — в префабах лопасти запечены в меш, поэтому строятся процедурные диск сметания и две лопасти.
+
+**Каталог.** «Дрон-разведчик» (`GimbalDrone Variant.prefab`) и «Страйк-дрон» (`StrikeDrone 1.prefab`); у каждой записи — название, класс/назначение, 7 строк ТТХ и блок «Теория и практика применения» (у разведчика — баланс аэродинамики и времени зависания, Li-Ion на малых токах, высота барражирования; у ударного — Acro без автогоризонта, влияние массы БЧ на тяговооружённость, высокотоковые LiPo).
+
+**Проверка (Play Mode, 26.11.2026):** иконка на месте, камера переключается, дрон парит с вращающимися винтами, поворот 360° и `R` работают, `2 / 2` меняет модель и текст; после «НАЗАД» — `stages = 0`, камера компьютера и рабочий стол восстановлены. Консоль — **0 ошибок и 0 предупреждений**.
 
 
 
